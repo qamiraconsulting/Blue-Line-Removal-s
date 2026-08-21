@@ -29,7 +29,13 @@ export function ChatWidget() {
       <div
         className={clsx(
           "fixed bottom-24 right-6 z-50 flex w-[calc(100vw-3rem)] max-w-sm flex-col overflow-hidden rounded-2xl bg-white shadow-2xl transition-all duration-300 ease-signature",
-          open ? "h-[min(600px,70vh)] translate-y-0 opacity-100" : "pointer-events-none h-0 translate-y-4 opacity-0",
+          // Bounded by available space above the launcher (viewport height
+          // minus the bottom-24 offset minus a 1.5rem top margin), not a
+          // flat 70vh -- on a short viewport (a small laptop window,
+          // landscape mobile) 70vh + bottom-24 can push the panel's top
+          // edge above the screen and clip it. Found via the preview
+          // pane's own short viewport, but a real cross-device case.
+          open ? "h-[min(600px,calc(100vh-7.5rem))] translate-y-0 opacity-100" : "pointer-events-none h-0 translate-y-4 opacity-0",
         )}
       >
         {open && <ChatPanel />}
