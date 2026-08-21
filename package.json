@@ -11,18 +11,25 @@
     "typecheck:api": "tsc --noEmit -p tsconfig.api.json"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.120.0",
     "@fontsource/archivo": "^5.3.0",
     "@fontsource/inter": "^5.3.0",
+    "@googlemaps/google-maps-services-js": "^3.4.2",
     "@react-router/node": "^7.18.1",
+    "@upstash/ratelimit": "^2.0.8",
+    "@upstash/redis": "^1.38.2",
     "@vercel/node": "^5.9.7",
     "clsx": "^2.1.1",
+    "drizzle-orm": "^0.45.2",
     "framer-motion": "^12.42.2",
+    "isbot": "^5",
     "lucide-react": "^1.25.0",
+    "postgres": "^3.4.9",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-router": "^7.18.1",
     "resend": "^6.18.1",
-    "isbot": "^5"
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@react-router/dev": "^7.18.1",
@@ -30,6 +37,7 @@
     "@types/node": "^24.13.2",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
+    "drizzle-kit": "^0.31.10",
     "oxlint": "^1.71.0",
     "tailwindcss": "^4.3.3",
     "typescript": "~6.0.2",
