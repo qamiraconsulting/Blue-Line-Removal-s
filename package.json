@@ -12,6 +12,8 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.120.0",
+    "@clerk/backend": "^3.16.10",
+    "@clerk/react-router": "^3.6.15",
     "@fontsource/archivo": "^5.3.0",
     "@fontsource/inter": "^5.3.0",
     "@googlemaps/google-maps-services-js": "^3.4.2",
