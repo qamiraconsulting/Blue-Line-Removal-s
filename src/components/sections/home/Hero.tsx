@@ -42,9 +42,9 @@ export function Hero() {
               </Button>
               <a
                 href={hero.phone.href}
-                className="group flex items-start justify-start gap-1.5 font-display text-[11px] font-bold leading-tight tracking-wide text-white/90 transition-colors hover:text-action-bright"
+                className="group flex items-center justify-start gap-1.5 whitespace-nowrap font-display text-[11px] font-bold tracking-wide text-white/90 transition-colors hover:text-action-bright"
               >
-                <span className="mt-px flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/15 transition-colors group-hover:bg-white/25">
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/15 transition-colors group-hover:bg-white/25">
                   <Phone className="h-2.5 w-2.5" fill="currentColor" aria-hidden="true" />
                 </span>
                 Call us: {hero.phone.display}
@@ -82,7 +82,7 @@ export function Hero() {
               </Button>
               <a
                 href={hero.phone.href}
-                className="group flex items-center gap-2.5 font-display text-lg font-bold tracking-wide text-white/90 drop-shadow-[0_1px_4px_rgba(0,0,0,0.5)] transition-colors hover:text-action-bright"
+                className="group flex items-center gap-2.5 whitespace-nowrap font-display text-lg font-bold tracking-wide text-white/90 drop-shadow-[0_1px_4px_rgba(0,0,0,0.5)] transition-colors hover:text-action-bright"
               >
                 <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/15 transition-colors group-hover:bg-white/25">
                   <Phone className="h-3.5 w-3.5" fill="currentColor" aria-hidden="true" />
