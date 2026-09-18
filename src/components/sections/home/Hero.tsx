@@ -36,7 +36,7 @@ export function Hero() {
               <span className="text-action-bright">{hero.headingAccent}</span>
             </h1>
             <p className="mt-2 text-[11px] leading-snug text-white/85 drop-shadow-[0_1px_4px_rgba(0,0,0,0.6)]">{hero.lede}</p>
-            <div className="mt-3 flex flex-col gap-1.5">
+            <div className="mt-3 flex flex-col gap-3">
               <Button href={hero.primaryCta.href} arrow className="w-full px-2 py-2 text-[10px]">
                 {hero.primaryCta.label}
               </Button>
