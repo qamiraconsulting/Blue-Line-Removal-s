@@ -42,9 +42,11 @@ export function Hero() {
               </Button>
               <a
                 href={hero.phone.href}
-                className="flex items-center justify-start gap-1 text-[9.5px] font-semibold text-white/90 transition-colors hover:text-action-bright"
+                className="group flex items-center justify-start gap-1.5 text-[9.5px] font-semibold text-white/90 transition-colors hover:text-action-bright"
               >
-                <Phone className="h-2.5 w-2.5 shrink-0" fill="currentColor" aria-hidden="true" />
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/15 transition-colors group-hover:bg-white/25">
+                  <Phone className="h-2.5 w-2.5" fill="currentColor" aria-hidden="true" />
+                </span>
                 Call us: {hero.phone.display}
               </a>
             </div>
