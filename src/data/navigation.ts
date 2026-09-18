@@ -9,6 +9,7 @@ export type NavItem = {
 // "/#hash" links -- from another page they do a full navigation back to
 // "/" and the browser's native anchor scroll takes it from there.
 export const primaryNav: NavItem[] = [
+  { label: "Home", href: "/" },
   { label: "Services", href: "/services" },
   { label: "How It Works", href: "/#how-it-works" },
   { label: "Service Areas", href: "/#areas" },
