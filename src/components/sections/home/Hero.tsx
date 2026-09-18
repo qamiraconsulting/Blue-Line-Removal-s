@@ -42,9 +42,9 @@ export function Hero() {
               </Button>
               <a
                 href={hero.phone.href}
-                className="flex items-center justify-center gap-1 text-[9px] font-medium text-white/90 transition-colors hover:text-action-bright"
+                className="flex items-center justify-start gap-1 text-[9.5px] font-semibold text-white/90 transition-colors hover:text-action-bright"
               >
-                <Phone className="h-2.5 w-2.5 shrink-0" aria-hidden="true" />
+                <Phone className="h-2.5 w-2.5 shrink-0" fill="currentColor" aria-hidden="true" />
                 Call us: {hero.phone.display}
               </a>
             </div>
@@ -80,9 +80,9 @@ export function Hero() {
               </Button>
               <a
                 href={hero.phone.href}
-                className="flex items-center gap-2 text-xs font-medium text-white/90 drop-shadow-[0_1px_4px_rgba(0,0,0,0.5)] transition-colors hover:text-action-bright"
+                className="flex items-center gap-2 text-[13px] font-semibold text-white/90 drop-shadow-[0_1px_4px_rgba(0,0,0,0.5)] transition-colors hover:text-action-bright"
               >
-                <Phone className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                <Phone className="h-3.5 w-3.5 shrink-0" fill="currentColor" aria-hidden="true" />
                 Call us: {hero.phone.display}
               </a>
             </div>
