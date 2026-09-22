@@ -13,7 +13,7 @@ export const hero = {
   // Hero-only click-to-call, requested 2026-09-18 -- note this is a
   // deliberate exception to the 2026-08-15 "no phone number published
   // site-wide" decision (see site.ts), not a reversal of it.
-  phone: { display: "02 9056 0928", href: "tel:+61290560928" },
+  phone: { display: "03 9494 1070", href: "tel:+61394941070" },
 };
 
 // "We Don't Just Move Furniture" trust intro, sitting right under the hero
