@@ -155,19 +155,52 @@ export const whyUs = [
   },
 ];
 
-// Placeholder layout only -- JDcorp hasn't taken its first job yet, so
-// there are no real reviews to show. Replace every card with an actual
-// Google review (and turn on the review-request flow from the roadmap)
-// once jobs start coming in. Do not ship this section with invented quotes
-// attributed to real-looking names.
+// Real Google reviews, copied verbatim (client-supplied 2026-09-30) -- keep
+// the text exactly as written. Overall rating/count must match the live
+// Google profile (ACCC: a review display must not mislead), so update
+// `rating` whenever reviews are added.
 export const reviews = {
   eyebrow: "Reviews",
-  heading: "This is where your Google reviews will go",
-  body: "This section is built and ready — as soon as the first few jobs are done, swap these placeholders for real reviews (star rating + quote + first name is plenty).",
-  placeholders: [
-    "Sample review slot — swap for a real 5-star Google review after your first completed job.",
-    "Sample review slot — swap for a real 5-star Google review after your first completed job.",
-    "Sample review slot — swap for a real 5-star Google review after your first completed job.",
+  heading: "What our customers say",
+  body: "Don't just take our word for it. Here's what Melbourne customers have said about moving with Blue Line Removals on Google.",
+  rating: { score: "5.0", count: 7 },
+  googleUrl: "https://maps.app.goo.gl/3q65tzW5vBJ64PZUA",
+  items: [
+    {
+      name: "Jiwan S.",
+      stars: 5,
+      text: "Excellent removal service! The team was professional, friendly, and handled everything with great care. They arrived on time, worked efficiently, and made the whole moving process easy and stress-free. Everything was handled safely and nothing was damaged. I'm very happy with the service and would definitely recommend them to anyone looking for a reliable removalist",
+    },
+    {
+      name: "Sikander S.",
+      stars: 5,
+      text: "Great service from Blue Line Removals! They did a great job moving our 4-bedroom house. The team was professional, friendly, careful, and efficient. Everything was handled smoothly and with care. Highly recommend!",
+    },
+    {
+      name: "Aakash G.",
+      stars: 5,
+      text: "Very professional service from Blue Line Removals. The team arrived on time, worked efficiently, and handled our office furniture and equipment with care. They made the entire office move smooth and well organised from start to finish. I would definitely recommend Blue Line Removals to any business looking for a reliable and professional removal service.",
+    },
+    {
+      name: "Eden A.",
+      stars: 5,
+      text: "Blue line removals helped me move into my apartment. Super easy to work with and were careful with my furniture. Great price. I would recommend to others. 👍🏼👍🏼",
+    },
+    {
+      name: "Aaron R.",
+      stars: 5,
+      text: "Blue line removals great company no problems at all professional at what they do handling packaging all In all great service and communication thanks guys💪🏾🔥",
+    },
+    {
+      name: "Deina K.",
+      stars: 5,
+      text: "Crew was well mannered and very respectful, got the job done with Care.",
+    },
+    {
+      name: "Ketan P.",
+      stars: 5,
+      text: "Punctual and reliable. Best and affordable!!",
+    },
   ],
 };
 
