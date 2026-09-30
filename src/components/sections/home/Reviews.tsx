@@ -1,3 +1,4 @@
+import { useEffect, useId, useRef, useState } from "react";
 import { Star } from "lucide-react";
 import { Container } from "@/components/ui/Container";
 import { Section } from "@/components/ui/Section";
@@ -17,6 +18,54 @@ function Stars({ count, className }: { count: number; className: string }) {
         />
       ))}
     </div>
+  );
+}
+
+type Review = (typeof reviews.items)[number];
+
+function ReviewCard({ review }: { review: Review }) {
+  const [expanded, setExpanded] = useState(false);
+  const [overflows, setOverflows] = useState(false);
+  const textRef = useRef<HTMLParagraphElement>(null);
+  const textId = useId();
+
+  // Line count depends on card width, so measure the clamped text for real
+  // (and again on resize / font load) rather than guessing by length.
+  // Skipped while expanded: the clamp is off then, so there's nothing to
+  // measure, and the toggle must stay visible as "Read less".
+  useEffect(() => {
+    const el = textRef.current;
+    if (!el || expanded) return;
+    const measure = () => setOverflows(el.scrollHeight > el.clientHeight + 1);
+    measure();
+    document.fonts?.ready.then(measure);
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [expanded]);
+
+  return (
+    <RevealItem className="flex w-full flex-col rounded-lg border border-ink/10 bg-paper p-6 sm:w-[calc((100%-1.5rem)/2)] lg:w-[calc((100%-3rem)/3)]">
+      <Stars count={review.stars} className="h-4 w-4" />
+      <p ref={textRef} id={textId} className={`mt-4 leading-relaxed text-ink ${expanded ? "" : "line-clamp-4"}`}>
+        {review.text}
+      </p>
+      {overflows && (
+        <button
+          type="button"
+          aria-expanded={expanded}
+          aria-controls={textId}
+          onClick={() => setExpanded((v) => !v)}
+          className="mt-2 self-start text-sm font-semibold text-navy underline-offset-4 hover:underline"
+        >
+          {expanded ? "Read less" : "Read more"}
+        </button>
+      )}
+      <div className="mt-auto flex items-center justify-between gap-3 pt-5">
+        <span className="font-display text-sm font-bold text-navy">{review.name}</span>
+        <span className="text-xs text-ink-dim">Google review</span>
+      </div>
+    </RevealItem>
   );
 }
 
@@ -41,17 +90,7 @@ export function Reviews() {
             last row sits centered instead of hugging the left edge. */}
         <RevealGroup className="mt-12 flex flex-wrap justify-center gap-6">
           {reviews.items.map((review) => (
-            <RevealItem
-              key={review.name}
-              className="flex w-full flex-col rounded-lg border border-ink/10 bg-paper p-6 sm:w-[calc((100%-1.5rem)/2)] lg:w-[calc((100%-3rem)/3)]"
-            >
-              <Stars count={review.stars} className="h-4 w-4" />
-              <p className="mt-4 leading-relaxed text-ink">{review.text}</p>
-              <div className="mt-auto flex items-center justify-between gap-3 pt-5">
-                <span className="font-display text-sm font-bold text-navy">{review.name}</span>
-                <span className="text-xs text-ink-dim">Google review</span>
-              </div>
-            </RevealItem>
+            <ReviewCard key={review.name} review={review} />
           ))}
         </RevealGroup>
 
