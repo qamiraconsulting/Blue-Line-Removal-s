@@ -5,15 +5,14 @@
 // customers / 100% insured" stats below are real and OK to publish as-is.
 // The full 7-service catalog (used on /services and /services/:slug) now
 // lives in data/content/services.ts, not here.
+import { site } from "@/data/site";
+
 export const hero = {
   heading: "Beyond Boxes, We Move Memories.",
   headingAccent: "Memories.",
   lede: "Moving & Junk Removal Services Across Australia.",
   primaryCta: { label: "Get a Free Quote", href: "/quote" },
-  // Hero-only click-to-call, requested 2026-09-18 -- note this is a
-  // deliberate exception to the 2026-08-15 "no phone number published
-  // site-wide" decision (see site.ts), not a reversal of it.
-  phone: { display: "03 9494 1070", href: "tel:+61394941070" },
+  phone: site.phone,
 };
 
 // "We Don't Just Move Furniture" trust intro, sitting right under the hero
