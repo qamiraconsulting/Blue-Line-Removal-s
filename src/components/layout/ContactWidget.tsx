@@ -128,6 +128,7 @@ export function ContactWidget() {
   const [shown, setShown] = useState(false);
   const [slideIn, setSlideIn] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const [toggled, setToggled] = useState(false);
 
   // Client-only: the prerendered HTML has no widget, so there's no flash of
   // it before the slide-in. The "seen" flag is written when the slide-in
@@ -160,6 +161,7 @@ export function ContactWidget() {
   if (!mounted || hidden) return null;
 
   const toggle = (next: boolean) => {
+    setToggled(true);
     setCollapsed(next);
     writeSession(COLLAPSED_KEY, next ? "1" : "0");
   };
@@ -171,6 +173,13 @@ export function ContactWidget() {
     if (shown) setSlideIn(false);
   };
   const swap = { duration: reduceMotion ? 0 : 0.25, ease: "easeOut" as const };
+  // The strip/tab only slide in when the user toggles between them, not on
+  // first mount. This must be set per element, NOT as <AnimatePresence
+  // initial={false}>: that blocks the initial animation of every motion
+  // component nested inside too, so the quote button's looping effects
+  // (pulse, glow, shine, sparkles, kangaroo) would start on their final
+  // keyframe and never run.
+  const swapIn = toggled ? { x: "-100%" } : false;
   const animate = !reduceMotion;
 
   return (
@@ -183,7 +192,7 @@ export function ContactWidget() {
           transition={slide}
           onAnimationComplete={slideDone}
         >
-          <AnimatePresence mode="wait" initial={false}>
+          <AnimatePresence mode="wait">
             {collapsed ? (
               <motion.button
                 key="tab"
@@ -191,7 +200,7 @@ export function ContactWidget() {
                 aria-label="Show contact options"
                 aria-expanded={false}
                 onClick={() => toggle(false)}
-                initial={{ x: "-100%" }}
+                initial={swapIn}
                 animate={{ x: 0 }}
                 exit={{ x: "-100%" }}
                 transition={swap}
@@ -202,7 +211,7 @@ export function ContactWidget() {
             ) : (
               <motion.div
                 key="strip"
-                initial={{ x: "-100%" }}
+                initial={swapIn}
                 animate={{ x: 0 }}
                 exit={{ x: "-100%" }}
                 transition={swap}
