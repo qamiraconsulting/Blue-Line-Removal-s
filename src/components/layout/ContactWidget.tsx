@@ -7,8 +7,10 @@ import { site } from "@/data/site";
 const SEEN_KEY = "blr-contact-widget-seen";
 const COLLAPSED_KEY = "blr-contact-widget-collapsed";
 
-// Below this viewport width the desktop strip starts minimised (client
-// decision 2026-10-01) so it doesn't sit over the hero on smaller laptops.
+// Desktop strip sizing (client decision 2026-10-01): below 1280px it starts
+// minimised; 1280-1599px it's open at the compact size (108px wide); from
+// 1600px (the `min-[1600px]:` classes below) it's the full 185px size --
+// the first width where that size clears the hero text.
 const START_MINIMISED_BELOW = 1280;
 
 // Shared look for the floating surfaces: header navy at ~85% + blur.
@@ -192,9 +194,9 @@ export function ContactWidget() {
                 animate={{ x: 0 }}
                 exit={{ x: "-100%" }}
                 transition={swap}
-                className={`flex h-20 w-8 items-center justify-center rounded-r-lg border-l-0 text-white hover:text-action-bright ${surface}`}
+                className={`flex h-16 w-7 items-center justify-center rounded-r-lg border-l-0 text-white hover:text-action-bright min-[1600px]:h-20 min-[1600px]:w-8 ${surface}`}
               >
-                <ChevronRight className="h-5 w-5" aria-hidden="true" />
+                <ChevronRight className="h-4 w-4 min-[1600px]:h-5 min-[1600px]:w-5" aria-hidden="true" />
               </motion.button>
             ) : (
               <motion.div
@@ -203,12 +205,16 @@ export function ContactWidget() {
                 animate={{ x: 0 }}
                 exit={{ x: "-100%" }}
                 transition={swap}
-                className={`flex w-[185px] flex-col items-stretch gap-5 rounded-r-xl border-l-0 px-3.5 pb-4 pt-8 ${surface}`}
+                className={`flex w-[108px] flex-col items-stretch gap-2.5 rounded-r-xl border-l-0 px-2 pb-2 pt-3 min-[1600px]:w-[185px] min-[1600px]:gap-5 min-[1600px]:px-3.5 min-[1600px]:pb-4 min-[1600px]:pt-8 ${surface}`}
               >
                 <div className="relative">
-                  {animate && <KangarooPeek className="h-[107px] w-24" />}
-                  <Pulse animate={animate} ripple={14}>
-                    <Link to="/quote" aria-label="Get a free quote" className={`${quoteButton} px-4 py-6 text-base leading-tight`}>
+                  {animate && <KangarooPeek className="h-[72px] w-16 min-[1600px]:h-[107px] min-[1600px]:w-24" />}
+                  <Pulse animate={animate} ripple={12}>
+                    <Link
+                      to="/quote"
+                      aria-label="Get a free quote"
+                      className={`${quoteButton} px-2 py-2.5 text-[11px] leading-tight min-[1600px]:px-4 min-[1600px]:py-6 min-[1600px]:text-base`}
+                    >
                       {animate && <Shine />}
                       <span>
                         Get a Free
@@ -217,14 +223,14 @@ export function ContactWidget() {
                       </span>
                     </Link>
                   </Pulse>
-                  {animate && <Sparkles size="h-3.5 w-3.5" />}
+                  {animate && <Sparkles size="h-3 w-3 min-[1600px]:h-3.5 min-[1600px]:w-3.5" />}
                 </div>
                 <a
                   href={site.phone.href}
                   aria-label={`Call Blue Line Removals on ${site.phone.display}`}
-                  className="flex items-center justify-center gap-1.5 whitespace-nowrap rounded font-display text-[15px] font-bold text-white/90 transition-colors hover:text-action-bright"
+                  className="flex items-center justify-center gap-1 whitespace-nowrap rounded font-display text-[10.5px] font-bold text-white/90 transition-colors hover:text-action-bright min-[1600px]:gap-1.5 min-[1600px]:text-[15px]"
                 >
-                  <Phone className="h-[15px] w-[15px] shrink-0" fill="currentColor" aria-hidden="true" />
+                  <Phone className="h-3 w-3 shrink-0 min-[1600px]:h-[15px] min-[1600px]:w-[15px]" fill="currentColor" aria-hidden="true" />
                   {site.phone.display}
                 </a>
                 <button
@@ -232,9 +238,9 @@ export function ContactWidget() {
                   aria-label="Minimise contact options"
                   aria-expanded={true}
                   onClick={() => toggle(true)}
-                  className="flex h-8 items-center justify-center rounded text-white/60 transition-colors hover:text-white"
+                  className="flex h-5 items-center justify-center rounded text-white/60 transition-colors hover:text-white min-[1600px]:h-8"
                 >
-                  <ChevronLeft className="h-5 w-5" aria-hidden="true" />
+                  <ChevronLeft className="h-4 w-4 min-[1600px]:h-5 min-[1600px]:w-5" aria-hidden="true" />
                 </button>
               </motion.div>
             )}
