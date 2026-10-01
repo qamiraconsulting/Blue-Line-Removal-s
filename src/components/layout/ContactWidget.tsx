@@ -7,11 +7,12 @@ import { site } from "@/data/site";
 const SEEN_KEY = "blr-contact-widget-seen";
 const COLLAPSED_KEY = "blr-contact-widget-collapsed";
 
-// Desktop strip sizing (client decision 2026-10-01): below 1280px it starts
-// minimised; 1280-1599px it's open at the compact size (108px wide); from
-// 1600px (the `min-[1600px]:` classes below) it's the full 185px size --
-// the first width where that size clears the hero text.
-const START_MINIMISED_BELOW = 1280;
+// Desktop strip sizing (client decision 2026-10-01): below 1420px it starts
+// minimised; 1420-1599px it's open at the compact size (108px wide); from
+// 1600px (the `min-[1600px]:` classes below) it's the full 185px size.
+// Each threshold is the first width where that size clears the hero
+// headline (which starts 100px in at 1400, 110px at 1420, 201px at 1600).
+const START_MINIMISED_BELOW = 1420;
 
 // Shared look for the floating surfaces: header navy at ~85% + blur.
 const surface = "border border-white/10 bg-navy/85 shadow-lg backdrop-blur-md";
