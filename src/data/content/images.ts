@@ -18,7 +18,7 @@ export const images = {
   homeRemovals: "/images/home-removals.webp", // branded crew carrying a wrapped chair into the truck outside a house
   officeRemovals: "/images/office-removals.webp", // branded crew wheeling office furniture out of a building
   interstateRemovals: "/images/interstate-removals.webp", // branded truck on the open highway
-  junkRemoval: "/images/movers-loading-sofa.webp", // two branded-uniform movers loading a sofa into the branded truck
+  junkRemoval: "/images/movers-loading-sofa.webp", // client-provided photo: two branded-uniform crew loading junk (bagged rubbish, old furniture) into the branded truck
   packingUnpacking: "/images/packing-unpacking.webp", // branded crew member wrapping a picture frame
   storageSolutions: "/images/storage-solutions.webp", // branded crew wheeling boxes into a storage unit, truck visible outside
   specialtyItems: "/images/specialty-items.webp", // branded crew loading a piano into the truck

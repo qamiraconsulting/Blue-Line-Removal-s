@@ -3,6 +3,7 @@ import { SkipLink } from "@/components/layout/SkipLink";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { BackToTop } from "@/components/layout/BackToTop";
+import { ContactWidget } from "@/components/layout/ContactWidget";
 import { ScrollToTop } from "@/components/layout/ScrollToTop";
 import { ChatWidget } from "@/components/chat/ChatWidget";
 import { site } from "@/data/site";
@@ -42,6 +43,7 @@ export function Layout() {
       </main>
       <Footer />
       <BackToTop />
+      <ContactWidget />
       <ChatWidget />
     </>
   );

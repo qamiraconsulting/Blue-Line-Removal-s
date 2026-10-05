@@ -42,9 +42,21 @@
 @layer base {
   html {
     scroll-behavior: smooth;
+    /* Height of the mobile contact bar (ContactWidget). 0 unless the bar is
+       showing; anything fixed to the bottom of the screen (BackToTop, the
+       chatbot launcher) should offset by this so the bar never covers it. */
+    --contact-bar-h: 0px;
+  }
+
+  @media (max-width: 767.98px) {
+    html.has-contact-bar {
+      /* 4.25rem row + the bar's 1px top border + the iOS home-indicator area. */
+      --contact-bar-h: calc(4.25rem + 1px + env(safe-area-inset-bottom));
+    }
   }
 
   body {
+    padding-bottom: var(--contact-bar-h);
     background-color: var(--color-paper);
     color: var(--color-ink);
     font-family: var(--font-body);
