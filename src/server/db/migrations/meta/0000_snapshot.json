@@ -1,0 +1,978 @@
+{
+  "id": "a6026dd9-3d2a-4f73-952b-bedf154c7c7f",
+  "prevId": "00000000-0000-0000-0000-000000000000",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.analytics_events": {
+      "name": "analytics_events",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "lead_id": {
+          "name": "lead_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "conversation_id": {
+          "name": "conversation_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "event_type": {
+          "name": "event_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "event_data": {
+          "name": "event_data",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "analytics_events_lead_id_leads_id_fk": {
+          "name": "analytics_events_lead_id_leads_id_fk",
+          "tableFrom": "analytics_events",
+          "tableTo": "leads",
+          "columnsFrom": [
+            "lead_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "analytics_events_conversation_id_conversations_id_fk": {
+          "name": "analytics_events_conversation_id_conversations_id_fk",
+          "tableFrom": "analytics_events",
+          "tableTo": "conversations",
+          "columnsFrom": [
+            "conversation_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.conversations": {
+      "name": "conversations",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "state": {
+          "name": "state",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'GREETING'"
+        },
+        "started_at": {
+          "name": "started_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "last_activity_at": {
+          "name": "last_activity_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "channel": {
+          "name": "channel",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'web_chat'"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.distance_cache": {
+      "name": "distance_cache",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "origin_key": {
+          "name": "origin_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "dest_key": {
+          "name": "dest_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "distance_meters": {
+          "name": "distance_meters",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "duration_seconds": {
+          "name": "duration_seconds",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "distance_cache_pair_idx": {
+          "name": "distance_cache_pair_idx",
+          "columns": [
+            {
+              "expression": "origin_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "dest_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.inventory_items": {
+      "name": "inventory_items",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "lead_id": {
+          "name": "lead_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "item_category": {
+          "name": "item_category",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "quantity": {
+          "name": "quantity",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "estimated_volume": {
+          "name": "estimated_volume",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "heavy_item": {
+          "name": "heavy_item",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "inventory_items_lead_id_leads_id_fk": {
+          "name": "inventory_items_lead_id_leads_id_fk",
+          "tableFrom": "inventory_items",
+          "tableTo": "leads",
+          "columnsFrom": [
+            "lead_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.inventory_rules": {
+      "name": "inventory_rules",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "item_category": {
+          "name": "item_category",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "cubic_volume": {
+          "name": "cubic_volume",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "handling_difficulty": {
+          "name": "handling_difficulty",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "movers_required": {
+          "name": "movers_required",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 2
+        },
+        "loading_minutes": {
+          "name": "loading_minutes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "unloading_minutes": {
+          "name": "unloading_minutes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.leads": {
+      "name": "leads",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "status": {
+          "name": "status",
+          "type": "lead_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'estimate'"
+        },
+        "source": {
+          "name": "source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'chatbot'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "customer_name": {
+          "name": "customer_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "phone": {
+          "name": "phone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "preferred_contact_method": {
+          "name": "preferred_contact_method",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "pickup_address_raw": {
+          "name": "pickup_address_raw",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "pickup_address_formatted": {
+          "name": "pickup_address_formatted",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "pickup_latitude": {
+          "name": "pickup_latitude",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "pickup_longitude": {
+          "name": "pickup_longitude",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "pickup_place_id": {
+          "name": "pickup_place_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "destination_address_raw": {
+          "name": "destination_address_raw",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "destination_address_formatted": {
+          "name": "destination_address_formatted",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "destination_latitude": {
+          "name": "destination_latitude",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "destination_longitude": {
+          "name": "destination_longitude",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "destination_place_id": {
+          "name": "destination_place_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "moving_date": {
+          "name": "moving_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "moving_time": {
+          "name": "moving_time",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "property_type": {
+          "name": "property_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "bedrooms": {
+          "name": "bedrooms",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "pickup_floor": {
+          "name": "pickup_floor",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "pickup_lift": {
+          "name": "pickup_lift",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "pickup_stairs": {
+          "name": "pickup_stairs",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "destination_floor": {
+          "name": "destination_floor",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "destination_lift": {
+          "name": "destination_lift",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "destination_stairs": {
+          "name": "destination_stairs",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "parking_information": {
+          "name": "parking_information",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "packing_required": {
+          "name": "packing_required",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "special_items": {
+          "name": "special_items",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "distance_km": {
+          "name": "distance_km",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "travel_minutes": {
+          "name": "travel_minutes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "move_complexity_score": {
+          "name": "move_complexity_score",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "estimated_duration_minutes": {
+          "name": "estimated_duration_minutes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "recommended_truck": {
+          "name": "recommended_truck",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "recommended_movers": {
+          "name": "recommended_movers",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "estimated_price_min": {
+          "name": "estimated_price_min",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "estimated_price_max": {
+          "name": "estimated_price_max",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "call_out_fee_aud": {
+          "name": "call_out_fee_aud",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "no_extra_travel_charge": {
+          "name": "no_extra_travel_charge",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "human_followup_required": {
+          "name": "human_followup_required",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "conversation_id": {
+          "name": "conversation_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "leads_conversation_id_conversations_id_fk": {
+          "name": "leads_conversation_id_conversations_id_fk",
+          "tableFrom": "leads",
+          "tableTo": "conversations",
+          "columnsFrom": [
+            "conversation_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.messages": {
+      "name": "messages",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "conversation_id": {
+          "name": "conversation_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "content": {
+          "name": "content",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "tool_calls": {
+          "name": "tool_calls",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "messages_conversation_id_conversations_id_fk": {
+          "name": "messages_conversation_id_conversations_id_fk",
+          "tableFrom": "messages",
+          "tableTo": "conversations",
+          "columnsFrom": [
+            "conversation_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.pricing_config": {
+      "name": "pricing_config",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "config_version": {
+          "name": "config_version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "rules": {
+          "name": "rules",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "active": {
+          "name": "active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "effective_from": {
+          "name": "effective_from",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.quotes": {
+      "name": "quotes",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "reference": {
+          "name": "reference",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "manual_reason": {
+          "name": "manual_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "customer_name": {
+          "name": "customer_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "phone": {
+          "name": "phone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "email_normalised": {
+          "name": "email_normalised",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "phone_normalised": {
+          "name": "phone_normalised",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "need": {
+          "name": "need",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "property_size": {
+          "name": "property_size",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "moving_date": {
+          "name": "moving_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "from_text": {
+          "name": "from_text",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "to_text": {
+          "name": "to_text",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "first_move_requested": {
+          "name": "first_move_requested",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "first_move_applied": {
+          "name": "first_move_applied",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "amount_aud": {
+          "name": "amount_aud",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "valid_until": {
+          "name": "valid_until",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "rate_card_version": {
+          "name": "rate_card_version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "rate_card_status": {
+          "name": "rate_card_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "inputs": {
+          "name": "inputs",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "internal_breakdown": {
+          "name": "internal_breakdown",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "rate_card_snapshot": {
+          "name": "rate_card_snapshot",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "customer_email_sent_at": {
+          "name": "customer_email_sent_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "quotes_email_idx": {
+          "name": "quotes_email_idx",
+          "columns": [
+            {
+              "expression": "email_normalised",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "quotes_phone_idx": {
+          "name": "quotes_phone_idx",
+          "columns": [
+            {
+              "expression": "phone_normalised",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "quotes_reference_unique": {
+          "name": "quotes_reference_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "reference"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {
+    "public.lead_status": {
+      "name": "lead_status",
+      "schema": "public",
+      "values": [
+        "estimate",
+        "quotation",
+        "confirmed_booking"
+      ]
+    }
+  },
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

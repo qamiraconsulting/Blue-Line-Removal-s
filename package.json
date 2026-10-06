@@ -8,7 +8,10 @@
     "build": "react-router typegen && tsc -b && react-router build",
     "typecheck": "react-router typegen && tsc -b",
     "lint": "oxlint",
-    "typecheck:api": "tsc --noEmit -p tsconfig.api.json"
+    "typecheck:api": "tsc --noEmit -p tsconfig.api.json",
+    "test": "vitest run",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.120.0",
@@ -43,6 +46,7 @@
     "oxlint": "^1.71.0",
     "tailwindcss": "^4.3.3",
     "typescript": "~6.0.2",
-    "vite": "^8.1.1"
+    "vite": "^8.1.1",
+    "vitest": "^3.2.7"
   }
 }

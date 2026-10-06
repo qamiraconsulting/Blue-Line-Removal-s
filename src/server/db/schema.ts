@@ -1,4 +1,17 @@
-import { pgTable, uuid, text, numeric, integer, boolean, timestamp, jsonb, date, pgEnum } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  uuid,
+  text,
+  numeric,
+  integer,
+  boolean,
+  timestamp,
+  jsonb,
+  date,
+  pgEnum,
+  index,
+  uniqueIndex,
+} from "drizzle-orm/pg-core";
 
 // Tracks the estimate -> quotation -> confirmed_booking distinction from the
 // architecture doc (Section 11 / Section 7 of the playbook) at the schema
@@ -153,3 +166,62 @@ export const analyticsEvents = pgTable("analytics_events", {
   eventData: jsonb("event_data"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// One row per quote-form submission -- priced or sent to a person. Stores the exact
+// inputs, the internal cost breakdown and a snapshot of the rate card it was priced
+// from, so any quote can be reproduced later ("you quoted me $X"). The internal
+// breakdown (hourly rates, call-out) lives here only and is never sent to a customer.
+export const quotes = pgTable(
+  "quotes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    reference: text("reference").notNull().unique(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+
+    status: text("status").notNull(), // "priced" | "manual_review"
+    manualReason: text("manual_reason"),
+
+    customerName: text("customer_name").notNull(),
+    phone: text("phone").notNull(),
+    email: text("email").notNull(),
+    // Lower-cased / digits-only copies used for the one-discount-per-person check.
+    emailNormalised: text("email_normalised").notNull(),
+    phoneNormalised: text("phone_normalised").notNull(),
+
+    need: text("need").notNull(),
+    propertySize: text("property_size"),
+    movingDate: date("moving_date"),
+    fromText: text("from_text"),
+    toText: text("to_text"),
+
+    firstMoveRequested: boolean("first_move_requested").notNull().default(false),
+    firstMoveApplied: boolean("first_move_applied").notNull().default(false),
+
+    amountAud: integer("amount_aud"), // the single flat price; null when sent to manual review
+    validUntil: date("valid_until"),
+    rateCardVersion: text("rate_card_version").notNull(),
+    rateCardStatus: text("rate_card_status").notNull(),
+
+    inputs: jsonb("inputs").notNull(),
+    internalBreakdown: jsonb("internal_breakdown"),
+    rateCardSnapshot: jsonb("rate_card_snapshot").notNull(),
+
+    customerEmailSentAt: timestamp("customer_email_sent_at", { withTimezone: true }),
+  },
+  (t) => [index("quotes_email_idx").on(t.emailNormalised), index("quotes_phone_idx").on(t.phoneNormalised)],
+);
+
+// Google Routes lookups keyed by normalised place pair -- suburb pairs repeat constantly
+// and every uncached lookup costs money.
+export const distanceCache = pgTable(
+  "distance_cache",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    originKey: text("origin_key").notNull(),
+    destKey: text("dest_key").notNull(),
+    distanceMeters: integer("distance_meters").notNull(),
+    durationSeconds: integer("duration_seconds").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("distance_cache_pair_idx").on(t.originKey, t.destKey)],
+);
