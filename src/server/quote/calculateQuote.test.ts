@@ -1,17 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { calculateQuote, type QuoteInputs } from "./calculateQuote.js";
-import { placeholderRateCard, type RateCard } from "./rateCard.js";
+import { blrRateCard, getActiveRateCard, type RateCard } from "./rateCard.js";
+import { fixtureRateCard } from "./rateCard.fixture.js";
 
-// A confirmed card with round numbers so every expected price below can be checked by hand.
-// Rates are ex-GST (GST added on top), weekend/holiday +20%, round to the nearest $10.
-const card: RateCard = {
-  ...placeholderRateCard,
-  version: "test-v1",
-  status: "confirmed",
-  gst: { ratesIncludeGst: false, ratePercent: 10 },
-  weekendHolidaySurchargePercent: 20,
-  publicHolidays: ["2026-11-03"], // a Tuesday
-};
+// Hand-checkable made-up card (see rateCard.fixture.ts), independent of Blue Line's real prices.
+const card: RateCard = fixtureRateCard;
 
 const WEEKDAY = "2026-10-14"; // Wednesday
 const SATURDAY = "2026-10-17";
@@ -144,6 +137,47 @@ describe("when it must NOT quote (sent to a person instead)", () => {
     expect(manual({ movingDate: SATURDAY }, unconfirmed)).toBe("rate_card_incomplete");
     expect(price({ movingDate: WEEKDAY }, unconfirmed).amountAud).toBe(780);
   });
+  it("job size not supplied -- only that size refuses", () => {
+    const noTwoBed = { ...card, jobSizes: { ...card.jobSizes, "2_bed": null } };
+    expect(manual({ propertySize: "2_bed" }, noTwoBed)).toBe("rate_card_incomplete");
+    expect(price({ propertySize: "3_bed" }, noTwoBed).amountAud).toBe(1430);
+  });
+  it("truck rate not settled (e.g. a range) -- jobs needing that truck refuse", () => {
+    const noTenT = { ...card, trucks: { ...card.trucks, "10T": { label: "10T truck", hourlyRateAud: null } } };
+    expect(manual({ propertySize: "4plus_bed" }, noTenT)).toBe("rate_card_incomplete");
+    expect(price({ propertySize: "2_bed" }, noTenT).amountAud).toBe(780);
+  });
+  it("service-area limits not set -- can't tell if a job is in range, so refuse", () => {
+    const noLimits = { ...card, serviceArea: { ...card.serviceArea, maxMoveKm: null } };
+    expect(manual({}, noLimits)).toBe("rate_card_incomplete");
+  });
+});
+
+describe("Blue Line's real rate card (price guide received 2026-10-06)", () => {
+  it("holds exactly the numbers the guide states", () => {
+    const real = getActiveRateCard(); // also proves it passes the schema
+    expect(real.trucks["4.5T"].hourlyRateAud).toBe(120);
+    expect(real.trucks["6-8T"].hourlyRateAud).toBe(140);
+    expect(real.extraMoverHourlyRateAud).toBe(60);
+    expect(real.minimumJobHours).toBe(2);
+    expect(real.accessExtras).toEqual({ perStairFlightAud: 40, longCarryAud: 40, perHeavyItemAud: 80 });
+    expect(real.gst.ratePercent).toBe(10);
+    expect(real.firstMoveDiscountPercent).toBe(30);
+  });
+
+  it("leaves every unclear value empty instead of guessing", () => {
+    expect(blrRateCard.trucks["10T"].hourlyRateAud).toBeNull(); // guide says $160-$180
+    expect(Object.values(blrRateCard.jobSizes).every((j) => j === null)).toBe(true);
+    expect(blrRateCard.gst.ratesIncludeGst).toBeNull();
+    expect(blrRateCard.weekendHolidaySurchargePercent).toBeNull();
+    expect(blrRateCard.serviceArea.maxPickupFromDepotKm).toBeNull();
+    expect(blrRateCard.serviceArea.maxMoveKm).toBeNull();
+  });
+
+  it("can't produce a price yet -- not even in test mode -- until the gaps are filled", () => {
+    expect(manual({}, blrRateCard)).toBe("rate_card_not_confirmed");
+    expect(manual({}, blrRateCard, true)).toBe("rate_card_incomplete");
+  });
 });
 
 describe("placeholder rate card safety latch", () => {
@@ -157,10 +191,7 @@ describe("placeholder rate card safety latch", () => {
     expect(calculateQuote(base, placeholder, { allowPlaceholderRateCard: true }).kind).toBe("price");
   });
 
-  it("the shipped placeholder card is itself unconfirmed, with GST and weekend rates unset", () => {
-    expect(placeholderRateCard.status).toBe("placeholder");
-    expect(placeholderRateCard.gst.ratesIncludeGst).toBeNull();
-    expect(placeholderRateCard.weekendHolidaySurchargePercent).toBeNull();
-    expect(manual({}, placeholderRateCard)).toBe("rate_card_not_confirmed");
+  it("the shipped card is not yet signed off", () => {
+    expect(blrRateCard.status).toBe("placeholder");
   });
 });

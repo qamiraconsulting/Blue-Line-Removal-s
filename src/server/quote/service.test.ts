@@ -1,16 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
-import { placeholderRateCard, type RateCard } from "./rateCard.js";
+import { blrRateCard, type RateCard } from "./rateCard.js";
+import { fixtureRateCard } from "./rateCard.fixture.js";
 import { handleQuoteRequest, normalisePhone, type OutgoingEmail, type QuoteApiResult, type QuoteServiceDeps } from "./service.js";
 import type { NewQuoteRow, QuoteStore } from "./store.js";
 
 // Same hand-checkable card as the engine tests: ex-GST rates, weekend +20%, round to $10.
-const card: RateCard = {
-  ...placeholderRateCard,
-  version: "test-v1",
-  status: "confirmed",
-  gst: { ratesIncludeGst: false, ratePercent: 10 },
-  weekendHolidaySurchargePercent: 20,
-};
+const card: RateCard = fixtureRateCard;
 
 const NOW = new Date("2026-10-06T02:00:00Z"); // 12:00 in Melbourne, 6 Oct 2026
 const WEEKDAY = "2026-10-14";
@@ -185,7 +180,13 @@ describe("when it can't give a price, a person follows up -- and the lead is nev
 });
 
 describe("placeholder rate card in dev/preview", () => {
-  const placeholder = { ...placeholderRateCard, gst: { ratesIncludeGst: false, ratePercent: 10 } };
+  const placeholder: RateCard = { ...card, status: "placeholder" };
+
+  it("Blue Line's real card, while it still has gaps, sends every quote to a person even in test mode", async () => {
+    const { run, sent } = setup({ rateCard: blrRateCard, allowPlaceholderRateCard: true });
+    expect(result(await run(goodBody)).kind).toBe("manual");
+    expect(sent.find((e) => e.kind === "team")!.text).toContain("rate_card_incomplete");
+  });
 
   it("refuses to price unless explicitly allowed", async () => {
     const { run, sent } = setup({ rateCard: placeholder });

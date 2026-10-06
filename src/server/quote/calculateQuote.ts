@@ -98,18 +98,21 @@ export function calculateQuote(inputs: QuoteInputs, rateCard: RateCard, options:
   if (!inputs.movingDate) return manual("date_missing");
   if (!inputs.depotToPickup || !inputs.pickupToDropoff) return manual("distance_unavailable");
 
+  // Never guess a missing business rule -- any value this job needs that the card leaves
+  // null means refuse and hand to a person.
   const { serviceArea } = rateCard;
+  if (serviceArea.maxPickupFromDepotKm === null || serviceArea.maxMoveKm === null) return manual("rate_card_incomplete");
   if (inputs.depotToPickup.km > serviceArea.maxPickupFromDepotKm || inputs.pickupToDropoff.km > serviceArea.maxMoveKm) {
     return manual("outside_service_area");
   }
 
-  // Never guess a missing business rule -- refuse and hand to a person.
+  const job = rateCard.jobSizes[inputs.propertySize];
+  if (!job) return manual("rate_card_incomplete");
+  const truck = rateCard.trucks[job.truck];
+  if (truck.hourlyRateAud === null) return manual("rate_card_incomplete");
   if (rateCard.gst.ratesIncludeGst === null) return manual("rate_card_incomplete");
   const surcharged = isWeekend(inputs.movingDate) || rateCard.publicHolidays.includes(inputs.movingDate);
   if (surcharged && rateCard.weekendHolidaySurchargePercent === null) return manual("rate_card_incomplete");
-
-  const job = rateCard.jobSizes[inputs.propertySize];
-  const truck = rateCard.trucks[job.truck];
 
   // Labour hours plus the real drive between the two addresses, never below the minimum.
   const jobHours = Math.max(rateCard.minimumJobHours, job.labourHours + inputs.pickupToDropoff.minutes / 60);
