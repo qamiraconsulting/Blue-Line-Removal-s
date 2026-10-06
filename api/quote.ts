@@ -1,24 +1,25 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { Resend } from "resend";
+import { site } from "../src/data/site.js";
+import { getActiveRateCard } from "../src/server/quote/rateCard.js";
+import { handleQuoteRequest, type OutgoingEmail } from "../src/server/quote/service.js";
+import { dbDistanceCache, dbQuoteStore } from "../src/server/quote/store.js";
+import { checkQuoteRateLimit } from "../src/server/services/rateLimit.js";
 
-// Server-side only -- RESEND_API_KEY and LEAD_FROM_EMAIL are set in the
-// Vercel dashboard under Project Settings -> Environment Variables, never
-// committed. LEAD_FROM_EMAIL must be an address on a domain verified in
-// Resend -- Blue Line Removals doesn't have its own domain registered yet
-// (2026-08-10), so this currently reuses Qamira's verified sending domain
-// (same pattern as qamira-web's api/contact.ts) until that changes.
+// Server-side only -- every secret is a Vercel environment variable (Project Settings ->
+// Environment Variables), never committed. See .env.example for the full list.
 //
-// LEAD_TO_EMAIL is a temporary hardcoded inbox (the agency's own address,
-// not the client's) because bluelineremovals.com.au isn't registered and
-// hello@bluelineremovals.com.au doesn't exist as a real mailbox yet.
-// Swap this one constant for the client's real inbox once it's live --
-// nothing else needs to change.
-const LEAD_TO_EMAIL = "qamiraconsulting@gmail.com";
-const EMAIL_PATTERN = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-
-function truncate(value: unknown, max: number): string {
-  return typeof value === "string" ? value.trim().slice(0, max) : "";
-}
+// What this does now: validates the quote form, works out the driving distance, prices the
+// job with the flat-price engine (src/server/quote), stores the quote, emails the customer
+// their price and notifies the team. If the database or Google key isn't configured it
+// degrades to the old behaviour: the lead still reaches the team and the customer is told
+// we'll send the quote -- it never guesses a price.
+//
+// LEAD_FROM_EMAIL must be an address on a domain verified in Resend (today that is Qamira's
+// sending domain; verify bluelineremovals.com.au so customer quotes come from BLR's own
+// domain). LEAD_TO_EMAIL is the team inbox -- a temporary default until the client's real
+// mailbox exists.
+const LEAD_TO_EMAIL = process.env.LEAD_TO_EMAIL ?? "qamiraconsulting@gmail.com";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") {
@@ -31,55 +32,52 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  const body = req.body as Record<string, unknown>;
-  const name = truncate(body?.name, 200);
-  const phone = truncate(body?.phone, 50);
-  const email = truncate(body?.email, 320);
-  const need = body?.need === "junk" ? "Junk Removal" : "Moving";
-  const from = truncate(body?.from, 200);
-  const to = truncate(body?.to, 200);
-  const date = truncate(body?.date, 50);
-  const propertySize = truncate(body?.propertySize, 100);
-
-  if (!name || !phone || !email) {
-    res.status(400).json({ error: "Name, phone, and email are required." });
-    return;
-  }
-
-  if (!EMAIL_PATTERN.test(email)) {
-    res.status(400).json({ error: "Enter a valid email address." });
+  const forwarded = req.headers["x-forwarded-for"];
+  const ip = (Array.isArray(forwarded) ? forwarded[0] : forwarded)?.split(",")[0]?.trim() ?? "unknown";
+  const { allowed } = await checkQuoteRateLimit(ip);
+  if (!allowed) {
+    res.status(429).json({ ok: false, error: "Too many requests. Please wait a few minutes and try again." });
     return;
   }
 
   const resend = new Resend(process.env.RESEND_API_KEY);
+  const fromAddress = process.env.LEAD_FROM_EMAIL;
 
-  try {
-    const { error } = await resend.emails.send({
-      from: `Blue Line Removals Website <${process.env.LEAD_FROM_EMAIL}>`,
-      to: [LEAD_TO_EMAIL],
-      replyTo: `${name} <${email}>`,
-      subject: `New quote request from ${name} (${need})`,
-      text: [
-        `Name: ${name}`,
-        `Phone: ${phone}`,
-        `Email: ${email}`,
-        `Needs help with: ${need}`,
-        `Moving from: ${from || "-"}`,
-        `Moving to: ${to || "-"}`,
-        `Preferred date: ${date || "-"}`,
-        `Property size: ${propertySize || "-"}`,
-      ].join("\n"),
-    });
-
-    if (error) {
-      console.error("Quote form send failed:", error);
-      res.status(502).json({ error: "We couldn't send that just now. Please email us instead." });
-      return;
+  const sendEmail = async (email: OutgoingEmail): Promise<boolean> => {
+    try {
+      const { error } = await resend.emails.send({
+        from: `${email.kind === "customer" ? site.name : `${site.name} Website`} <${fromAddress}>`,
+        to: [email.to],
+        replyTo: email.replyTo,
+        subject: email.subject,
+        text: email.text,
+        html: email.html,
+      });
+      if (error) {
+        console.error(`${email.kind} email failed:`, error.name); // never log addresses or content
+        return false;
+      }
+      return true;
+    } catch {
+      console.error(`${email.kind} email failed to send`);
+      return false;
     }
+  };
 
-    res.status(200).json({ ok: true });
-  } catch (err) {
-    console.error("Quote form send failed:", err);
-    res.status(502).json({ error: "We couldn't send that just now. Please email us instead." });
-  }
+  // Placeholder rate cards can only ever price in local dev / previews -- never production.
+  const allowPlaceholderRateCard = process.env.QUOTE_ALLOW_PLACEHOLDER === "true" && process.env.VERCEL_ENV !== "production";
+  const databaseConfigured = Boolean(process.env.DATABASE_URL);
+
+  const response = await handleQuoteRequest(req.body, {
+    rateCard: getActiveRateCard(),
+    allowPlaceholderRateCard,
+    routes: process.env.GOOGLE_MAPS_SERVER_KEY ? { apiKey: process.env.GOOGLE_MAPS_SERVER_KEY } : null,
+    cache: databaseConfigured ? dbDistanceCache : undefined,
+    store: databaseConfigured ? dbQuoteStore : undefined,
+    sendEmail,
+    teamEmail: LEAD_TO_EMAIL,
+    customerReplyTo: site.email,
+  });
+
+  res.status(response.status).json(response.body);
 }
