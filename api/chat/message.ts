@@ -1,11 +1,11 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { z } from "zod";
-import { postMessage } from "../../src/server/services/chatSession.js";
+import { ConversationNotFoundError, postMessage } from "../../src/server/chat/session.js";
 import { checkRateLimit } from "../../src/server/services/rateLimit.js";
 
 const bodySchema = z.object({
   conversationId: z.string().uuid(),
-  message: z.string().min(1).max(2000),
+  message: z.string().trim().min(1).max(2000),
 });
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -25,7 +25,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ?? "unknown";
+  const forwarded = req.headers["x-forwarded-for"];
+  const ip = (Array.isArray(forwarded) ? forwarded[0] : forwarded)?.split(",")[0]?.trim() ?? "unknown";
   const { allowed } = await checkRateLimit(`${parsed.data.conversationId}:${ip}`);
   if (!allowed) {
     res.status(429).json({ error: "Too many messages -- please slow down a little." });
@@ -36,7 +37,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const reply = await postMessage(parsed.data.conversationId, parsed.data.message);
     res.status(200).json({ reply });
   } catch (err) {
-    console.error("Chat message failed:", err);
+    if (err instanceof ConversationNotFoundError) {
+      res.status(404).json({ error: "This chat has expired. Please refresh to start a new one." });
+      return;
+    }
+    console.error("Chat message failed:", err instanceof Error ? err.message : "unknown error");
     res.status(502).json({ error: "That message didn't send. Please try again." });
   }
 }

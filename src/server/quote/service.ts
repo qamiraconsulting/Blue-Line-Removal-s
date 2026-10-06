@@ -26,6 +26,7 @@ import type { NewQuoteRow, QuoteStore } from "./store.js";
 // Everything external (Google, the database, email, the clock) is injected, so the whole
 // flow is testable without a network. See api/quote.ts for the real wiring.
 
+// The quote form sends its dropdown labels; the chat sends the ids. Both map here.
 const SIZE_BY_LABEL: Record<string, PropertySizeId> = {
   "studio / 1 bed": "studio_1bed",
   "2 bedroom": "2_bed",
@@ -33,6 +34,16 @@ const SIZE_BY_LABEL: Record<string, PropertySizeId> = {
   "4+ bedroom": "4plus_bed",
   "office / commercial": "commercial",
   "not sure yet": "unsure",
+};
+export const propertySizeIds = ["studio_1bed", "2_bed", "3_bed", "4plus_bed", "commercial", "unsure"] as const;
+for (const id of propertySizeIds) SIZE_BY_LABEL[id] = id;
+const SIZE_LABEL: Record<PropertySizeId, string> = {
+  studio_1bed: "Studio / 1 Bed",
+  "2_bed": "2 Bedroom",
+  "3_bed": "3 Bedroom",
+  "4plus_bed": "4+ Bedroom",
+  commercial: "Office / Commercial",
+  unsure: "Not sure yet",
 };
 
 const count = (max: number) => z.coerce.number().int().min(0).max(max).optional().default(0);
@@ -124,7 +135,17 @@ function requestError(error: z.ZodError, input: Record<string, unknown>): string
   return "Something in that request wasn't valid. Please check the form and try again.";
 }
 
-export async function handleQuoteRequest(rawBody: unknown, deps: QuoteServiceDeps): Promise<QuoteApiResponse> {
+/** Where the request came from -- recorded on the quote row. */
+export interface QuoteRequestContext {
+  source: "quote_form" | "chatbot";
+  conversationId?: string;
+}
+
+export async function handleQuoteRequest(
+  rawBody: unknown,
+  deps: QuoteServiceDeps,
+  context: QuoteRequestContext = { source: "quote_form" },
+): Promise<QuoteApiResponse> {
   const log = deps.log ?? ((message, meta) => console.error(message, meta ?? ""));
   const now = (deps.now ?? (() => new Date()))();
   const today = melbourneToday(now);
@@ -205,6 +226,8 @@ export async function handleQuoteRequest(rawBody: unknown, deps: QuoteServiceDep
 
   const buildRow = (o: Outcome): NewQuoteRow => ({
     reference,
+    source: context.source,
+    conversationId: context.conversationId ?? null,
     status: o.kind === "price" ? "priced" : "manual_review",
     manualReason: o.kind === "manual" ? o.reason : null,
     customerName: req.name,
@@ -252,7 +275,7 @@ export async function handleQuoteRequest(rawBody: unknown, deps: QuoteServiceDep
     from: req.from,
     to: req.to,
     dateLabel: formatDateLabel(movingDate),
-    propertySize: req.propertySize,
+    propertySize: req.propertySize ? SIZE_LABEL[propertySize] : "",
   };
   const priced = outcome.kind === "price" ? outcome : null;
   const validUntil = priced ? addDays(today, priced.customer.validDays) : "";
@@ -271,6 +294,7 @@ export async function handleQuoteRequest(rawBody: unknown, deps: QuoteServiceDep
     firstMoveApplied: priced?.customer.firstMoveApplied ?? false,
     outcomeLine: testMode ? `[TEST MODE -- placeholder rate card] ${outcomeLine}` : outcomeLine,
     internalBreakdown: priced ? { ...priced.internal } : null,
+    source: context.source,
   });
 
   // Placeholder prices are never emailed to a customer.

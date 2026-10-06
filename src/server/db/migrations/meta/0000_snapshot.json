@@ -1,87 +1,9 @@
 {
-  "id": "a6026dd9-3d2a-4f73-952b-bedf154c7c7f",
+  "id": "587a8e5e-7d7a-4692-9c4e-0ff4443a0727",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
-    "public.analytics_events": {
-      "name": "analytics_events",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "lead_id": {
-          "name": "lead_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "conversation_id": {
-          "name": "conversation_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "event_type": {
-          "name": "event_type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "event_data": {
-          "name": "event_data",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "analytics_events_lead_id_leads_id_fk": {
-          "name": "analytics_events_lead_id_leads_id_fk",
-          "tableFrom": "analytics_events",
-          "tableTo": "leads",
-          "columnsFrom": [
-            "lead_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "analytics_events_conversation_id_conversations_id_fk": {
-          "name": "analytics_events_conversation_id_conversations_id_fk",
-          "tableFrom": "analytics_events",
-          "tableTo": "conversations",
-          "columnsFrom": [
-            "conversation_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
     "public.conversations": {
       "name": "conversations",
       "schema": "",
@@ -92,13 +14,6 @@
           "primaryKey": true,
           "notNull": true,
           "default": "gen_random_uuid()"
-        },
-        "state": {
-          "name": "state",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'GREETING'"
         },
         "started_at": {
           "name": "started_at",
@@ -203,135 +118,6 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.inventory_items": {
-      "name": "inventory_items",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "lead_id": {
-          "name": "lead_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "item_category": {
-          "name": "item_category",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "description": {
-          "name": "description",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "quantity": {
-          "name": "quantity",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 1
-        },
-        "estimated_volume": {
-          "name": "estimated_volume",
-          "type": "numeric",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "heavy_item": {
-          "name": "heavy_item",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "inventory_items_lead_id_leads_id_fk": {
-          "name": "inventory_items_lead_id_leads_id_fk",
-          "tableFrom": "inventory_items",
-          "tableTo": "leads",
-          "columnsFrom": [
-            "lead_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.inventory_rules": {
-      "name": "inventory_rules",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "item_category": {
-          "name": "item_category",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "cubic_volume": {
-          "name": "cubic_volume",
-          "type": "numeric",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "handling_difficulty": {
-          "name": "handling_difficulty",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "movers_required": {
-          "name": "movers_required",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 2
-        },
-        "loading_minutes": {
-          "name": "loading_minutes",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "unloading_minutes": {
-          "name": "unloading_minutes",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
     "public.leads": {
       "name": "leads",
       "schema": "",
@@ -342,14 +128,6 @@
           "primaryKey": true,
           "notNull": true,
           "default": "gen_random_uuid()"
-        },
-        "status": {
-          "name": "status",
-          "type": "lead_status",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'estimate'"
         },
         "source": {
           "name": "source",
@@ -390,207 +168,21 @@
           "primaryKey": false,
           "notNull": false
         },
-        "preferred_contact_method": {
-          "name": "preferred_contact_method",
+        "from_text": {
+          "name": "from_text",
           "type": "text",
           "primaryKey": false,
           "notNull": false
         },
-        "pickup_address_raw": {
-          "name": "pickup_address_raw",
+        "to_text": {
+          "name": "to_text",
           "type": "text",
           "primaryKey": false,
           "notNull": false
         },
-        "pickup_address_formatted": {
-          "name": "pickup_address_formatted",
+        "quote_reference": {
+          "name": "quote_reference",
           "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "pickup_latitude": {
-          "name": "pickup_latitude",
-          "type": "numeric",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "pickup_longitude": {
-          "name": "pickup_longitude",
-          "type": "numeric",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "pickup_place_id": {
-          "name": "pickup_place_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "destination_address_raw": {
-          "name": "destination_address_raw",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "destination_address_formatted": {
-          "name": "destination_address_formatted",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "destination_latitude": {
-          "name": "destination_latitude",
-          "type": "numeric",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "destination_longitude": {
-          "name": "destination_longitude",
-          "type": "numeric",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "destination_place_id": {
-          "name": "destination_place_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "moving_date": {
-          "name": "moving_date",
-          "type": "date",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "moving_time": {
-          "name": "moving_time",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "property_type": {
-          "name": "property_type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "bedrooms": {
-          "name": "bedrooms",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "pickup_floor": {
-          "name": "pickup_floor",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "pickup_lift": {
-          "name": "pickup_lift",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "pickup_stairs": {
-          "name": "pickup_stairs",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "destination_floor": {
-          "name": "destination_floor",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "destination_lift": {
-          "name": "destination_lift",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "destination_stairs": {
-          "name": "destination_stairs",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "parking_information": {
-          "name": "parking_information",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "packing_required": {
-          "name": "packing_required",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "special_items": {
-          "name": "special_items",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "distance_km": {
-          "name": "distance_km",
-          "type": "numeric",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "travel_minutes": {
-          "name": "travel_minutes",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "move_complexity_score": {
-          "name": "move_complexity_score",
-          "type": "numeric",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "estimated_duration_minutes": {
-          "name": "estimated_duration_minutes",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "recommended_truck": {
-          "name": "recommended_truck",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "recommended_movers": {
-          "name": "recommended_movers",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "estimated_price_min": {
-          "name": "estimated_price_min",
-          "type": "numeric",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "estimated_price_max": {
-          "name": "estimated_price_max",
-          "type": "numeric",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "call_out_fee_aud": {
-          "name": "call_out_fee_aud",
-          "type": "numeric",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "no_extra_travel_charge": {
-          "name": "no_extra_travel_charge",
-          "type": "boolean",
           "primaryKey": false,
           "notNull": false
         },
@@ -631,7 +223,15 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "leads_conversation_id_unique": {
+          "name": "leads_conversation_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "conversation_id"
+          ]
+        }
+      },
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -679,7 +279,29 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "messages_conversation_idx": {
+          "name": "messages_conversation_idx",
+          "columns": [
+            {
+              "expression": "conversation_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "messages_conversation_id_conversations_id_fk": {
           "name": "messages_conversation_id_conversations_id_fk",
@@ -695,52 +317,6 @@
           "onUpdate": "no action"
         }
       },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.pricing_config": {
-      "name": "pricing_config",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "config_version": {
-          "name": "config_version",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "rules": {
-          "name": "rules",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "active": {
-          "name": "active",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "effective_from": {
-          "name": "effective_from",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
@@ -770,6 +346,19 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "source": {
+          "name": "source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'quote_form'"
+        },
+        "conversation_id": {
+          "name": "conversation_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
         },
         "status": {
           "name": "status",
@@ -938,7 +527,21 @@
           "with": {}
         }
       },
-      "foreignKeys": {},
+      "foreignKeys": {
+        "quotes_conversation_id_conversations_id_fk": {
+          "name": "quotes_conversation_id_conversations_id_fk",
+          "tableFrom": "quotes",
+          "tableTo": "conversations",
+          "columnsFrom": [
+            "conversation_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "quotes_reference_unique": {
@@ -954,17 +557,7 @@
       "isRLSEnabled": false
     }
   },
-  "enums": {
-    "public.lead_status": {
-      "name": "lead_status",
-      "schema": "public",
-      "values": [
-        "estimate",
-        "quotation",
-        "confirmed_booking"
-      ]
-    }
-  },
+  "enums": {},
   "schemas": {},
   "sequences": {},
   "roles": {},

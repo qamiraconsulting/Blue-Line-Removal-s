@@ -155,9 +155,11 @@ export function renderTeamEmail(input: {
   firstMoveApplied: boolean;
   outcomeLine: string;
   internalBreakdown: Record<string, unknown> | null;
+  source?: "quote_form" | "chatbot";
 }): EmailContent {
   const lines = [
     `Reference: ${input.reference}`,
+    `Via: ${input.source === "chatbot" ? "website chat" : "website quote form"}`,
     `Outcome: ${input.outcomeLine}`,
     "",
     `Name: ${input.name}`,

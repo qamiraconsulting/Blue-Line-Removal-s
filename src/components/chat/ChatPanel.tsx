@@ -35,7 +35,7 @@ export function ChatPanel() {
           <div
             key={m.id}
             className={clsx(
-              "max-w-[85%] rounded-2xl px-3.5 py-2 text-sm leading-relaxed",
+              "max-w-[85%] whitespace-pre-line rounded-2xl px-3.5 py-2 text-sm leading-relaxed",
               m.role === "user" ? "ml-auto bg-action text-white" : "mr-auto bg-white text-navy shadow-sm",
             )}
           >

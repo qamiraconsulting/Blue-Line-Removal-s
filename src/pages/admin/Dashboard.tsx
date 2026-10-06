@@ -7,8 +7,9 @@ interface LeadRow {
   customerName: string | null;
   phone: string | null;
   email: string | null;
-  pickupAddressFormatted: string | null;
-  destinationAddressFormatted: string | null;
+  fromText: string | null;
+  toText: string | null;
+  quoteReference: string | null;
   notes: string | null;
   updatedAt: string;
   conversationId: string | null;
@@ -33,7 +34,7 @@ export default function Dashboard() {
   return (
     <div>
       <h2 className="font-display text-2xl font-bold text-navy">Needs follow-up</h2>
-      <p className="mt-1 text-sm text-slate-600">Leads the chat assistant escalated -- pianos, price pushback, or anywhere it wasn't sure.</p>
+      <p className="mt-1 text-sm text-slate-600">Chats that need a person -- personal quotes, price questions, packing, or anywhere the assistant wasn&apos;t sure.</p>
 
       {error && <p className="mt-6 text-sm text-red-600">{error}</p>}
       {leads === null && !error && <p className="mt-6 text-sm text-slate-500">Loading...</p>}
@@ -45,7 +46,7 @@ export default function Dashboard() {
             <>
               <p className="font-display font-bold text-navy">{lead.customerName ?? "Unnamed enquiry"}</p>
               <p className="text-sm text-slate-600">
-                {lead.pickupAddressFormatted ?? "?"} &rarr; {lead.destinationAddressFormatted ?? "?"}
+                {lead.fromText ?? "?"} &rarr; {lead.toText ?? "?"}{lead.quoteReference && ` · ${lead.quoteReference}`}
               </p>
               {lead.notes && <p className="mt-1 text-sm italic text-action">"{lead.notes}"</p>}
               <p className="mt-2 text-xs text-slate-400">{new Date(lead.updatedAt).toLocaleString("en-AU")}</p>

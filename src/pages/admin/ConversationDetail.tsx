@@ -78,7 +78,7 @@ export default function ConversationDetail() {
           <div
             key={m.id}
             className={clsx(
-              "max-w-[80%] rounded-xl px-3.5 py-2 text-sm",
+              "max-w-[80%] whitespace-pre-line rounded-xl px-3.5 py-2 text-sm",
               m.role === "user" && "ml-0 bg-slate-100 text-navy",
               m.role === "assistant" && "ml-0 bg-blue-50 text-navy",
               m.role === "human_agent" && "ml-auto bg-action text-white",
