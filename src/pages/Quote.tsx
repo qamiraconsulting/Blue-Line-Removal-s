@@ -7,6 +7,7 @@ import { Section } from "@/components/ui/Section";
 import { Reveal } from "@/components/ui/Reveal";
 import { Button } from "@/components/ui/Button";
 import { site } from "@/data/site";
+import { trackEvent } from "@/lib/analytics";
 
 const quoteTrust = [
   { icon: DollarSign, label: "No Hidden Fees" },
@@ -54,6 +55,7 @@ export function Quote() {
         return;
       }
       setSubmitted(true);
+      trackEvent("quote_submitted", { service_type: need });
     } catch {
       setError("We couldn't send that just now. Please check your connection and try again.");
     } finally {
