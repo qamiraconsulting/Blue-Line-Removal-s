@@ -1,9 +1,9 @@
 import { desc, eq } from "drizzle-orm";
-import { getDb } from "@/server/db/client";
-import { inventoryRules as inventoryRulesTable, pricingConfig } from "@/server/db/schema";
-import { pricingConfigRulesSchema, seedPricingConfigRules, type PricingConfigRules } from "@/server/schemas/pricingConfig";
-import { placeholderMoveComplexityConfig, type MoveComplexityConfig } from "@/server/schemas/moveComplexityConfig";
-import { placeholderInventoryRules, type InventoryRule } from "@/server/schemas/inventoryRules";
+import { getDb } from "../db/client.js";
+import { inventoryRules as inventoryRulesTable, pricingConfig } from "../db/schema.js";
+import { pricingConfigRulesSchema, seedPricingConfigRules, type PricingConfigRules } from "../schemas/pricingConfig.js";
+import { placeholderMoveComplexityConfig, type MoveComplexityConfig } from "../schemas/moveComplexityConfig.js";
+import { placeholderInventoryRules, type InventoryRule } from "../schemas/inventoryRules.js";
 
 // Reads the active, versioned pricing_config row from the database. Falls
 // back to the in-code seed only when no row exists yet (i.e. before the

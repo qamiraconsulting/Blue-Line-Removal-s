@@ -1,4 +1,4 @@
-import type { PricingConfigRules } from "@/server/schemas/pricingConfig";
+import type { PricingConfigRules } from "../schemas/pricingConfig.js";
 
 // Pricing Engine -- architecture doc Section 9. Fully separate from the
 // Move Complexity Engine: this consumes its output, it doesn't recompute

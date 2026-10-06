@@ -1,5 +1,5 @@
 import { AddressType, Client, GeocodingAddressComponentType, TravelMode } from "@googlemaps/google-maps-services-js";
-import type { GeocodeResult, MappingProvider, RouteResult, ValidateAddressResult } from "./MappingProvider";
+import type { GeocodeResult, MappingProvider, RouteResult, ValidateAddressResult } from "./MappingProvider.js";
 
 // Server-side only. GOOGLE_MAPS_SERVER_KEY is a separate, unrestricted-by-
 // referrer key from the client-side Places Autocomplete widget key -- see

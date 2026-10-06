@@ -1,10 +1,10 @@
 import { desc, eq } from "drizzle-orm";
-import { getDb } from "@/server/db/client";
-import { conversations, messages } from "@/server/db/schema";
-import { AnthropicProvider } from "@/server/providers/llm/AnthropicProvider";
-import { toolDefinitions } from "@/server/tools/definitions";
-import { buildSystemPrompt } from "@/server/tools/systemPrompt";
-import { executeToolCall } from "@/server/tools/executeToolCall";
+import { getDb } from "../db/client.js";
+import { conversations, messages } from "../db/schema.js";
+import { AnthropicProvider } from "../providers/llm/AnthropicProvider.js";
+import { toolDefinitions } from "../tools/definitions.js";
+import { buildSystemPrompt } from "../tools/systemPrompt.js";
+import { executeToolCall } from "../tools/executeToolCall.js";
 
 const GREETING =
   "Hi! I'm Blue's chat assistant \u{1F44B} I can give you an instant estimate for your move -- want to get started?";

@@ -1,5 +1,5 @@
-import type { MoveComplexityConfig } from "@/server/schemas/moveComplexityConfig";
-import type { InventoryRule } from "@/server/schemas/inventoryRules";
+import type { MoveComplexityConfig } from "../schemas/moveComplexityConfig.js";
+import type { InventoryRule } from "../schemas/inventoryRules.js";
 
 // Move Complexity Engine -- architecture doc Section 8. Deterministic,
 // config-driven, never touched by the LLM. The model calls

@@ -1,6 +1,6 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
-import * as schema from "./schema";
+import * as schema from "./schema.js";
 
 // DATABASE_URL is a Vercel env var (Neon's Vercel integration wires this
 // automatically on deploy) -- same secrets-in-env-vars pattern as

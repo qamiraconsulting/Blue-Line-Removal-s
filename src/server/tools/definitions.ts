@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { ToolDefinition } from "@/server/providers/llm/LLMProvider";
+import type { ToolDefinition } from "../providers/llm/LLMProvider.js";
 
 // The nine tools from architecture doc Section 11. Each description is
 // written prescriptively ("call this when...") rather than just

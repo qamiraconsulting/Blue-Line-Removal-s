@@ -1,8 +1,8 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { desc, eq } from "drizzle-orm";
-import { getDb } from "@/server/db/client";
-import { leads } from "@/server/db/schema";
-import { requireAdminAuth, AdminAuthError } from "@/server/services/adminAuth";
+import { getDb } from "../../src/server/db/client.js";
+import { leads } from "../../src/server/db/schema.js";
+import { requireAdminAuth, AdminAuthError } from "../../src/server/services/adminAuth.js";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "GET") {

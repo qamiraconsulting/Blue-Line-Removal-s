@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { z } from "zod";
-import { postMessage } from "@/server/services/chatSession";
-import { checkRateLimit } from "@/server/services/rateLimit";
+import { postMessage } from "../../src/server/services/chatSession.js";
+import { checkRateLimit } from "../../src/server/services/rateLimit.js";
 
 const bodySchema = z.object({
   conversationId: z.string().uuid(),

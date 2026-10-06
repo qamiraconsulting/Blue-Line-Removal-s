@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import type { ConversationMessage, LLMProvider, LLMTurnResult, ToolDefinition } from "./LLMProvider";
+import type { ConversationMessage, LLMProvider, LLMTurnResult, ToolDefinition } from "./LLMProvider.js";
 
 // Default model per the roadmap's confirmed cost basis: standard $3/$15
 // per-million-token pricing (the $2/$10 introductory rate expired

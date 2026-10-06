@@ -1,6 +1,6 @@
 import { and, desc, eq, isNotNull } from "drizzle-orm";
-import { getDb } from "@/server/db/client";
-import { leads } from "@/server/db/schema";
+import { getDb } from "../db/client.js";
+import { leads } from "../db/schema.js";
 
 // Confirmed 2026-08-21: the truck's starting point for a call-out
 // calculation is derived from data the system already has, never asked of
