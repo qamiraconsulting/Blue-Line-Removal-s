@@ -11,11 +11,15 @@ import { z } from "zod";
 //    price in production, even once every value is filled in. Flip it to "confirmed" only
 //    after Blue Line has signed the numbers off.
 
-export const truckIds = ["4.5T", "6-8T", "10T"] as const;
-export const jobSizeIds = ["studio_1bed", "2_bed", "3_bed", "4plus_bed"] as const;
+// What the quote form offers (2026-10-07): the customer picks the truck and crew, or asks
+// the team to inspect. Truck rates include 2 movers; each extra mover is added on top.
+export const truckIds = ["3.5T", "4.5T", "6.0T", "8.0T"] as const;
+export const moverCounts = [2, 4] as const;
 
 export type TruckId = (typeof truckIds)[number];
-export type JobSizeId = (typeof jobSizeIds)[number];
+export type MoverCount = (typeof moverCounts)[number];
+
+const hoursOrNull = z.number().positive().nullable();
 
 export const rateCardSchema = z.object({
   version: z.string().min(1),
@@ -24,7 +28,13 @@ export const rateCardSchema = z.object({
   // Internal only -- hourly figures are never shown to customers.
   trucks: z.record(
     z.enum(truckIds),
-    z.object({ label: z.string(), hourlyRateAud: z.number().positive().nullable() }),
+    z.object({
+      label: z.string(),
+      hourlyRateAud: z.number().positive().nullable(),
+      // Loading + unloading hours for a full load of this truck with each crew size.
+      // Driving between the addresses is added from the real route.
+      labourHours: z.object({ "2": hoursOrNull, "4": hoursOrNull }),
+    }),
   ),
   extraMoverHourlyRateAud: z.number().nonnegative(),
   minimumJobHours: z.number().positive(),
@@ -36,19 +46,8 @@ export const rateCardSchema = z.object({
     minimumHours: z.number().positive(),
   }),
 
-  // Which truck, how many movers and how many loading + unloading hours a typical job of
-  // each size takes (driving is added from the real route). null = not supplied yet.
-  jobSizes: z.record(
-    z.enum(jobSizeIds),
-    z
-      .object({
-        truck: z.enum(truckIds),
-        movers: z.number().int().min(2),
-        labourHours: z.number().positive(),
-      })
-      .nullable(),
-  ),
-
+  // Supported by the engine but not collected yet: the form takes free-text access notes
+  // instead (stairs, parking distance, heavy items), which go to the team with the quote.
   accessExtras: z.object({
     perStairFlightAud: z.number().nonnegative(),
     longCarryAud: z.number().nonnegative(),
@@ -59,9 +58,11 @@ export const rateCardSchema = z.object({
     ratesIncludeGst: z.boolean().nullable(),
     ratePercent: z.number().positive(),
   }),
-  weekendHolidaySurchargePercent: z.number().min(0).max(100).nullable(),
+  weekendSurchargePercent: z.number().min(0).max(100).nullable(),
+  publicHolidaySurchargePercent: z.number().min(0).max(100).nullable(),
   publicHolidays: z.array(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)),
 
+  // Taken off the charges EXCLUDING GST; GST is then 10% of the discounted price.
   firstMoveDiscountPercent: z.number().min(0).max(100),
   roundToNearestAud: z.number().positive(),
   validityDays: z.number().int().positive(),
@@ -76,50 +77,66 @@ export const rateCardSchema = z.object({
 export type RateCard = z.infer<typeof rateCardSchema>;
 
 /**
- * Blue Line Removals' price guide, as received 2026-10-06.
+ * Blue Line Removals' price guide (received 2026-10-06) plus the manager's answers of
+ * 2026-10-07. Filled in ONLY where stated:
+ *  - 4.5T $120/hr; 6.0T and 8.0T $140/hr (the guide's "6-8T" rate); extra mover $60/hr;
+ *    2-hour minimum; stairs $40, long carry $40, heavy item $80
+ *  - GST 10% on top of the rates ("30% discount is applicable on the actual charges
+ *    excluding GST")
+ *  - no weekend surcharge; call-out kept inside the price, never shown
+ *  - 30% first-move offer on the charges excluding GST
  *
- * Filled in ONLY where the guide is explicit: truck rates for the 4.5T and 6-8T crews,
- * extra mover, 2-hour minimum, stairs, heavy item, long carry, 10% GST rate, and the
- * 30% first-move offer (from the live site).
- *
- * Still null, pending Blue Line's answer -- the engine will not price while any of these
- * is needed:
- *  - 10T truck: the guide gives a range ($160-$180/hr), not one rate
- *  - jobSizes: truck / movers / loading+unloading hours per property size
- *  - GST: whether the guide's rates include GST ("subject to 10% GST")
- *  - weekend / public-holiday surcharge (the guide doesn't mention one)
- *  - service-area limits
- * Call-out uses the formula Ayesha confirmed on 2026-08-21 ($60/hr of travel from the
- * Tarneit depot, 1-hour minimum, rounded up); the new guide doesn't state a number, so
- * this is awaiting re-confirmation. Rounding ($10) and validity (14 days) are proposed
- * defaults awaiting sign-off.
+ * Still null, pending Blue Line -- the engine will not price while any of these is needed:
+ *  - 3.5T hourly rate (not on the guide)
+ *  - loading + unloading hours per truck and crew size
+ *  - public-holiday surcharge ("need to check with BLR team")
+ *  - service-area limits ("to be confirmed with BLR team")
+ * Call-out uses the formula confirmed 2026-08-21 ($60/hr of travel from the Tarneit depot,
+ * 1-hour minimum, rounded up). Rounding ($10) and validity (14 days) were proposed and
+ * not objected to.
  */
 export const blrRateCard: RateCard = {
-  version: "blr-price-guide-2026-10-06",
+  version: "blr-price-guide-2026-10-07",
   status: "placeholder",
 
   trucks: {
-    "4.5T": { label: "4.5T truck", hourlyRateAud: 120 },
-    "6-8T": { label: "6-8T truck", hourlyRateAud: 140 },
-    "10T": { label: "10T truck", hourlyRateAud: null },
+    "3.5T": { label: "3.5 tonne truck", hourlyRateAud: null, labourHours: { "2": null, "4": null } },
+    "4.5T": { label: "4.5 tonne truck", hourlyRateAud: 120, labourHours: { "2": null, "4": null } },
+    "6.0T": { label: "6 tonne truck", hourlyRateAud: 140, labourHours: { "2": null, "4": null } },
+    "8.0T": { label: "8 tonne truck", hourlyRateAud: 140, labourHours: { "2": null, "4": null } },
   },
   extraMoverHourlyRateAud: 60,
   minimumJobHours: 2,
 
   callOut: { ratePerHourAud: 60, minimumHours: 1 },
 
-  jobSizes: {
-    studio_1bed: null,
-    "2_bed": null,
-    "3_bed": null,
-    "4plus_bed": null,
-  },
-
   accessExtras: { perStairFlightAud: 40, longCarryAud: 40, perHeavyItemAud: 80 },
 
-  gst: { ratesIncludeGst: null, ratePercent: 10 },
-  weekendHolidaySurchargePercent: null,
-  publicHolidays: [],
+  gst: { ratesIncludeGst: false, ratePercent: 10 },
+  weekendSurchargePercent: 0,
+  publicHolidaySurchargePercent: null,
+  // Victorian public holidays from today on (business.vic.gov.au). Add the 2027 AFL Grand
+  // Final eve once the AFL fixes the date.
+  publicHolidays: [
+    "2026-11-03", // Melbourne Cup
+    "2026-12-25",
+    "2026-12-26",
+    "2026-12-28", // additional day for Boxing Day
+    "2027-01-01",
+    "2027-01-26",
+    "2027-03-08", // Labour Day
+    "2027-03-26", // Good Friday
+    "2027-03-27",
+    "2027-03-28",
+    "2027-03-29", // Easter Monday
+    "2027-04-25", // Anzac Day
+    "2027-06-14", // King's Birthday
+    "2027-11-02", // Melbourne Cup
+    "2027-12-25",
+    "2027-12-26",
+    "2027-12-27", // additional day for Christmas
+    "2027-12-28", // additional day for Boxing Day
+  ],
 
   firstMoveDiscountPercent: 30,
   roundToNearestAud: 10,

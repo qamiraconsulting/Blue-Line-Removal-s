@@ -4,7 +4,6 @@ import {
   calculateQuote,
   type LegDistance,
   type ManualReason,
-  type PropertySizeId,
   type QuoteInputs,
   type QuoteOutcome,
 } from "./calculateQuote.js";
@@ -19,34 +18,16 @@ import {
   type QuoteDetails,
 } from "./emails.js";
 import type { QuoteApiResult } from "../../lib/quoteContract.js";
-import type { RateCard } from "./rateCard.js";
+import { truckIds, type RateCard } from "./rateCard.js";
 import type { NewQuoteRow, QuoteStore } from "./store.js";
 
 // Ties the quote form to the engine: validate -> distances -> price -> store -> email.
 // Everything external (Google, the database, email, the clock) is injected, so the whole
 // flow is testable without a network. See api/quote.ts for the real wiring.
 
-// The quote form sends its dropdown labels; the chat sends the ids. Both map here.
-const SIZE_BY_LABEL: Record<string, PropertySizeId> = {
-  "studio / 1 bed": "studio_1bed",
-  "2 bedroom": "2_bed",
-  "3 bedroom": "3_bed",
-  "4+ bedroom": "4plus_bed",
-  "office / commercial": "commercial",
-  "not sure yet": "unsure",
-};
-export const propertySizeIds = ["studio_1bed", "2_bed", "3_bed", "4plus_bed", "commercial", "unsure"] as const;
-for (const id of propertySizeIds) SIZE_BY_LABEL[id] = id;
-const SIZE_LABEL: Record<PropertySizeId, string> = {
-  studio_1bed: "Studio / 1 Bed",
-  "2_bed": "2 Bedroom",
-  "3_bed": "3 Bedroom",
-  "4plus_bed": "4+ Bedroom",
-  commercial: "Office / Commercial",
-  unsure: "Not sure yet",
-};
-
-const count = (max: number) => z.coerce.number().int().min(0).max(max).optional().default(0);
+// Capacity: the customer picks a truck and crew, or asks the team to inspect (2026-10-07).
+export const truckChoices = [...truckIds, "inspect"] as const;
+const blankToUndefined = (v: unknown) => (v === "" ? undefined : v);
 
 export const quoteRequestSchema = z.object({
   name: z.string().trim().min(1).max(200),
@@ -56,17 +37,12 @@ export const quoteRequestSchema = z.object({
   from: z.string().trim().max(200).optional().default(""),
   to: z.string().trim().max(200).optional().default(""),
   date: z.string().trim().max(10).optional().default(""),
-  propertySize: z.string().trim().max(100).optional().default(""),
+  truck: z.preprocess(blankToUndefined, z.enum(truckChoices).optional()),
+  movers: z.preprocess(blankToUndefined, z.coerce.number().pipe(z.union([z.literal(2), z.literal(4)])).optional()),
+  // Stairs, parking distance, heavy items -- free text, passed to the team with the quote.
+  accessNotes: z.string().trim().max(1000).optional().default(""),
   firstMove: z.boolean().optional().default(false),
   specialItems: z.boolean().optional().default(false),
-  access: z
-    .object({
-      pickupStairFlights: count(10),
-      dropoffStairFlights: count(10),
-      longCarry: z.boolean().optional().default(false),
-      heavyItems: count(20),
-    })
-    .optional(),
 });
 
 export type QuoteRequest = z.infer<typeof quoteRequestSchema>;
@@ -175,7 +151,6 @@ export async function handleQuoteRequest(
     }
   }
 
-  const propertySize: PropertySizeId = SIZE_BY_LABEL[req.propertySize.toLowerCase()] ?? "unsure";
   const movingDate = usableDate(req.date, today);
 
   // First-move offer: once per email/phone. If we can't check, we can't honour it.
@@ -201,16 +176,13 @@ export async function handleQuoteRequest(
 
   const inputs: QuoteInputs = {
     need: req.need,
-    propertySize,
+    truck: req.truck ?? null,
+    movers: req.movers ?? null,
     movingDate,
     firstMoveRequested: req.firstMove,
     firstMoveEligible,
-    access: {
-      pickupStairFlights: req.access?.pickupStairFlights ?? 0,
-      dropoffStairFlights: req.access?.dropoffStairFlights ?? 0,
-      longCarry: req.access?.longCarry ?? false,
-      heavyItems: req.access?.heavyItems ?? 0,
-    },
+    // Access is free text for now (req.accessNotes) -- read by the team, not auto-priced.
+    access: { pickupStairFlights: 0, dropoffStairFlights: 0, longCarry: false, heavyItems: 0 },
     specialItems: req.specialItems,
     depotToPickup,
     pickupToDropoff,
@@ -236,7 +208,9 @@ export async function handleQuoteRequest(
     emailNormalised,
     phoneNormalised,
     need: req.need,
-    propertySize,
+    truck: req.truck ?? null,
+    movers: req.movers ?? null,
+    accessNotes: req.accessNotes || null,
     movingDate,
     fromText: req.from || null,
     toText: req.to || null,
@@ -275,7 +249,13 @@ export async function handleQuoteRequest(
     from: req.from,
     to: req.to,
     dateLabel: formatDateLabel(movingDate),
-    propertySize: req.propertySize ? SIZE_LABEL[propertySize] : "",
+    capacity:
+      req.truck === "inspect"
+        ? "Team to inspect and confirm"
+        : req.truck
+          ? `${deps.rateCard.trucks[req.truck].label}${req.movers ? `, ${req.movers} movers` : ""}`
+          : "",
+    accessNotes: req.accessNotes,
   };
   const priced = outcome.kind === "price" ? outcome : null;
   const validUntil = priced ? addDays(today, priced.customer.validDays) : "";
@@ -310,7 +290,7 @@ export async function handleQuoteRequest(
           validUntilLabel: formatDateLabel(validUntil),
           details,
         })
-      : renderAcknowledgementEmail({ name: req.name, reference });
+      : renderAcknowledgementEmail({ name: req.name, reference, inspection: req.truck === "inspect" });
 
   const [teamSent, customerSent] = await Promise.all([
     deps.sendEmail({ ...team, to: deps.teamEmail, replyTo: `${req.name} <${req.email}>`, kind: "team" }).catch(() => false),

@@ -18,11 +18,12 @@ const goodBody = {
   from: "Preston",
   to: "Brunswick",
   date: WEEKDAY,
-  propertySize: "2 Bedroom",
+  truck: "6.0T",
+  movers: 2,
   firstMove: false,
 };
 
-// Google fake: every leg is 20 km / 30 min, so a 2 bed weekday prices at the hand-checked $780.
+// Google fake: every leg is 20 km / 30 min, so a 6t truck + 2 movers on a weekday prices at the hand-checked $780.
 const routeFetch = (ok = true) =>
   vi.fn(async () => ({
     ok,
@@ -107,10 +108,33 @@ describe("a normal quote", () => {
     expect(customer.text).toContain("final price");
   });
 
-  it("maps every dropdown label the form sends (including the old bug where it sent nothing)", async () => {
+  it("accepts the truck and crew as the form sends them (strings), and the 4-mover option", async () => {
     const { run } = setup();
-    expect(result(await run({ ...goodBody, propertySize: "Studio / 1 Bed" }))).toMatchObject({ kind: "price" });
-    expect(result(await run({ ...goodBody, email: "b@x.com", propertySize: null }))).toMatchObject({ kind: "manual" });
+    // 6t + 4 movers = $1240 (hand-checked in the engine tests)
+    expect(result(await run({ ...goodBody, movers: "4" }))).toMatchObject({ kind: "price", amountAud: 1240 });
+  });
+
+  it("rejects truck or crew values the form doesn't offer", async () => {
+    const { run } = setup();
+    expect((await run({ ...goodBody, truck: "10T" })).status).toBe(400);
+    expect((await run({ ...goodBody, movers: 3 })).status).toBe(400);
+  });
+
+  it("stores the access notes and passes them to the team and the customer, without pricing them", async () => {
+    const { run, sent, store } = setup();
+    const res = result(await run({ ...goodBody, accessNotes: "3rd floor walk-up, truck parks 40m away" }));
+    expect(res).toMatchObject({ kind: "price", amountAud: 780 });
+    expect(store!.rows[0]).toMatchObject({ accessNotes: "3rd floor walk-up, truck parks 40m away", truck: "6.0T", movers: 2 });
+    expect(sent.find((e) => e.kind === "team")!.text).toContain("Access notes: 3rd floor walk-up");
+    expect(sent.find((e) => e.kind === "customer")!.text).toContain("Access: 3rd floor walk-up");
+  });
+
+  it("the customer email explains the onsite-inspection caveat without any rate", async () => {
+    const { run, sent } = setup();
+    await run(goodBody);
+    const customer = sent.find((e) => e.kind === "customer")!;
+    expect(customer.text).toContain("onsite inspection");
+    expect(customer.text).toContain("Truck & crew: 6 tonne truck, 2 movers");
   });
 });
 
@@ -149,6 +173,8 @@ describe("when it can't give a price, a person follows up -- and the lead is nev
   it("no Google key configured", () => expectManual({ routes: null }, goodBody, "service_unavailable"));
   it("Google can't route it", () => expectManual({ routes: { apiKey: "k", fetchImpl: routeFetch(false) } }, goodBody, "distance_unavailable"));
   it("junk removal", () => expectManual({}, { ...goodBody, need: "junk" }, "junk_removal"));
+  it("customer asked the team to inspect", () => expectManual({}, { ...goodBody, truck: "inspect", movers: "" }, "site_inspection_requested"));
+  it("no truck chosen (e.g. an old form)", () => expectManual({}, { ...goodBody, truck: "", propertySize: "2 Bedroom" }, "capacity_missing"));
   it("a date in the past", () => expectManual({}, { ...goodBody, date: "2026-10-01" }, "date_missing"));
   it("an impossible date", () => expectManual({}, { ...goodBody, date: "2026-02-31" }, "date_missing"));
   it("no pickup/drop-off given", () => expectManual({}, { ...goodBody, from: "", to: "" }, "distance_unavailable"));

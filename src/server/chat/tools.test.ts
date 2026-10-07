@@ -6,7 +6,7 @@ import type { LeadPatch, LeadStore } from "./leadStore.js";
 import { buildSystemPrompt } from "./systemPrompt.js";
 import { chatTools, createToolRunner } from "./tools.js";
 
-// Same hand-checked numbers as the form's tests: 2 bed weekday, 20 km / 30 min legs = $780.
+// Same hand-checked numbers as the form's tests: 6t truck + 2 movers on a weekday, 20 km / 30 min legs = $780.
 const routeFetch = vi.fn(async () => ({
   ok: true,
   json: async () => ({ routes: [{ distanceMeters: 20000, duration: "1800s" }] }),
@@ -51,10 +51,11 @@ const quoteInput = {
   from: "Preston",
   to: "Brunswick",
   date: "2026-10-14",
-  propertySize: "2_bed",
+  truck: "6.0T",
+  movers: 2,
   firstMove: false,
   specialItems: false,
-  access: { pickupStairFlights: 0, dropoffStairFlights: 0, longCarry: false, heavyItems: 0 },
+  accessNotes: "",
 };
 
 describe("get_quote uses the same engine and flow as the website form", () => {
@@ -64,18 +65,26 @@ describe("get_quote uses the same engine and flow as the website form", () => {
 
     expect(run.result).toMatchObject({ ok: true, kind: "price", amountAud: 780, reference: "BLR-CHAT-1", emailed: true });
     expect(run.record).toEqual({ name: "get_quote", quoteReference: "BLR-CHAT-1", quotedAmountAud: 780, outcome: "priced" });
-    expect(rows[0]).toMatchObject({ source: "chatbot", conversationId: "conv-1", propertySize: "2_bed", amountAud: 780 });
+    expect(rows[0]).toMatchObject({ source: "chatbot", conversationId: "conv-1", truck: "6.0T", movers: 2, amountAud: 780 });
     expect(sent.find((e) => e.kind === "team")!.text).toContain("Via: website chat");
-    expect(sent.find((e) => e.kind === "team")!.text).toContain("Property size: 2 Bedroom");
+    expect(sent.find((e) => e.kind === "team")!.text).toContain("Truck & crew: 6 tonne truck, 2 movers");
     expect(leadCalls[0]).toEqual(["conv-1", expect.objectContaining({ customerName: "Jane Smith", quoteReference: "BLR-CHAT-1" })]);
     expect(leadCalls[0]![1].humanFollowupRequired).toBeUndefined();
   });
 
-  it("prices stairs into the one flat price", async () => {
-    const { runTool } = setup();
-    // (712.5 + 2 x 40) x 1.1 = 871.75 -> $870
-    const run = await runTool("get_quote", { ...quoteInput, access: { ...quoteInput.access, pickupStairFlights: 2 } });
-    expect(run.result).toMatchObject({ amountAud: 870 });
+  it("prices the crew size the customer chose, and passes their access notes to the team", async () => {
+    const { runTool, sent } = setup();
+    const run = await runTool("get_quote", { ...quoteInput, movers: 4, accessNotes: "2 flights of stairs at pickup" });
+    expect(run.result).toMatchObject({ amountAud: 1240 }); // same as the form for 6t + 4 movers
+    expect(sent.find((e) => e.kind === "team")!.text).toContain("Access notes: 2 flights of stairs at pickup");
+  });
+
+  it("an inspection request goes to the team with no price", async () => {
+    const { runTool, leadCalls } = setup();
+    const { movers: _omit, ...rest } = quoteInput;
+    const run = await runTool("get_quote", { ...rest, truck: "inspect" });
+    expect(run.result).toMatchObject({ ok: true, kind: "manual" });
+    expect(leadCalls[0]![1]).toMatchObject({ humanFollowupRequired: true });
   });
 
   it("never hands the model the internal breakdown, rates or call-out", async () => {

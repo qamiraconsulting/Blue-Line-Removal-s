@@ -14,8 +14,14 @@ export interface QuoteDetails {
   from: string;
   to: string;
   dateLabel: string; // already human-formatted, or ""
-  propertySize: string;
+  capacity: string; // "4.5 tonne truck, 2 movers" or "Team to inspect and confirm"
+  accessNotes: string; // free text from the customer, or ""
 }
+
+// Blue Line 2026-10-07: the price is final for the job as described, but the onsite
+// inspection can change it (e.g. the load needs an extra truck). Rates stay off the email.
+export const INSPECTION_NOTE =
+  "It is based on the truck, crew and details you gave us. If our onsite inspection finds more to move than described (for example, an extra truck is needed), we will confirm the updated price with you before we go ahead.";
 
 const NAVY = "#0e2a47";
 const ORANGE = "#ff6b1a";
@@ -70,7 +76,8 @@ export function renderCustomerQuoteEmail(input: {
     ["From", input.details.from],
     ["To", input.details.to],
     ["Date", input.details.dateLabel],
-    ["Property", input.details.propertySize],
+    ["Truck & crew", input.details.capacity],
+    ["Access", input.details.accessNotes],
   ].filter((r): r is [string, string] => Boolean(r[1]));
 
   const text = [
@@ -82,6 +89,7 @@ export function renderCustomerQuoteEmail(input: {
     input.firstMoveApplied ? "  Your 30% first-move offer has been applied." : "",
     "",
     "This is the final price for the move described below -- no hidden fees or extras on the day.",
+    INSPECTION_NOTE,
     "",
     ...rows.map(([k, v]) => `${k}: ${v}`),
     "",
@@ -92,7 +100,7 @@ export function renderCustomerQuoteEmail(input: {
     `Valid until: ${input.validUntilLabel}`,
     "",
     `To book, reply to this email or call us on ${site.phone.display}.`,
-    "If any details change (addresses, date or property size), let us know and we'll update your quote before your move.",
+    "If any details change (addresses, date, truck or crew), let us know and we'll update your quote before your move.",
     "",
     `${site.name}`,
   ]
@@ -104,7 +112,7 @@ export function renderCustomerQuoteEmail(input: {
 <p style="margin:0 0 14px">Thanks for asking for a quote. Here's your fixed price:</p>
 <p style="margin:0 0 6px;font-size:34px;font-weight:bold;color:${NAVY}">${esc(price)}</p>
 <p style="margin:0 0 14px;color:#5b6b7c;font-size:13px">GST included${input.firstMoveApplied ? ` &middot; <strong style="color:${ORANGE}">30% first-move offer applied</strong>` : ""}</p>
-<p style="margin:0 0 14px">This is the <strong>final price</strong> for the move described below &mdash; no hidden fees or extras on the day.</p>
+<p style="margin:0 0 14px">This is the <strong>final price</strong> for the move described below &mdash; no hidden fees or extras on the day. ${esc(INSPECTION_NOTE)}</p>
 <table style="border-collapse:collapse;margin:0 0 14px;font-size:14px">${rows
     .map(
       ([k, v]) =>
@@ -115,17 +123,20 @@ export function renderCustomerQuoteEmail(input: {
 <ul style="margin:0 0 14px;padding-left:20px">${input.includes.map((i) => `<li>${esc(i)}</li>`).join("")}</ul>
 <p style="margin:0 0 4px;font-size:13px;color:#5b6b7c">Quote reference <strong>${esc(input.reference)}</strong> &middot; valid until ${esc(input.validUntilLabel)}</p>
 <p style="margin:14px 0">To book, reply to this email or call us on <a href="${esc(site.phone.href)}" style="color:${ORANGE};font-weight:bold">${esc(site.phone.display)}</a>.</p>
-<p style="margin:0;font-size:13px;color:#5b6b7c">If any details change (addresses, date or property size), let us know and we'll update your quote before your move.</p>`);
+<p style="margin:0;font-size:13px;color:#5b6b7c">If any details change (addresses, date, truck or crew), let us know and we'll update your quote before your move.</p>`);
 
   return { subject: `Your Blue Line Removals quote: ${price} (ref ${input.reference})`, text, html };
 }
 
-export function renderAcknowledgementEmail(input: { name: string; reference: string }): EmailContent {
+export function renderAcknowledgementEmail(input: { name: string; reference: string; inspection?: boolean }): EmailContent {
+  const next = input.inspection
+    ? "One of the team will be in touch to arrange a time to inspect and confirm the truck and crew you need, then send your price."
+    : "One of the team will review your details and send your exact price shortly.";
   const text = [
     `Hi ${firstName(input.name)},`,
     "",
     "Thanks for your quote request -- we've got it.",
-    "One of the team will review your details and send your exact price shortly.",
+    next,
     "",
     `Your reference: ${input.reference}`,
     `If it's urgent, call us on ${site.phone.display}.`,
@@ -136,7 +147,7 @@ export function renderAcknowledgementEmail(input: { name: string; reference: str
   const html = shell(`
 <p style="margin:0 0 14px">Hi ${esc(firstName(input.name))},</p>
 <p style="margin:0 0 14px">Thanks for your quote request &mdash; we've got it.</p>
-<p style="margin:0 0 14px">One of the team will review your details and send your exact price shortly.</p>
+<p style="margin:0 0 14px">${esc(next)}</p>
 <p style="margin:0 0 14px;font-size:13px;color:#5b6b7c">Your reference: <strong>${esc(input.reference)}</strong></p>
 <p style="margin:0">If it's urgent, call us on <a href="${esc(site.phone.href)}" style="color:${ORANGE};font-weight:bold">${esc(site.phone.display)}</a>.</p>`);
 
@@ -169,7 +180,8 @@ export function renderTeamEmail(input: {
     `Moving from: ${input.details.from || "-"}`,
     `Moving to: ${input.details.to || "-"}`,
     `Preferred date: ${input.details.dateLabel || "-"}`,
-    `Property size: ${input.details.propertySize || "-"}`,
+    `Truck & crew: ${input.details.capacity || "-"}`,
+    `Access notes: ${input.details.accessNotes || "-"}`,
     `First-move offer: ${input.firstMoveRequested ? (input.firstMoveApplied ? "requested and applied" : "requested, NOT applied (already used)") : "not requested"}`,
     ...(input.internalBreakdown ? ["", "Internal breakdown (not shown to the customer):", JSON.stringify(input.internalBreakdown, null, 2)] : []),
   ];

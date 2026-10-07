@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { formatAud, formatDateLabel, renderAcknowledgementEmail, renderCustomerQuoteEmail, renderTeamEmail } from "./emails.js";
 
-const details = { from: "Preston", to: "Brunswick", dateLabel: "Wednesday 14 October 2026", propertySize: "2 Bedroom" };
+const details = { from: "Preston", to: "Brunswick", dateLabel: "Wednesday 14 October 2026", capacity: "6 tonne truck, 2 movers", accessNotes: "2nd floor, no lift" };
 
 describe("customer quote email", () => {
   const email = renderCustomerQuoteEmail({
@@ -66,6 +66,11 @@ describe("acknowledgement and team emails", () => {
     const ack = renderAcknowledgementEmail({ name: "Jane Smith", reference: "R1" });
     expect(ack.text).toContain("send your exact price shortly");
     expect(ack.text).not.toMatch(/\$\d/);
+  });
+
+  it("acknowledgement for an inspection request says the team will arrange the inspection", () => {
+    const ack = renderAcknowledgementEmail({ name: "Jane", reference: "R2", inspection: true });
+    expect(ack.text).toContain("arrange a time to inspect");
   });
 
   it("team email carries everything needed to follow up, plus the breakdown when priced", () => {

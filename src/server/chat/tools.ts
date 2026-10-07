@@ -1,6 +1,6 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
-import { handleQuoteRequest, propertySizeIds, type QuoteServiceDeps } from "../quote/service.js";
+import { handleQuoteRequest, truckChoices, type QuoteServiceDeps } from "../quote/service.js";
 import type { LeadStore } from "./leadStore.js";
 
 // The chat has exactly two tools. get_quote runs the SAME flow as the website quote form
@@ -8,8 +8,6 @@ import type { LeadStore } from "./leadStore.js";
 // first-move check, same stored quote and same emails. The model never sees an hourly
 // rate, a call-out figure or the internal breakdown -- only what the form's result card
 // shows the customer.
-
-const count = (max: number, what: string) => z.number().int().min(0).max(max).describe(what);
 
 export const getQuoteInput = z.object({
   name: z.string().min(1).describe("Customer's name."),
@@ -19,19 +17,19 @@ export const getQuoteInput = z.object({
   from: z.string().describe("Pickup suburb or address, as the customer gave it (empty for junk removal if not given)."),
   to: z.string().describe("Drop-off suburb or address, as the customer gave it."),
   date: z.string().describe("Moving date as YYYY-MM-DD. Work relative dates out from today's date in your instructions."),
-  propertySize: z
-    .enum(propertySizeIds)
-    .describe("studio_1bed, 2_bed, 3_bed, 4plus_bed (houses/units), commercial (office), unsure (customer doesn't know)."),
+  truck: z
+    .enum(truckChoices)
+    .describe("The truck the customer chose: 3.5T, 4.5T, 6.0T or 8.0T -- or 'inspect' if they want the team to inspect and confirm."),
+  movers: z
+    .union([z.literal(2), z.literal(4)])
+    .optional()
+    .describe("2 or 4 movers, as the customer chose. Leave out when truck is 'inspect'."),
+  accessNotes: z
+    .string()
+    .max(1000)
+    .describe("What the customer said about stairs, parking distance from the door and heavy items, in their words. Empty if nothing."),
   firstMove: z.boolean().describe("True only if the customer said this is their first move with Blue Line."),
   specialItems: z.boolean().describe("True if there's a piano, pool table, safe, spa or similar specialist item."),
-  access: z
-    .object({
-      pickupStairFlights: count(10, "Flights of stairs at the pickup with no lift (0 if none or there's a lift)."),
-      dropoffStairFlights: count(10, "Flights of stairs at the drop-off with no lift (0 if none or there's a lift)."),
-      longCarry: z.boolean().describe("True if the truck can't park close to the door at either end."),
-      heavyItems: count(20, "Number of very heavy single items the customer mentioned."),
-    })
-    .describe("Access at both ends -- priced into the single flat price, never shown separately."),
 });
 
 export const requestHumanFollowupInput = z.object({

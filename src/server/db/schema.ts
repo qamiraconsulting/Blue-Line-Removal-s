@@ -77,7 +77,9 @@ export const quotes = pgTable(
     phoneNormalised: text("phone_normalised").notNull(),
 
     need: text("need").notNull(),
-    propertySize: text("property_size"),
+    truck: text("truck"), // "3.5T" | "4.5T" | "6.0T" | "8.0T" | "inspect"
+    movers: integer("movers"),
+    accessNotes: text("access_notes"), // free text: stairs, parking distance, heavy items
     movingDate: date("moving_date"),
     fromText: text("from_text"),
     toText: text("to_text"),

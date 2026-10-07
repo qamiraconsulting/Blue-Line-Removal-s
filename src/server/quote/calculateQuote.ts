@@ -1,4 +1,4 @@
-import type { JobSizeId, RateCard } from "./rateCard.js";
+import type { MoverCount, RateCard, TruckId } from "./rateCard.js";
 
 // The flat-price engine: a PURE function -- inputs and a rate card in, one price out. No
 // database, no network, no clock, no randomness, so the same inputs always give the same
@@ -8,7 +8,8 @@ import type { JobSizeId, RateCard } from "./rateCard.js";
 // discount all go into that number; none of them is exposed. The only thing allowed to
 // leave this module towards a customer is `customer` on a "price" outcome.
 
-export type PropertySizeId = JobSizeId | "commercial" | "unsure";
+/** The customer's capacity choice: a truck, or "inspect" (the team inspects and confirms). */
+export type TruckChoice = TruckId | "inspect";
 
 export interface LegDistance {
   km: number;
@@ -17,8 +18,10 @@ export interface LegDistance {
 
 export interface QuoteInputs {
   need: "moving" | "junk";
-  propertySize: PropertySizeId;
-  /** yyyy-mm-dd. Needed because weekends/public holidays can cost more. */
+  /** null = the customer didn't choose. */
+  truck: TruckChoice | null;
+  movers: MoverCount | null;
+  /** yyyy-mm-dd. Needed because public holidays can cost more. */
   movingDate: string | null;
   /** The customer ticked "this is my first move". */
   firstMoveRequested: boolean;
@@ -38,7 +41,8 @@ export interface QuoteInputs {
 
 export type ManualReason =
   | "junk_removal"
-  | "commercial_or_unsure_size"
+  | "site_inspection_requested"
+  | "capacity_missing"
   | "special_items"
   | "date_missing"
   | "distance_unavailable"
@@ -65,9 +69,11 @@ export interface InternalBreakdown {
   callOutCostAud: number;
   accessCostAud: number;
   surchargeAppliedPercent: number;
+  /** Charges excluding GST, before any discount. */
   subtotalAud: number;
-  totalIncGstAud: number;
   discountPercent: number;
+  discountAud: number;
+  gstAud: number;
   unroundedAud: number;
 }
 
@@ -93,7 +99,8 @@ export function calculateQuote(inputs: QuoteInputs, rateCard: RateCard, options:
   if (rateCard.status !== "confirmed" && !options.allowPlaceholderRateCard) return manual("rate_card_not_confirmed");
 
   if (inputs.need === "junk") return manual("junk_removal");
-  if (inputs.propertySize === "commercial" || inputs.propertySize === "unsure") return manual("commercial_or_unsure_size");
+  if (inputs.truck === "inspect") return manual("site_inspection_requested");
+  if (!inputs.truck || !inputs.movers) return manual("capacity_missing");
   if (inputs.specialItems) return manual("special_items");
   if (!inputs.movingDate) return manual("date_missing");
   if (!inputs.depotToPickup || !inputs.pickupToDropoff) return manual("distance_unavailable");
@@ -106,17 +113,25 @@ export function calculateQuote(inputs: QuoteInputs, rateCard: RateCard, options:
     return manual("outside_service_area");
   }
 
-  const job = rateCard.jobSizes[inputs.propertySize];
-  if (!job) return manual("rate_card_incomplete");
-  const truck = rateCard.trucks[job.truck];
-  if (truck.hourlyRateAud === null) return manual("rate_card_incomplete");
+  const truck = rateCard.trucks[inputs.truck];
+  const labourHours = truck.labourHours[String(inputs.movers) as "2" | "4"];
+  if (truck.hourlyRateAud === null || labourHours == null) return manual("rate_card_incomplete");
   if (rateCard.gst.ratesIncludeGst === null) return manual("rate_card_incomplete");
-  const surcharged = isWeekend(inputs.movingDate) || rateCard.publicHolidays.includes(inputs.movingDate);
-  if (surcharged && rateCard.weekendHolidaySurchargePercent === null) return manual("rate_card_incomplete");
 
-  // Labour hours plus the real drive between the two addresses, never below the minimum.
-  const jobHours = Math.max(rateCard.minimumJobHours, job.labourHours + inputs.pickupToDropoff.minutes / 60);
-  const extraMovers = Math.max(0, job.movers - 2);
+  const holiday = rateCard.publicHolidays.includes(inputs.movingDate);
+  const weekend = isWeekend(inputs.movingDate);
+  if (holiday && rateCard.publicHolidaySurchargePercent === null) return manual("rate_card_incomplete");
+  if (!holiday && weekend && rateCard.weekendSurchargePercent === null) return manual("rate_card_incomplete");
+  // A public holiday on a weekend takes the holiday rate; the two never stack.
+  const surchargePercent = holiday
+    ? (rateCard.publicHolidaySurchargePercent ?? 0)
+    : weekend
+      ? (rateCard.weekendSurchargePercent ?? 0)
+      : 0;
+
+  // Loading/unloading plus the real drive between the two addresses, never below the minimum.
+  const jobHours = Math.max(rateCard.minimumJobHours, labourHours + inputs.pickupToDropoff.minutes / 60);
+  const extraMovers = Math.max(0, inputs.movers - 2);
   const crewRate = truck.hourlyRateAud + extraMovers * rateCard.extraMoverHourlyRateAud;
   const labourCost = jobHours * crewRate;
 
@@ -129,15 +144,17 @@ export function calculateQuote(inputs: QuoteInputs, rateCard: RateCard, options:
     (inputs.access.longCarry ? rateCard.accessExtras.longCarryAud : 0) +
     inputs.access.heavyItems * rateCard.accessExtras.perHeavyItemAud;
 
-  const surchargePercent = surcharged ? (rateCard.weekendHolidaySurchargePercent ?? 0) : 0;
-  const subtotal = (labourCost + callOutCost + accessCost) * (1 + surchargePercent / 100);
+  const charges = (labourCost + callOutCost + accessCost) * (1 + surchargePercent / 100);
 
-  // The single price shown to customers is GST-inclusive. If the card's rates are ex-GST, add it here.
-  const totalIncGst = rateCard.gst.ratesIncludeGst ? subtotal : subtotal * (1 + rateCard.gst.ratePercent / 100);
-
+  // The first-move offer comes off the charges EXCLUDING GST; GST is then charged on the
+  // discounted price (GST is always 10% of what the customer actually pays).
+  const gstRate = rateCard.gst.ratePercent / 100;
+  const subtotalExGst = rateCard.gst.ratesIncludeGst ? charges / (1 + gstRate) : charges;
   const firstMoveApplied = inputs.firstMoveRequested && inputs.firstMoveEligible;
   const discountPercent = firstMoveApplied ? rateCard.firstMoveDiscountPercent : 0;
-  const unrounded = totalIncGst * (1 - discountPercent / 100);
+  const discount = subtotalExGst * (discountPercent / 100);
+  const gst = (subtotalExGst - discount) * gstRate;
+  const unrounded = subtotalExGst - discount + gst;
 
   const step = rateCard.roundToNearestAud;
   const amountAud = Math.round(unrounded / step) * step;
@@ -148,7 +165,7 @@ export function calculateQuote(inputs: QuoteInputs, rateCard: RateCard, options:
     customer: {
       amountAud,
       includes: [
-        `${job.movers} movers and a ${truck.label}`,
+        `${inputs.movers} movers and a ${truck.label}`,
         "Loading, transport and unloading",
         "Travel to your pickup address and between addresses",
         "GST included",
@@ -157,8 +174,8 @@ export function calculateQuote(inputs: QuoteInputs, rateCard: RateCard, options:
       validDays: rateCard.validityDays,
     },
     internal: {
-      truck: job.truck,
-      movers: job.movers,
+      truck: inputs.truck,
+      movers: inputs.movers,
       jobHours: round2(jobHours),
       crewRateAudPerHour: crewRate,
       labourCostAud: round2(labourCost),
@@ -166,9 +183,10 @@ export function calculateQuote(inputs: QuoteInputs, rateCard: RateCard, options:
       callOutCostAud: callOutCost,
       accessCostAud: accessCost,
       surchargeAppliedPercent: surchargePercent,
-      subtotalAud: round2(subtotal),
-      totalIncGstAud: round2(totalIncGst),
+      subtotalAud: round2(subtotalExGst),
       discountPercent,
+      discountAud: round2(discount),
+      gstAud: round2(gst),
       unroundedAud: round2(unrounded),
     },
   };
