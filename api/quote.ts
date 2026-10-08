@@ -8,12 +8,11 @@ import { Resend } from "resend";
 // (2026-08-10), so this currently reuses Qamira's verified sending domain
 // (same pattern as qamira-web's api/contact.ts) until that changes.
 //
-// LEAD_TO_EMAIL is a temporary hardcoded inbox (the agency's own address,
-// not the client's) because bluelineremovals.com.au isn't registered and
-// hello@bluelineremovals.com.au doesn't exist as a real mailbox yet.
-// Swap this one constant for the client's real inbox once it's live --
-// nothing else needs to change.
-const LEAD_TO_EMAIL = "qamiraconsulting@gmail.com";
+// Leads go to LEAD_TO_EMAIL when it's set in the Vercel dashboard (shared
+// with api/callback.ts), otherwise to the agency's own inbox -- a temporary
+// fallback until the client's real inbox is decided. Changing the env var
+// and redeploying switches both forms; no code edit needed.
+const LEAD_TO_EMAIL = process.env.LEAD_TO_EMAIL || "qamiraconsulting@gmail.com";
 const EMAIL_PATTERN = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 
 function truncate(value: unknown, max: number): string {

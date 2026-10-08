@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { ChevronLeft, ChevronRight, Phone, Sparkle } from "lucide-react";
+import { ChevronLeft, ChevronRight, Phone, PhoneCall, Sparkle } from "lucide-react";
 import { site } from "@/data/site";
+import { CallbackModal } from "@/components/layout/CallbackModal";
 
 const SEEN_KEY = "blr-contact-widget-seen";
 const COLLAPSED_KEY = "blr-contact-widget-collapsed";
@@ -22,6 +23,11 @@ const surface = "border border-white/10 bg-navy/85 shadow-lg backdrop-blur-md";
 // overflow-hidden clips the shine sweep to the button.
 const quoteButton =
   "relative z-10 flex w-full items-center justify-center overflow-hidden rounded-md bg-action text-center font-display font-bold uppercase tracking-[0.02em] text-white shadow-[0_4px_14px_rgba(255,107,26,0.35)] transition-colors duration-200 hover:bg-action-bright focus-visible:outline-white";
+
+// Secondary (outlined) style for Call / Request a Callback, so the orange
+// quote button stays the one primary action.
+const outlineButton =
+  "flex items-center justify-center rounded-md border border-white/30 font-display font-bold uppercase tracking-[0.02em] text-white transition-colors hover:bg-white/10 focus-visible:outline-white";
 
 function readSession(key: string) {
   try {
@@ -129,6 +135,8 @@ export function ContactWidget() {
   const [slideIn, setSlideIn] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [toggled, setToggled] = useState(false);
+  // Only ever opened by a click on one of the callback buttons below.
+  const [callbackOpen, setCallbackOpen] = useState(false);
 
   // Client-only: the prerendered HTML has no widget, so there's no flash of
   // it before the slide-in. The "seen" flag is written when the slide-in
@@ -245,6 +253,19 @@ export function ContactWidget() {
                 </a>
                 <button
                   type="button"
+                  aria-haspopup="dialog"
+                  onClick={() => setCallbackOpen(true)}
+                  className={`${outlineButton} gap-1 px-1 py-1.5 text-left text-[10px] leading-tight min-[1600px]:gap-2 min-[1600px]:px-2 min-[1600px]:py-3 min-[1600px]:text-[13px]`}
+                >
+                  <PhoneCall className="h-3 w-3 shrink-0 min-[1600px]:h-4 min-[1600px]:w-4" aria-hidden="true" />
+                  <span>
+                    Request a
+                    <br />
+                    Callback
+                  </span>
+                </button>
+                <button
+                  type="button"
                   aria-label="Minimise contact options"
                   aria-expanded={true}
                   onClick={() => toggle(true)}
@@ -269,21 +290,34 @@ export function ContactWidget() {
           className="border-t border-white/10 bg-navy/85 backdrop-blur-md"
           style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
         >
-          <div className="flex h-[4.25rem] items-center gap-3 px-4">
+          {/* Three buttons, weighted so each label fits on one line down to a
+              320px-wide phone (below 360px the callback icon drops out and
+              the quote label steps down a size). */}
+          <div className="flex h-[4.25rem] items-center gap-2 px-3">
             <a
               href={site.phone.href}
               aria-label={`Call Blue Line Removals on ${site.phone.display}`}
-              className="flex h-11 flex-1 items-center justify-center gap-2 rounded-md border border-white/30 font-display text-sm font-bold uppercase tracking-[0.02em] text-white transition-colors hover:bg-white/10 focus-visible:outline-white"
+              className={`${outlineButton} h-11 min-w-0 flex-[0.75] gap-1.5 text-[13px]`}
             >
-              <Phone className="h-4 w-4" fill="currentColor" aria-hidden="true" />
+              <Phone className="h-4 w-4 shrink-0" fill="currentColor" aria-hidden="true" />
               Call
             </a>
-            <div className="relative flex-1">
+            <button
+              type="button"
+              aria-label="Request a callback"
+              aria-haspopup="dialog"
+              onClick={() => setCallbackOpen(true)}
+              className={`${outlineButton} h-11 min-w-0 flex-1 gap-1.5 text-[13px]`}
+            >
+              <PhoneCall className="h-4 w-4 shrink-0 max-[359px]:hidden" aria-hidden="true" />
+              Callback
+            </button>
+            <div className="relative min-w-0 flex-[1.1]">
               {animate && <KangarooPeek className="h-[54px] w-12" />}
-              {/* Smaller ripple than desktop: there's only a 12px gap to the
-                  Call button. */}
-              <Pulse animate={animate} ripple={8}>
-                <Link to="/quote" aria-label="Get a free quote" className={`${quoteButton} h-11 px-3 text-sm`}>
+              {/* Smaller ripple than desktop: there's only an 8px gap to the
+                  Callback button. */}
+              <Pulse animate={animate} ripple={6}>
+                <Link to="/quote" aria-label="Get a free quote" className={`${quoteButton} h-11 whitespace-nowrap px-2 text-[13px] max-[359px]:text-xs`}>
                   {animate && <Shine />}
                   Get a Quote
                 </Link>
@@ -293,6 +327,11 @@ export function ContactWidget() {
           </div>
         </motion.div>
       </aside>
+
+      {/* Rendered outside both asides: their motion wrappers are transformed,
+          which would make the dialog's `fixed` position relative to them
+          instead of the viewport. */}
+      <CallbackModal open={callbackOpen} onClose={() => setCallbackOpen(false)} />
     </>
   );
 }
