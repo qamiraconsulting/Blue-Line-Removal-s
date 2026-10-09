@@ -154,7 +154,8 @@ export const whyUs = [
   },
 ];
 
-// Real Google reviews, copied verbatim (client-supplied 2026-09-30) -- keep
+// Real Google reviews, copied verbatim (client-supplied 2026-09-30, Taine H.
+// added 2026-10-09) -- keep
 // the text exactly as written. Overall rating/count must match the live
 // Google profile (ACCC: a review display must not mislead), so update
 // `rating` whenever reviews are added.
@@ -162,7 +163,7 @@ export const reviews = {
   eyebrow: "Reviews",
   heading: "What our customers say",
   body: "Don't just take our word for it. Here's what Melbourne customers have said about moving with Blue Line Removals on Google.",
-  rating: { score: "5.0", count: 7 },
+  rating: { score: "5.0", count: 8 },
   googleUrl: "https://maps.app.goo.gl/3q65tzW5vBJ64PZUA",
   items: [
     {
@@ -199,6 +200,11 @@ export const reviews = {
       name: "Ketan P.",
       stars: 5,
       text: "Punctual and reliable. Best and affordable!!",
+    },
+    {
+      name: "Taine H.",
+      stars: 5,
+      text: "I had a great experience with this removalists company The team was professional and handled all my belongings with great care.",
     },
   ],
 };
