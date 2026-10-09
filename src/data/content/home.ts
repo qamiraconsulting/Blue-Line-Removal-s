@@ -204,7 +204,7 @@ export const reviews = {
     {
       name: "Taine H.",
       stars: 5,
-      text: "I had a great experience with this removalists company The team was professional and handled all my belongings with great care.",
+      text: "I had a great experience with this removalists company. The team was professional and handled all my belongings with great care.",
     },
   ],
 };
