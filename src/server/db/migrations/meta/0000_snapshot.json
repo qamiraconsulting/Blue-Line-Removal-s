@@ -1,5 +1,5 @@
 {
-  "id": "3ddf878a-ea40-472b-bf58-f6373383cbc8",
+  "id": "75a40490-3d0c-4535-8999-afbca8661117",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -522,6 +522,42 @@
         "customer_email_sent_at": {
           "name": "customer_email_sent_at",
           "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "booking_status": {
+          "name": "booking_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "booking_requested_at": {
+          "name": "booking_requested_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "booking_confirmed_at": {
+          "name": "booking_confirmed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "booking_terms_version": {
+          "name": "booking_terms_version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "booking_terms_text": {
+          "name": "booking_terms_text",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "booking_notes": {
+          "name": "booking_notes",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         }

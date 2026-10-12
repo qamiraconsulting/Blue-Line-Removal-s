@@ -3,6 +3,7 @@ import { and, asc, desc, eq } from "drizzle-orm";
 import { site } from "../../data/site.js";
 import { getDb } from "../db/client.js";
 import { conversations, leads, messages } from "../db/schema.js";
+import { dbBookingStore } from "../quote/booking.js";
 import { buildQuoteDeps } from "../quote/deps.js";
 import { DEFAULT_EFFORT, runAgentTurn, type StoredTurn } from "./agent.js";
 import { dbLeadStore } from "./leadStore.js";
@@ -32,7 +33,7 @@ export interface MessageResult {
   reply: string | null;
   awaitingTeam: boolean;
   /** For analytics: what the chat produced this turn. */
-  outcome: "estimate" | "personal_quote" | "handoff" | null;
+  outcome: "estimate" | "booking_requested" | "personal_quote" | "handoff" | null;
 }
 
 export class ConversationNotFoundError extends Error {}
@@ -89,7 +90,7 @@ export async function postMessage(conversationId: string, userMessage: string): 
   await db.insert(messages).values({ conversationId, role: "user", content: userMessage });
   await db.update(conversations).set({ lastActivityAt: new Date() }).where(eq(conversations.id, conversationId));
 
-  const runTool = createToolRunner({ quoteDeps: buildQuoteDeps(), leads: dbLeadStore, conversationId });
+  const runTool = createToolRunner({ quoteDeps: buildQuoteDeps(), leads: dbLeadStore, bookings: dbBookingStore, conversationId });
 
   // A team member has taken over: store the message, put the chat back on the dashboard
   // (this also emails the team if it wasn't already waiting), and let the person reply.
@@ -141,8 +142,10 @@ export async function postMessage(conversationId: string, userMessage: string): 
     usage: turn.usage,
   });
 
-  const outcome = turn.toolRecords.some((r) => r.outcome === "priced" || r.outcome === "priced_test")
-    ? "estimate"
+  const outcome = turn.toolRecords.some((r) => r.outcome === "booking_requested")
+    ? "booking_requested"
+    : turn.toolRecords.some((r) => r.outcome === "priced" || r.outcome === "priced_test")
+      ? "estimate"
     : turn.toolRecords.some((r) => r.name === "get_quote" && r.outcome === "manual")
       ? "personal_quote"
       : turn.toolRecords.some((r) => r.name === "request_human_followup")

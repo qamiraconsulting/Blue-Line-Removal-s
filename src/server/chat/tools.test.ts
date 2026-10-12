@@ -87,11 +87,10 @@ describe("get_quote uses the same engine and flow as the website form", () => {
     expect(sent.find((e) => e.kind === "team")!.text).toContain("Access notes: 2 flights of stairs at pickup");
   });
 
-  it("an inspection request goes to the team with no price", async () => {
-    const { runTool, leadCalls } = setup();
+  it("an on-the-day inspection request still gets an estimate", async () => {
+    const { runTool } = setup();
     const run = await runTool("get_quote", { ...quoteInput, truck: "inspect" });
-    expect(run.result).toMatchObject({ ok: true, kind: "manual" });
-    expect(leadCalls[0]![1]).toMatchObject({ humanFollowupRequired: true });
+    expect(run.result).toMatchObject({ ok: true, kind: "price", amountAud: 720 });
   });
 
   it("never hands the model the internal breakdown, rates or call-out", async () => {
@@ -138,7 +137,66 @@ describe("get_quote uses the same engine and flow as the website form", () => {
   });
 });
 
+describe("request_booking", () => {
+  it("refuses unless the customer clearly agreed to the booking terms", async () => {
+    const { runTool } = setup();
+    const run = await runTool("request_booking", { quoteReference: "BLR-CHAT-1", agreedToTerms: false });
+    expect(run).toMatchObject({ isError: true, record: { outcome: "invalid_input" } });
+  });
+
+  it("books the estimate made earlier in the same chat and flags it for the team", async () => {
+    const { quoteDeps, leadCalls, sent } = setup();
+    // a real quote first, so the booking store has something to find
+    const rows: Record<string, unknown>[] = [];
+    const quoteRunner = createToolRunner({
+      quoteDeps: { ...quoteDeps!, store: { ...quoteDeps!.store!, saveQuote: async (row) => void rows.push(row) } },
+      leads: { upsertForConversation: async (id, patch) => (leadCalls.push([id, patch]), { wasFlagged: false }) },
+      conversationId: "conv-1",
+      log: () => {},
+    });
+    await quoteRunner("get_quote", quoteInput);
+    const stored = { ...rows[0], bookingStatus: null, bookingNotes: null } as never;
+    let marked = false;
+    const runTool = createToolRunner({
+      quoteDeps,
+      leads: { upsertForConversation: async (id, patch) => (leadCalls.push([id, patch]), { wasFlagged: false }) },
+      bookings: {
+        findQuote: async () => stored,
+        markRequested: async () => ((marked = true), true),
+        markConfirmed: async () => false,
+      },
+      conversationId: "conv-1",
+      log: () => {},
+    });
+    sent.length = 0;
+    const run = await runTool("request_booking", { quoteReference: "BLR-CHAT-1", agreedToTerms: true, notes: "8am start" });
+    expect(run.result).toMatchObject({ ok: true, status: "requested", reference: "BLR-CHAT-1" });
+    expect(run.record.outcome).toBe("booking_requested");
+    expect(marked).toBe(true);
+    expect(leadCalls.at(-1)![1]).toMatchObject({ humanFollowupRequired: true, quoteReference: "BLR-CHAT-1" });
+    expect(sent.map((e) => e.kind).sort()).toEqual(["customer", "team"]);
+  });
+
+  it("with no booking store configured, asks the team to call instead", async () => {
+    const { runTool, leadCalls } = setup();
+    const run = await runTool("request_booking", { quoteReference: "BLR-CHAT-1", agreedToTerms: true });
+    expect(run.result).toMatchObject({ ok: false });
+    expect(leadCalls.at(-1)![1]).toMatchObject({ humanFollowupRequired: true });
+  });
+});
+
 describe("request_human_followup", () => {
+  it("a call-back request always alerts the team, with the time asked for", async () => {
+    const { runTool, sent, leadCalls } = setup();
+    await runTool("request_human_followup", { reason: "didn't agree to the booking terms" });
+    await runTool("request_human_followup", { reason: "wants to talk it through", callbackRequested: true, callbackTime: "tomorrow after 3pm", phone: "0412345678" });
+    const alerts = sent.filter((e) => e.kind === "team");
+    expect(alerts).toHaveLength(2);
+    expect(alerts[1]!.subject).toContain("Call back requested");
+    expect(alerts[1]!.text).toContain("tomorrow after 3pm");
+    expect(leadCalls.at(-1)![1].notes).toContain("CALL BACK tomorrow after 3pm");
+  });
+
   it("emails the team once when a chat is handed over, with a link to the conversation", async () => {
     const { runTool, sent } = setup();
     await runTool("request_human_followup", { reason: "asked for a person", name: "Jane", phone: "0412345678" });
@@ -170,8 +228,8 @@ describe("request_human_followup", () => {
 });
 
 describe("tool and prompt wording", () => {
-  it("offers exactly the two tools", () => {
-    expect(chatTools.map((t) => t.name)).toEqual(["get_quote", "request_human_followup"]);
+  it("offers exactly three tools", () => {
+    expect(chatTools.map((t) => t.name)).toEqual(["get_quote", "request_booking", "request_human_followup"]);
   });
 
   it("the prompt states today's Melbourne date and the flat-price rules, and quotes no dollar figures itself", () => {

@@ -115,6 +115,12 @@ describe("a normal quote", () => {
     expect(store!.rows[0]).toMatchObject({ propertySize: "2_bed", movers: 4, truck: null });
   });
 
+  it("'let the team inspect' is estimated on the guide and stored as an inspection request", async () => {
+    const { run, store } = setup();
+    expect(result(await run({ ...goodBody, truck: "inspect", movers: "" }))).toMatchObject({ kind: "price", amountAud: 720 });
+    expect(store!.rows[0]).toMatchObject({ truck: "inspect" });
+  });
+
   it("maps the form's home-size labels and the chat's ids", async () => {
     const { run } = setup();
     expect(result(await run({ ...goodBody, propertySize: "Studio / 1 Bed" }))).toMatchObject({ kind: "price" });
@@ -180,7 +186,6 @@ describe("when it can't give a price, a person follows up -- and the lead is nev
   it("no Google key configured", () => expectManual({ routes: null }, goodBody, "service_unavailable"));
   it("Google can't route it", () => expectManual({ routes: { apiKey: "k", fetchImpl: routeFetch(false) } }, goodBody, "distance_unavailable"));
   it("junk removal", () => expectManual({}, { ...goodBody, need: "junk" }, "junk_removal"));
-  it("customer asked the team to inspect", () => expectManual({}, { ...goodBody, truck: "inspect", movers: "" }, "site_inspection_requested"));
   it("no home size given", () => expectManual({}, { ...goodBody, propertySize: "" }, "size_missing"));
   it("office move", () => expectManual({}, { ...goodBody, propertySize: "Office / Commercial" }, "commercial_or_unsure_size"));
   it("a date in the past", () => expectManual({}, { ...goodBody, date: "2026-10-01" }, "date_missing"));

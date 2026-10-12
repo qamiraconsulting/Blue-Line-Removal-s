@@ -1,6 +1,7 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { handleQuoteRequest, propertySizeIds, truckChoices, type QuoteServiceDeps } from "../quote/service.js";
+import { requestBooking, type BookingStore } from "../quote/booking.js";
 import { renderHandoffEmail } from "./handoffEmail.js";
 import type { LeadStore } from "./leadStore.js";
 
@@ -44,6 +45,16 @@ export const requestHumanFollowupInput = z.object({
   email: z.string().optional(),
   from: z.string().optional(),
   to: z.string().optional(),
+  callbackRequested: z.boolean().optional().describe("True if the customer asked for a call back."),
+  callbackTime: z.string().optional().describe("When they'd like the call, in their words (e.g. 'tomorrow after 3pm')."),
+});
+
+export const requestBookingInput = z.object({
+  quoteReference: z.string().min(4).describe("The reference get_quote returned for the estimate being booked."),
+  agreedToTerms: z
+    .literal(true)
+    .describe("Only true after you showed the customer the booking terms word for word and they clearly said yes."),
+  notes: z.string().max(500).optional().describe("Anything they asked for, e.g. a preferred arrival time."),
 });
 
 const tool = (name: string, description: string, schema: z.ZodType): Anthropic.Beta.Messages.BetaTool => ({
@@ -61,10 +72,17 @@ export const chatTools: Anthropic.Beta.Messages.BetaTool[] = [
     getQuoteInput,
   ),
   tool(
+    "request_booking",
+    "Takes a booking request on an estimate from get_quote. Call ONLY after you have shown the customer the " +
+      "booking terms word for word and they have clearly agreed. Never call it for a personal quote, and never if " +
+      "they hesitate -- offer the team, a call back or the phone number instead.",
+    requestBookingInput,
+  ),
+  tool(
     "request_human_followup",
     "Flags this chat for a Blue Line team member. Call when the customer asks for a person, pushes back on " +
-      "price, wants packing, mentions anything you can't answer from your instructions, or seems upset. Include " +
-      "any contact details you already have.",
+      "price, doesn't agree to the booking terms, wants a call back, wants packing, mentions anything you can't " +
+      "answer from your instructions, or seems upset. Include any contact details you already have.",
     requestHumanFollowupInput,
   ),
 ];
@@ -88,6 +106,8 @@ export interface ChatToolDeps {
   /** null when email isn't configured -- the chat then can't quote at all. */
   quoteDeps: QuoteServiceDeps | null;
   leads: LeadStore;
+  /** Booking requests on estimates; absent when the database isn't configured. */
+  bookings?: BookingStore;
   conversationId: string;
   log?: (message: string, meta?: Record<string, unknown>) => void;
 }
@@ -148,6 +168,37 @@ export function createToolRunner(deps: ChatToolDeps) {
       };
     }
 
+    if (name === "request_booking") {
+      const parsed = requestBookingInput.safeParse(rawInput);
+      if (!parsed.success) {
+        return {
+          result: { ok: false, error: "A booking needs the estimate reference and the customer's clear agreement to the booking terms." },
+          isError: true,
+          record: { name, outcome: "invalid_input" },
+        };
+      }
+      if (!deps.bookings || !deps.quoteDeps) {
+        await touchLead({ humanFollowupRequired: true, notes: `Wants to book ${parsed.data.quoteReference} -- booking service unavailable` });
+        return {
+          result: { ok: false, error: "Online booking isn't available right now. The team has been asked to call the customer to book." },
+          isError: false,
+          record: { name, quoteReference: parsed.data.quoteReference, outcome: "service_unavailable" },
+        };
+      }
+      const booking = await requestBooking(
+        { reference: parsed.data.quoteReference, conversationId: deps.conversationId, notes: parsed.data.notes },
+        { ...deps.quoteDeps, bookings: deps.bookings },
+      );
+      if (booking.ok && booking.status === "requested") {
+        await touchLead({ quoteReference: booking.reference, humanFollowupRequired: true, notes: "Booking request -- confirm with the customer" });
+      }
+      return {
+        result: booking,
+        isError: false,
+        record: { name, quoteReference: parsed.data.quoteReference, outcome: booking.ok ? `booking_${booking.status}` : `booking_${booking.reason}` },
+      };
+    }
+
     if (name === "request_human_followup") {
       const parsed = requestHumanFollowupInput.safeParse(rawInput);
       const input = parsed.success ? parsed.data : { reason: "unspecified" };
@@ -158,11 +209,13 @@ export function createToolRunner(deps: ChatToolDeps) {
         fromText: input.from,
         toText: input.to,
         humanFollowupRequired: true,
-        notes: input.reason,
+        notes: "callbackRequested" in input && input.callbackRequested ? `CALL BACK ${input.callbackTime ?? "(no time given)"} -- ${input.reason}` : input.reason,
       });
-      // Alert the team once per hand-off -- not again while the chat is still waiting. If the
-      // dashboard store failed, the email is the only record, so always send it then.
-      if (wasFlagged !== true && deps.quoteDeps) {
+      // Alert the team once per hand-off -- not again while the chat is still waiting -- but
+      // always for a call-back request. If the dashboard store failed, the email is the only
+      // record, so always send it then.
+      const callback = "callbackRequested" in input && input.callbackRequested === true;
+      if ((wasFlagged !== true || callback) && deps.quoteDeps) {
         const alert = renderHandoffEmail({ conversationId: deps.conversationId, ...input });
         const sent = await deps.quoteDeps.sendEmail({ ...alert, to: deps.quoteDeps.teamEmail, kind: "team" }).catch(() => false);
         if (!sent) log("hand-off email failed", { conversationId: deps.conversationId });

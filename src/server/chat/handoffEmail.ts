@@ -11,9 +11,11 @@ export function renderHandoffEmail(input: {
   email?: string;
   from?: string;
   to?: string;
+  callbackRequested?: boolean;
+  callbackTime?: string;
 }): EmailContent {
   const text = [
-    "A customer in the website chat needs a person.",
+    input.callbackRequested ? `CALL BACK REQUESTED -- ${input.callbackTime || "no time given"}` : "A customer in the website chat needs a person.",
     "",
     `Reason: ${input.reason}`,
     `Name: ${input.name || "-"}`,
@@ -25,7 +27,7 @@ export function renderHandoffEmail(input: {
   ].join("\n");
   const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   return {
-    subject: `Chat needs a person: ${input.reason}${input.name ? ` (${input.name})` : ""}`,
+    subject: `${input.callbackRequested ? "Call back requested" : "Chat needs a person"}: ${input.reason}${input.name ? ` (${input.name})` : ""}`,
     text,
     html: `<pre style="font-family:Consolas,monospace;font-size:13px;white-space:pre-wrap">${esc(text)}</pre>`,
   };

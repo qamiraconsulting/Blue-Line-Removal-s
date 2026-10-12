@@ -70,13 +70,13 @@ describe("customer quote email", () => {
 describe("acknowledgement and team emails", () => {
   it("acknowledgement promises a follow-up and gives no price", () => {
     const ack = renderAcknowledgementEmail({ name: "Jane Smith", reference: "R1" });
-    expect(ack.text).toContain("send your exact price shortly");
+    expect(ack.text).toContain("send your estimate shortly");
     expect(ack.text).not.toMatch(/\$\d/);
   });
 
-  it("acknowledgement for an inspection request says the team will arrange the inspection", () => {
-    const ack = renderAcknowledgementEmail({ name: "Jane", reference: "R2", inspection: true });
-    expect(ack.text).toContain("arrange a time to inspect");
+  it("acknowledgement never promises an inspection visit beforehand (the team inspects on the move day)", () => {
+    const ack = renderAcknowledgementEmail({ name: "Jane", reference: "R2" });
+    expect(ack.text).not.toMatch(/arrange a time to inspect/i);
   });
 
   it("team email carries everything needed to follow up, plus the breakdown when priced", () => {

@@ -92,6 +92,14 @@ describe("estimate arithmetic (hand-checked)", () => {
     expect(four.internal.capacityFrom).toBe("customer");
   });
 
+  it("'let the team inspect on the day' still gets an estimate, on the guide's truck and crew", () => {
+    // the inspection happens on the move day, so the booking is made on this estimate
+    const out = price({ truck: "inspect", movers: 4 });
+    expect(out.amountAud).toBe(720); // guide's 6-8T + 2 movers, not the 4 movers sent alongside
+    expect(out.internal).toMatchObject({ truck: "6-8T", movers: 2, capacityFrom: "inspection" });
+    expect(out.customer.includes[0]).toBe("2 movers and a 6-8 tonne truck (our team confirms what's needed on the day)");
+  });
+
   it("the customer can choose a different truck", () => {
     // 10T: 4.5h x 185 = 832.5 x 1.1 = 915.75 -> $920
     expect(price({ truck: "10T" }).amountAud).toBe(920);
@@ -151,7 +159,6 @@ describe("what the customer is allowed to see", () => {
 
 describe("when it must NOT estimate (sent to a person instead)", () => {
   it("junk removal -- there are no junk rates", () => expect(manual({ need: "junk" })).toBe("junk_removal"));
-  it("customer asked the team to inspect", () => expect(manual({ truck: "inspect" })).toBe("site_inspection_requested"));
   it("no home size given", () => expect(manual({ propertySize: null })).toBe("size_missing"));
   it("office moves and 'not sure' sizes", () => {
     expect(manual({ propertySize: "commercial" })).toBe("commercial_or_unsure_size");

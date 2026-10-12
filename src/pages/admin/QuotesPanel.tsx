@@ -25,8 +25,8 @@ interface QuoteRow {
 // Why a quote didn't get an instant price, in words for Blue Line staff.
 const REASONS: Record<string, string> = {
   junk_removal: "Junk removal",
-  site_inspection_requested: "Asked for an inspection",
-  capacity_missing: "No truck/crew chosen",
+  size_missing: "No home size given",
+  commercial_or_unsure_size: "Office move or unsure home size",
   special_items: "Specialist items (piano, safe...)",
   date_missing: "No valid moving date",
   distance_unavailable: "Couldn't work out the distance",

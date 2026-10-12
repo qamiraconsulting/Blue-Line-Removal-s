@@ -103,6 +103,15 @@ export const quotes = pgTable(
     rateCardSnapshot: jsonb("rate_card_snapshot").notNull(),
 
     customerEmailSentAt: timestamp("customer_email_sent_at", { withTimezone: true }),
+
+    // Booking: the customer agreed in the chat to book on this estimate, with the final
+    // charges confirmed at the move-day inspection; the team then confirms it.
+    bookingStatus: text("booking_status"), // null | "requested" | "confirmed"
+    bookingRequestedAt: timestamp("booking_requested_at", { withTimezone: true }),
+    bookingConfirmedAt: timestamp("booking_confirmed_at", { withTimezone: true }),
+    bookingTermsVersion: text("booking_terms_version"),
+    bookingTermsText: text("booking_terms_text"), // the exact wording the customer agreed to
+    bookingNotes: text("booking_notes"), // e.g. preferred arrival time
   },
   (t) => [index("quotes_email_idx").on(t.emailNormalised), index("quotes_phone_idx").on(t.phoneNormalised)],
 );

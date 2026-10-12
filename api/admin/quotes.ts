@@ -1,11 +1,12 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { getDb } from "../../src/server/db/client.js";
 import { quotes } from "../../src/server/db/schema.js";
 import { guardAdmin } from "../../src/server/services/adminAuth.js";
 
 // Recent quotes from the form and the chat, for Blue Line staff. ?status=manual_review shows
-// only the ones waiting for a personal quote. Includes the internal breakdown (staff only).
+// only the ones waiting for a personal quote; ?booking=requested the booking requests waiting
+// for confirmation. Includes the internal breakdown (staff only).
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "GET") {
     res.status(405).json({ error: "Method not allowed" });
@@ -20,6 +21,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const status = req.query.status === "priced" || req.query.status === "manual_review" ? req.query.status : null;
+  const booking = req.query.booking === "requested" || req.query.booking === "confirmed" ? req.query.booking : null;
   const limit = Math.min(Math.max(Number(req.query.limit) || 50, 1), 200);
 
   try {
@@ -48,9 +50,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         rateCardStatus: quotes.rateCardStatus,
         internalBreakdown: quotes.internalBreakdown,
         customerEmailSentAt: quotes.customerEmailSentAt,
+        bookingStatus: quotes.bookingStatus,
+        bookingRequestedAt: quotes.bookingRequestedAt,
+        bookingNotes: quotes.bookingNotes,
       })
       .from(quotes)
-      .where(status ? eq(quotes.status, status) : undefined)
+      .where(and(status ? eq(quotes.status, status) : undefined, booking ? eq(quotes.bookingStatus, booking) : undefined))
       .orderBy(desc(quotes.createdAt))
       .limit(limit);
     res.status(200).json({ quotes: rows });

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
+import { BookingsPanel } from "./BookingsPanel";
 import { QuotesPanel } from "./QuotesPanel";
 import { useAdminApi } from "./useAdminApi";
 
@@ -34,6 +35,8 @@ export default function Dashboard() {
 
   return (
     <div>
+      <BookingsPanel />
+
       <h2 className="font-display text-2xl font-bold text-navy">Needs follow-up</h2>
       <p className="mt-1 text-sm text-slate-600">Chats that need a person -- personal quotes, price questions, packing, or anywhere the assistant wasn&apos;t sure.</p>
 

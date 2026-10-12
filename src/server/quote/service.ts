@@ -28,7 +28,7 @@ import type { NewQuoteRow, QuoteStore } from "./store.js";
 
 // Home size: the quote form sends its dropdown labels; the chat sends the ids. Both map here.
 export const propertySizeIds = ["studio_1bed", "2_bed", "3_bed", "4plus_bed", "commercial", "unsure"] as const;
-const SIZE_LABEL: Record<PropertySizeId, string> = {
+export const SIZE_LABEL: Record<PropertySizeId, string> = {
   studio_1bed: "Studio / 1 Bed",
   "2_bed": "2 Bedroom",
   "3_bed": "3 Bedroom",
@@ -99,7 +99,7 @@ export type QuoteApiResponse =
 const defaultReference = (now: Date) =>
   `BLR-${now.toISOString().slice(0, 10).replace(/-/g, "")}-${randomBytes(3).toString("hex").toUpperCase()}`;
 
-const melbourneToday = (now: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: "Australia/Melbourne" }).format(now);
+export const melbourneToday = (now: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: "Australia/Melbourne" }).format(now);
 
 function addDays(isoDate: string, days: number): string {
   const [y, m, d] = isoDate.split("-").map(Number) as [number, number, number];
@@ -319,7 +319,7 @@ export async function handleQuoteRequest(
           validUntilLabel: formatDateLabel(validUntil),
           details,
         })
-      : renderAcknowledgementEmail({ name: req.name, reference, inspection: req.truck === "inspect" });
+      : renderAcknowledgementEmail({ name: req.name, reference });
 
   const [teamSent, customerSent] = await Promise.all([
     deps.sendEmail({ ...team, to: deps.teamEmail, replyTo: `${req.name} <${req.email}>`, kind: "team" }).catch(() => false),

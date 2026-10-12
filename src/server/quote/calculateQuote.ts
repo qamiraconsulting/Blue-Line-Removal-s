@@ -19,7 +19,10 @@ export interface QuoteInputs {
   need: "moving" | "junk";
   /** null = not given. */
   propertySize: PropertySizeId | null;
-  /** The customer's choice; null = use the home size guide's truck. "inspect" = team inspects. */
+  /**
+   * The customer's choice; null = use the home size guide's truck. "inspect" = the team
+   * confirms the capacity at the move-day inspection -- estimated on the guide's truck/crew.
+   */
   truck: TruckId | "inspect" | null;
   /** The customer's choice; null = use the home size guide's crew. */
   movers: MoverCount | null;
@@ -44,7 +47,6 @@ export interface QuoteInputs {
 
 export type ManualReason =
   | "junk_removal"
-  | "site_inspection_requested"
   | "size_missing"
   | "commercial_or_unsure_size"
   | "special_items"
@@ -66,8 +68,8 @@ export interface CustomerQuoteView {
 export interface InternalBreakdown {
   truck: string;
   movers: number;
-  /** Where the truck/crew came from: the customer's choice or the home size guide. */
-  capacityFrom: "customer" | "guide";
+  /** Where the truck/crew came from: the customer's choice, the guide, or the guide pending the move-day inspection. */
+  capacityFrom: "customer" | "guide" | "inspection";
   jobHours: number;
   crewRateAudPerHour: number;
   labourCostAud: number;
@@ -103,7 +105,6 @@ export function calculateQuote(inputs: QuoteInputs, rateCard: RateCard, options:
   if (rateCard.status !== "confirmed" && !options.allowPlaceholderRateCard) return manual("rate_card_not_confirmed");
 
   if (inputs.need === "junk") return manual("junk_removal");
-  if (inputs.truck === "inspect") return manual("site_inspection_requested");
   if (!inputs.propertySize) return manual("size_missing");
   if (inputs.propertySize === "commercial" || inputs.propertySize === "unsure") return manual("commercial_or_unsure_size");
   if (inputs.specialItems) return manual("special_items");
@@ -120,8 +121,9 @@ export function calculateQuote(inputs: QuoteInputs, rateCard: RateCard, options:
 
   const guide = rateCard.jobSizes[inputs.propertySize];
   if (!guide || rateCard.typicalHoursIncludeDriving === null) return manual("rate_card_incomplete");
-  const truckId = inputs.truck ?? guide.truck;
-  const movers = inputs.movers ?? guide.movers;
+  const inspect = inputs.truck === "inspect";
+  const truckId = inputs.truck && inputs.truck !== "inspect" ? inputs.truck : guide.truck;
+  const movers = inspect ? guide.movers : (inputs.movers ?? guide.movers);
   const truck = rateCard.trucks[truckId];
   if (truck.hourlyRateAud === null || rateCard.gst.ratesIncludeGst === null) return manual("rate_card_incomplete");
 
@@ -169,14 +171,18 @@ export function calculateQuote(inputs: QuoteInputs, rateCard: RateCard, options:
     amountAud,
     customer: {
       amountAud,
-      includes: [`${movers} movers and a ${truck.label}`, "Loading, transport and unloading", "GST included"],
+      includes: [
+        `${movers} movers and a ${truck.label}${inspect ? " (our team confirms what's needed on the day)" : ""}`,
+        "Loading, transport and unloading",
+        "GST included",
+      ],
       firstMoveApplied,
       validDays: rateCard.validityDays,
     },
     internal: {
       truck: truckId,
       movers,
-      capacityFrom: inputs.truck || inputs.movers ? "customer" : "guide",
+      capacityFrom: inspect ? "inspection" : inputs.truck || inputs.movers ? "customer" : "guide",
       jobHours: round2(jobHours),
       crewRateAudPerHour: crewRate,
       labourCostAud: round2(labourCost),

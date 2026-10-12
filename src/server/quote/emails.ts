@@ -23,10 +23,10 @@ export interface QuoteDetails {
 export const ESTIMATE_DISCLAIMER =
   "This is an estimate based on the details you've provided. The final price may vary depending on the actual hours worked, inventory, access, stairs, parking and any special requirements.";
 
-const NAVY = "#0e2a47";
-const ORANGE = "#ff6b1a";
+export const NAVY = "#0e2a47";
+export const ORANGE = "#ff6b1a";
 
-function esc(value: string): string {
+export function esc(value: string): string {
   return value
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -51,11 +51,11 @@ export function formatDateLabel(isoDate: string | null): string {
   });
 }
 
-function firstName(name: string): string {
+export function firstName(name: string): string {
   return name.trim().split(/\s+/)[0] ?? "there";
 }
 
-function shell(bodyHtml: string): string {
+export function shell(bodyHtml: string): string {
   return `<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#1c2733;line-height:1.55">
 <div style="background:${NAVY};color:#fff;padding:18px 24px;font-size:18px;font-weight:bold">${esc(site.name)}</div>
 <div style="padding:24px;border:1px solid #e3e8ee;border-top:0">${bodyHtml}</div>
@@ -131,10 +131,8 @@ export function renderCustomerQuoteEmail(input: {
   return { subject: `Your Blue Line Removals estimate: ${price} (ref ${input.reference})`, text, html };
 }
 
-export function renderAcknowledgementEmail(input: { name: string; reference: string; inspection?: boolean }): EmailContent {
-  const next = input.inspection
-    ? "One of the team will be in touch to arrange a time to inspect and confirm the truck and crew you need, then send your price."
-    : "One of the team will review your details and send your exact price shortly.";
+export function renderAcknowledgementEmail(input: { name: string; reference: string }): EmailContent {
+  const next = "One of the team will review your details and send your estimate shortly.";
   const text = [
     `Hi ${firstName(input.name)},`,
     "",

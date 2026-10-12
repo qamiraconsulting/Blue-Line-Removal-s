@@ -115,6 +115,22 @@ export const openItems: OpenItem[] = [
 
   // ------------------------------------------------------------------ to clarify with Blue Line
   {
+    id: "booking-terms",
+    topic: "legal",
+    question:
+      "Approve the booking terms the customer agrees to in the chat (bookingEmails.ts BOOKING_TERMS): booking on the estimate, team inspects on the move day before starting and confirms the final charges.",
+    meanwhile: "The chat shows the draft terms word for word and stores the exact text each customer agreed to.",
+    status: "to_ask",
+  },
+  {
+    id: "booking-confirmation",
+    topic: "operations",
+    question:
+      "Who confirms a booking? Built: the chat takes a booking request and the team confirms it on the dashboard (no availability calendar exists). Instant confirmation in the chat would need daily capacity rules.",
+    meanwhile: "Customer is told the request is in and the team will confirm; the team confirms on the dashboard, which emails the customer.",
+    status: "internal",
+  },
+  {
     id: "typical-hours-driving",
     topic: "pricing",
     question: "Do the guide's 'typical hours' include driving between the two addresses, or should the real drive time be added?",

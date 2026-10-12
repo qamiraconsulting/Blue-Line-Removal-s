@@ -73,6 +73,12 @@ CREATE TABLE "quotes" (
 	"internal_breakdown" jsonb,
 	"rate_card_snapshot" jsonb NOT NULL,
 	"customer_email_sent_at" timestamp with time zone,
+	"booking_status" text,
+	"booking_requested_at" timestamp with time zone,
+	"booking_confirmed_at" timestamp with time zone,
+	"booking_terms_version" text,
+	"booking_terms_text" text,
+	"booking_notes" text,
 	CONSTRAINT "quotes_reference_unique" UNIQUE("reference")
 );
 --> statement-breakpoint

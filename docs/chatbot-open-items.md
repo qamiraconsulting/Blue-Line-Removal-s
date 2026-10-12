@@ -27,6 +27,7 @@ the "Meanwhile" column says: it never guesses.
 
 | Item | Question | Meanwhile |
 |---|---|---|
+| `booking-terms` | Approve the booking terms customers agree to in the chat (book on the estimate; team inspects on the move day and confirms final charges) | Draft terms shown word for word; exact text stored per booking |
 | `typical-hours-driving` | Do the "typical hours" include driving between addresses? (ask with the B1 answer) | No estimates until confirmed |
 | `crew-choice-hours` | If the customer picks a different truck/crew than the guide, do the hours change? | Guide's hours always used |
 | `access-pricing` | Should the form ask for counts of stairs/heavy items so they're priced in? | Notes shown, not priced |
@@ -43,6 +44,7 @@ the "Meanwhile" column says: it never guesses.
 
 | Item | Question | Meanwhile |
 |---|---|---|
+| `booking-confirmation` | Chat takes a booking request, the team confirms on the dashboard (no availability calendar). Instant confirmation would need daily capacity rules | Team confirms; customer emailed |
 | `estimate-vs-final` | Email makes every figure an estimate that "may vary"; the 6 Oct decision and the website say final/flat price, no call-out, "not an hourly meter". Confirm and update the website copy | Chat and emails say "estimate" |
 | `quote-form-fields` | Form: home size + optional truck (4.5T/6-8T/10T) + 2-4 movers + inspect + access notes; fix "30%" and "final price" wording | Form sends home size only |
 | `hourly-rate-disclosure` | May hourly rates be shown if a customer asks, now that figures are estimates? | Never shown |
