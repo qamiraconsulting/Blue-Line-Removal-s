@@ -4,21 +4,27 @@ import type { RateCard } from "./rateCard.js";
 // in the tests can be checked by hand. Deliberately independent of Blue Line's real card,
 // so updating real prices never breaks the arithmetic tests. Never import this from app code.
 //
-// Rates are ex-GST (GST added on top), weekend +20%, public holiday +20%, round to $10.
+// Rates are ex-GST (GST added on top), real drive time added to the guide's hours,
+// weekend +20%, public holiday +20%, 10% first-order discount, round to $10.
 export const fixtureRateCard: RateCard = {
   version: "test-v1",
   status: "confirmed",
 
   trucks: {
-    "3.5T": { label: "3.5 tonne truck", hourlyRateAud: 110, labourHours: { "2": 2, "4": 1.5 } },
-    "4.5T": { label: "4.5 tonne truck", hourlyRateAud: 130, labourHours: { "2": 2.5, "4": 2 } },
-    "6.0T": { label: "6 tonne truck", hourlyRateAud: 145, labourHours: { "2": 4, "4": 3 } },
-    "8.0T": { label: "8 tonne truck", hourlyRateAud: 185, labourHours: { "2": 7, "4": 5 } },
+    "4.5T": { label: "4.5 tonne truck", hourlyRateAud: 130 },
+    "6-8T": { label: "6-8 tonne truck", hourlyRateAud: 145 },
+    "10T": { label: "10 tonne truck", hourlyRateAud: 185 },
   },
   extraMoverHourlyRateAud: 80,
   minimumJobHours: 2,
 
-  callOut: { ratePerHourAud: 60, minimumHours: 1 },
+  jobSizes: {
+    studio_1bed: { truck: "4.5T", movers: 2, typicalHours: 2.5 },
+    "2_bed": { truck: "6-8T", movers: 2, typicalHours: 4 },
+    "3_bed": { truck: "6-8T", movers: 3, typicalHours: 5 },
+    "4plus_bed": { truck: "10T", movers: 3, typicalHours: 7 },
+  },
+  typicalHoursIncludeDriving: false,
 
   accessExtras: { perStairFlightAud: 40, longCarryAud: 60, perHeavyItemAud: 80 },
 
@@ -27,7 +33,7 @@ export const fixtureRateCard: RateCard = {
   publicHolidaySurchargePercent: 20,
   publicHolidays: ["2026-11-03"], // a Tuesday
 
-  firstMoveDiscountPercent: 30,
+  firstMoveDiscountPercent: 10,
   roundToNearestAud: 10,
   validityDays: 14,
 

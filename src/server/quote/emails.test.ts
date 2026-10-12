@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { formatAud, formatDateLabel, renderAcknowledgementEmail, renderCustomerQuoteEmail, renderTeamEmail } from "./emails.js";
+import { ESTIMATE_DISCLAIMER, formatAud, formatDateLabel, renderAcknowledgementEmail, renderCustomerQuoteEmail, renderTeamEmail } from "./emails.js";
 
-const details = { from: "Preston", to: "Brunswick", dateLabel: "Wednesday 14 October 2026", capacity: "6 tonne truck, 2 movers", accessNotes: "2nd floor, no lift" };
+const details = { from: "Preston", to: "Brunswick", dateLabel: "Wednesday 14 October 2026", propertySize: "2 Bedroom", capacity: "6-8 tonne truck, 2 movers", accessNotes: "2nd floor, no lift" };
 
 describe("customer quote email", () => {
   const email = renderCustomerQuoteEmail({
@@ -10,19 +10,23 @@ describe("customer quote email", () => {
     amountAud: 1240,
     includes: ["2 movers and a 6-8T truck", "GST included"],
     firstMoveApplied: true,
+    discountPercent: 10,
     validUntilLabel: "Tuesday 20 October 2026",
     details,
   });
 
   it("leads with one price and the reference", () => {
-    expect(email.subject).toBe("Your Blue Line Removals quote: $1,240 (ref BLR-20261006-ABC123)");
+    expect(email.subject).toBe("Your Blue Line Removals estimate: $1,240 (ref BLR-20261006-ABC123)");
     expect(email.text).toContain("$1,240 (GST included)");
-    expect(email.text).toContain("30% first-move offer");
+    expect(email.text).toContain("Your 10% first-order discount has been applied.");
     expect(email.html).toContain("$1,240");
   });
 
-  it("states the price is final, how to book, and when it expires", () => {
-    expect(email.text).toContain("final price");
+  it("carries Blue Line's estimate wording, how to book, and when it expires", () => {
+    expect(email.text).toContain(ESTIMATE_DISCLAIMER);
+    expect(email.html).toContain("This is an estimate based on the details you&#39;ve provided.");
+    expect(email.text).toContain("Home size: 2 Bedroom");
+    expect(email.text).not.toMatch(/fixed price|no hidden fees/i);
     expect(email.text).toContain("03 9494 1070");
     expect(email.text).toContain("Valid until: Tuesday 20 October 2026");
   });
@@ -38,10 +42,11 @@ describe("customer quote email", () => {
       amountAud: 900,
       includes: [],
       firstMoveApplied: false,
+      discountPercent: 10,
       validUntilLabel: "x",
       details,
     });
-    expect(plain.text).not.toContain("first-move");
+    expect(plain.text).not.toContain("first-order");
   });
 
   it("escapes anything the customer typed before it goes into HTML", () => {
@@ -51,6 +56,7 @@ describe("customer quote email", () => {
       amountAud: 900,
       includes: ["<b>x</b>"],
       firstMoveApplied: false,
+      discountPercent: 10,
       validUntilLabel: "x",
       details: { ...details, from: `"><img src=x onerror=alert(1)>` },
     });

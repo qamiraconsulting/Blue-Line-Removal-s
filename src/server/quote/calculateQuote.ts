@@ -1,15 +1,14 @@
-import type { MoverCount, RateCard, TruckId } from "./rateCard.js";
+import type { HomeSizeId, MoverCount, RateCard, TruckId } from "./rateCard.js";
 
-// The flat-price engine: a PURE function -- inputs and a rate card in, one price out. No
+// The estimate engine: a PURE function -- inputs and a rate card in, one number out. No
 // database, no network, no clock, no randomness, so the same inputs always give the same
-// number and any historical quote can be recomputed from what was stored with it.
+// number and any historical estimate can be recomputed from what was stored with it.
 //
-// The customer sees ONE number. Hourly rates, the call-out cost, GST and the first-move
-// discount all go into that number; none of them is exposed. The only thing allowed to
+// The customer sees ONE number (an estimate, GST included). Hourly rates, GST and the
+// first-order discount all go into it; none of them is exposed. The only thing allowed to
 // leave this module towards a customer is `customer` on a "price" outcome.
 
-/** The customer's capacity choice: a truck, or "inspect" (the team inspects and confirms). */
-export type TruckChoice = TruckId | "inspect";
+export type PropertySizeId = HomeSizeId | "commercial" | "unsure";
 
 export interface LegDistance {
   km: number;
@@ -18,12 +17,15 @@ export interface LegDistance {
 
 export interface QuoteInputs {
   need: "moving" | "junk";
-  /** null = the customer didn't choose. */
-  truck: TruckChoice | null;
+  /** null = not given. */
+  propertySize: PropertySizeId | null;
+  /** The customer's choice; null = use the home size guide's truck. "inspect" = team inspects. */
+  truck: TruckId | "inspect" | null;
+  /** The customer's choice; null = use the home size guide's crew. */
   movers: MoverCount | null;
-  /** yyyy-mm-dd. Needed because public holidays can cost more. */
+  /** yyyy-mm-dd. Needed because weekends and public holidays may cost more. */
   movingDate: string | null;
-  /** The customer ticked "this is my first move". */
+  /** The customer said this is their first order with Blue Line. */
   firstMoveRequested: boolean;
   /** Decided by the caller (e.g. no earlier discounted quote for this email/phone). */
   firstMoveEligible: boolean;
@@ -35,6 +37,7 @@ export interface QuoteInputs {
   };
   /** Piano, pool table, safe, etc. -- never auto-priced. */
   specialItems: boolean;
+  /** Only used to check the service area -- the call-out is included in the hourly rate. */
   depotToPickup: LegDistance | null;
   pickupToDropoff: LegDistance | null;
 }
@@ -42,7 +45,8 @@ export interface QuoteInputs {
 export type ManualReason =
   | "junk_removal"
   | "site_inspection_requested"
-  | "capacity_missing"
+  | "size_missing"
+  | "commercial_or_unsure_size"
   | "special_items"
   | "date_missing"
   | "distance_unavailable"
@@ -62,11 +66,11 @@ export interface CustomerQuoteView {
 export interface InternalBreakdown {
   truck: string;
   movers: number;
+  /** Where the truck/crew came from: the customer's choice or the home size guide. */
+  capacityFrom: "customer" | "guide";
   jobHours: number;
   crewRateAudPerHour: number;
   labourCostAud: number;
-  callOutHours: number;
-  callOutCostAud: number;
   accessCostAud: number;
   surchargeAppliedPercent: number;
   /** Charges excluding GST, before any discount. */
@@ -100,7 +104,8 @@ export function calculateQuote(inputs: QuoteInputs, rateCard: RateCard, options:
 
   if (inputs.need === "junk") return manual("junk_removal");
   if (inputs.truck === "inspect") return manual("site_inspection_requested");
-  if (!inputs.truck || !inputs.movers) return manual("capacity_missing");
+  if (!inputs.propertySize) return manual("size_missing");
+  if (inputs.propertySize === "commercial" || inputs.propertySize === "unsure") return manual("commercial_or_unsure_size");
   if (inputs.specialItems) return manual("special_items");
   if (!inputs.movingDate) return manual("date_missing");
   if (!inputs.depotToPickup || !inputs.pickupToDropoff) return manual("distance_unavailable");
@@ -113,10 +118,12 @@ export function calculateQuote(inputs: QuoteInputs, rateCard: RateCard, options:
     return manual("outside_service_area");
   }
 
-  const truck = rateCard.trucks[inputs.truck];
-  const labourHours = truck.labourHours[String(inputs.movers) as "2" | "4"];
-  if (truck.hourlyRateAud === null || labourHours == null) return manual("rate_card_incomplete");
-  if (rateCard.gst.ratesIncludeGst === null) return manual("rate_card_incomplete");
+  const guide = rateCard.jobSizes[inputs.propertySize];
+  if (!guide || rateCard.typicalHoursIncludeDriving === null) return manual("rate_card_incomplete");
+  const truckId = inputs.truck ?? guide.truck;
+  const movers = inputs.movers ?? guide.movers;
+  const truck = rateCard.trucks[truckId];
+  if (truck.hourlyRateAud === null || rateCard.gst.ratesIncludeGst === null) return manual("rate_card_incomplete");
 
   const holiday = rateCard.publicHolidays.includes(inputs.movingDate);
   const weekend = isWeekend(inputs.movingDate);
@@ -129,14 +136,12 @@ export function calculateQuote(inputs: QuoteInputs, rateCard: RateCard, options:
       ? (rateCard.weekendSurchargePercent ?? 0)
       : 0;
 
-  // Loading/unloading plus the real drive between the two addresses, never below the minimum.
-  const jobHours = Math.max(rateCard.minimumJobHours, labourHours + inputs.pickupToDropoff.minutes / 60);
-  const extraMovers = Math.max(0, inputs.movers - 2);
-  const crewRate = truck.hourlyRateAud + extraMovers * rateCard.extraMoverHourlyRateAud;
+  // Charged from arrival at pickup to the end of unloading: the guide's typical hours, plus
+  // the real drive between the addresses unless the guide already includes it.
+  const driveHours = rateCard.typicalHoursIncludeDriving ? 0 : inputs.pickupToDropoff.minutes / 60;
+  const jobHours = Math.max(rateCard.minimumJobHours, guide.typicalHours + driveHours);
+  const crewRate = truck.hourlyRateAud + Math.max(0, movers - 2) * rateCard.extraMoverHourlyRateAud;
   const labourCost = jobHours * crewRate;
-
-  const callOutHours = Math.max(rateCard.callOut.minimumHours, Math.ceil(inputs.depotToPickup.minutes / 60));
-  const callOutCost = callOutHours * rateCard.callOut.ratePerHourAud;
 
   const stairFlights = inputs.access.pickupStairFlights + inputs.access.dropoffStairFlights;
   const accessCost =
@@ -144,10 +149,10 @@ export function calculateQuote(inputs: QuoteInputs, rateCard: RateCard, options:
     (inputs.access.longCarry ? rateCard.accessExtras.longCarryAud : 0) +
     inputs.access.heavyItems * rateCard.accessExtras.perHeavyItemAud;
 
-  const charges = (labourCost + callOutCost + accessCost) * (1 + surchargePercent / 100);
+  const charges = (labourCost + accessCost) * (1 + surchargePercent / 100);
 
-  // The first-move offer comes off the charges EXCLUDING GST; GST is then charged on the
-  // discounted price (GST is always 10% of what the customer actually pays).
+  // First-order discount comes off the full subtotal EXCLUDING GST; GST is then added to
+  // the discounted amount.
   const gstRate = rateCard.gst.ratePercent / 100;
   const subtotalExGst = rateCard.gst.ratesIncludeGst ? charges / (1 + gstRate) : charges;
   const firstMoveApplied = inputs.firstMoveRequested && inputs.firstMoveEligible;
@@ -164,23 +169,17 @@ export function calculateQuote(inputs: QuoteInputs, rateCard: RateCard, options:
     amountAud,
     customer: {
       amountAud,
-      includes: [
-        `${inputs.movers} movers and a ${truck.label}`,
-        "Loading, transport and unloading",
-        "Travel to your pickup address and between addresses",
-        "GST included",
-      ],
+      includes: [`${movers} movers and a ${truck.label}`, "Loading, transport and unloading", "GST included"],
       firstMoveApplied,
       validDays: rateCard.validityDays,
     },
     internal: {
-      truck: inputs.truck,
-      movers: inputs.movers,
+      truck: truckId,
+      movers,
+      capacityFrom: inputs.truck || inputs.movers ? "customer" : "guide",
       jobHours: round2(jobHours),
       crewRateAudPerHour: crewRate,
       labourCostAud: round2(labourCost),
-      callOutHours,
-      callOutCostAud: callOutCost,
       accessCostAud: accessCost,
       surchargeAppliedPercent: surchargePercent,
       subtotalAud: round2(subtotalExGst),

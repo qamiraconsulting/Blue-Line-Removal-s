@@ -12,8 +12,9 @@ const HOLIDAY = "2026-11-03"; // listed public holiday, a Tuesday
 
 const base: QuoteInputs = {
   need: "moving",
-  truck: "6.0T", // $145/hr incl. 2 movers, 4h loading+unloading with 2 movers
-  movers: 2,
+  propertySize: "2_bed", // guide: 6-8T ($145/hr), 2 movers, 4 typical hours
+  truck: null,
+  movers: null,
   movingDate: WEEKDAY,
   firstMoveRequested: false,
   firstMoveEligible: true,
@@ -34,87 +35,108 @@ const manual = (inputs: Partial<QuoteInputs> = {}, c: RateCard = card, allow = f
   return out.reason;
 };
 
-describe("flat price arithmetic (hand-checked)", () => {
-  it("6t truck, 2 movers, weekday: (4h + 30min drive) x $145 + $60 call-out, +10% GST, rounded", () => {
-    // 4.5h x 145 = 652.5; call-out 1h x 60 = 60; subtotal 712.5; GST 71.25; 783.75 -> $780
+describe("estimate arithmetic (hand-checked)", () => {
+  it("2 bed on the guide's truck and crew: (4h + 30min drive) x $145, +10% GST, rounded", () => {
+    // 4.5h x 145 = 652.5; GST 65.25; 717.75 -> $720
     const out = price();
-    expect(out.amountAud).toBe(780);
-    expect(out.internal).toMatchObject({ jobHours: 4.5, labourCostAud: 652.5, callOutCostAud: 60, subtotalAud: 712.5, gstAud: 71.25 });
+    expect(out.amountAud).toBe(720);
+    expect(out.internal).toMatchObject({ truck: "6-8T", movers: 2, capacityFrom: "guide", jobHours: 4.5, subtotalAud: 652.5, gstAud: 65.25 });
+  });
+
+  it("matches the worked example in the 12 Oct email: 1 hour, 4.5T + 2 movers, first order = $128.70", () => {
+    // $130 less 10% ($13) = $117, plus GST ($11.70) = $128.70
+    const emailCard: RateCard = {
+      ...blrRateCard,
+      status: "confirmed",
+      minimumJobHours: 1,
+      jobSizes: { ...blrRateCard.jobSizes, studio_1bed: { truck: "4.5T", movers: 2, typicalHours: 1 } },
+      typicalHoursIncludeDriving: true,
+      weekendSurchargePercent: 0,
+      publicHolidaySurchargePercent: 0,
+      serviceArea: { ...blrRateCard.serviceArea, maxPickupFromDepotKm: 60, maxMoveKm: 80 },
+    };
+    const out = price({ propertySize: "studio_1bed", firstMoveRequested: true }, emailCard);
+    expect(out.internal).toMatchObject({ subtotalAud: 130, discountAud: 13, gstAud: 11.7, unroundedAud: 128.7 });
+    expect(out.amountAud).toBe(130);
+  });
+
+  it("no call-out: how far the pickup is from the depot doesn't change the estimate", () => {
+    expect(price({ depotToPickup: { km: 55, minutes: 70 } }).amountAud).toBe(720);
   });
 
   it("rates that already include GST are not taxed twice", () => {
-    // 712.5 already includes GST -> $710
-    expect(price({}, { ...card, gst: { ratesIncludeGst: true, ratePercent: 10 } }).amountAud).toBe(710);
+    expect(price({}, { ...card, gst: { ratesIncludeGst: true, ratePercent: 10 } }).amountAud).toBe(650);
   });
 
-  it("first-move offer takes 30% off the charges excluding GST; GST is 10% of the discounted price", () => {
-    // 712.5 - 30% (213.75) = 498.75; GST 49.875; 548.625 -> $550
+  it("first-order discount comes off the subtotal excluding GST; GST is added to the discounted amount", () => {
+    // 652.5 - 10% (65.25) = 587.25; GST 58.725; 645.975 -> $650
     const out = price({ firstMoveRequested: true, firstMoveEligible: true });
-    expect(out.amountAud).toBe(550);
+    expect(out.amountAud).toBe(650);
     expect(out.customer.firstMoveApplied).toBe(true);
-    expect(out.internal).toMatchObject({ subtotalAud: 712.5, discountAud: 213.75, gstAud: 49.88 });
+    expect(out.internal).toMatchObject({ subtotalAud: 652.5, discountAud: 65.25 });
   });
 
-  it("first-move offer is NOT applied when the customer isn't eligible", () => {
+  it("first-order discount is NOT applied when the customer isn't eligible", () => {
     const out = price({ firstMoveRequested: true, firstMoveEligible: false });
-    expect(out.amountAud).toBe(780);
+    expect(out.amountAud).toBe(720);
     expect(out.customer.firstMoveApplied).toBe(false);
   });
 
-  it("weekends carry the weekend surcharge", () => {
-    // 712.5 x 1.2 = 855; x1.1 = 940.5 -> $940
-    expect(price({ movingDate: SATURDAY }).amountAud).toBe(940);
+  it("the customer can choose more movers than the guide -- the guide's hours still apply", () => {
+    // 3 movers: 4.5h x (145 + 80) = 1012.5 x 1.1 = 1113.75 -> $1110
+    expect(price({ movers: 3 }).amountAud).toBe(1110);
+    // 4 movers: 4.5h x (145 + 160) = 1372.5 x 1.1 = 1509.75 -> $1510
+    const four = price({ movers: 4 });
+    expect(four.amountAud).toBe(1510);
+    expect(four.customer.includes[0]).toBe("4 movers and a 6-8 tonne truck");
+    expect(four.internal.capacityFrom).toBe("customer");
   });
 
-  it("no weekend surcharge when the card says 0%", () => {
-    expect(price({ movingDate: SATURDAY }, { ...card, weekendSurchargePercent: 0 }).amountAud).toBe(780);
+  it("the customer can choose a different truck", () => {
+    // 10T: 4.5h x 185 = 832.5 x 1.1 = 915.75 -> $920
+    expect(price({ truck: "10T" }).amountAud).toBe(920);
   });
 
-  it("listed public holidays carry the holiday surcharge even on a weekday", () => {
-    expect(price({ movingDate: HOLIDAY }).amountAud).toBe(940);
+  it("without a choice, the guide's truck and crew for that home size are used", () => {
+    // 3 bed: 6-8T + 3 movers, 5h + 0.5h = 5.5h x 225 = 1237.5 x 1.1 = 1361.25 -> $1360
+    const out = price({ propertySize: "3_bed" });
+    expect(out.amountAud).toBe(1360);
+    expect(out.customer.includes[0]).toBe("3 movers and a 6-8 tonne truck");
   });
 
-  it("4 movers adds two extra-mover rates to every billable hour (and the crew's own hours)", () => {
-    // 6t + 4 movers: 3h + 0.5h drive = 3.5h x (145 + 2 x 80) = 1067.5; + 60 = 1127.5; x1.1 = 1240.25 -> $1240
-    const out = price({ movers: 4 });
-    expect(out.amountAud).toBe(1240);
-    expect(out.customer.includes[0]).toBe("4 movers and a 6 tonne truck");
+  it("when the guide's hours already include driving, the drive isn't added again", () => {
+    // 4h x 145 = 580 x 1.1 = 638 -> $640
+    expect(price({}, { ...card, typicalHoursIncludeDriving: true }).amountAud).toBe(640);
   });
 
-  it("the chosen truck sets the rate and loading time", () => {
-    // 4.5t + 2 movers: 2.5h + 0.5h = 3h x 130 = 390; + 60 = 450; x1.1 = 495 -> $500 (rounds half up)
-    expect(price({ truck: "4.5T" }).amountAud).toBe(500);
+  it("weekends and public holidays carry their surcharge", () => {
+    // 652.5 x 1.2 = 783; x1.1 = 861.3 -> $860
+    expect(price({ movingDate: SATURDAY }).amountAud).toBe(860);
+    expect(price({ movingDate: HOLIDAY }).amountAud).toBe(860);
+    expect(price({ movingDate: SATURDAY }, { ...card, weekendSurchargePercent: 0 }).amountAud).toBe(720);
   });
 
-  it("stairs, long carry and heavy items are priced in, not added later", () => {
-    // 2 flights (80) + long carry (60) + 1 heavy item (80) = 220; (712.5 + 220) x 1.1 = 1025.75 -> $1030
+  it("stairs, long carry and heavy items are priced in when known", () => {
+    // 2 flights (80) + long carry (60) + 1 heavy item (80) = 220; (652.5 + 220) x 1.1 = 959.75 -> $960
     const out = price({ access: { pickupStairFlights: 1, dropoffStairFlights: 1, longCarry: true, heavyItems: 1 } });
-    expect(out.amountAud).toBe(1030);
+    expect(out.amountAud).toBe(960);
   });
 
-  it("call-out time rounds UP to the next whole hour (61 min bills as 2h)", () => {
-    // call-out 120; (652.5 + 120) x 1.1 = 849.75 -> $850
-    expect(price({ depotToPickup: { km: 40, minutes: 61 } }).amountAud).toBe(850);
+  it("a short job is lifted to the minimum booking", () => {
+    // minimum 5h x 145 = 725 x 1.1 = 797.5 -> $800
+    expect(price({}, { ...card, minimumJobHours: 5 }).amountAud).toBe(800);
   });
 
-  it("a short job is lifted to the minimum job hours", () => {
-    // minimum 5h x 145 = 725; + 60 = 785; x1.1 = 863.5 -> $860
-    expect(price({}, { ...card, minimumJobHours: 5 }).amountAud).toBe(860);
-  });
-
-  it("always lands on a multiple of the rounding step", () => {
+  it("always lands on a multiple of the rounding step, and is deterministic", () => {
     for (const minutes of [7, 18, 33, 47, 59]) {
       expect(price({ pickupToDropoff: { km: 12, minutes } }).amountAud % 10).toBe(0);
     }
-  });
-
-  it("is deterministic: same inputs, same price, same breakdown", () => {
     expect(price()).toEqual(price());
   });
 });
 
 describe("what the customer is allowed to see", () => {
-  it("is one price plus plain-language inclusions -- no hourly rate, call-out or breakdown", () => {
+  it("is one number plus plain-language inclusions -- no hourly rate, call-out or breakdown", () => {
     const shown = JSON.stringify(price({ firstMoveRequested: true }).customer);
     expect(shown).not.toMatch(/hour|\/hr|per hr|call-?out|rate|subtotal|surcharge/i);
     expect(shown).toContain("movers");
@@ -127,77 +149,75 @@ describe("what the customer is allowed to see", () => {
   });
 });
 
-describe("when it must NOT quote (sent to a person instead)", () => {
+describe("when it must NOT estimate (sent to a person instead)", () => {
   it("junk removal -- there are no junk rates", () => expect(manual({ need: "junk" })).toBe("junk_removal"));
-  it("customer asked the team to inspect and confirm capacity", () => expect(manual({ truck: "inspect" })).toBe("site_inspection_requested"));
-  it("no truck or crew chosen", () => {
-    expect(manual({ truck: null })).toBe("capacity_missing");
-    expect(manual({ movers: null })).toBe("capacity_missing");
+  it("customer asked the team to inspect", () => expect(manual({ truck: "inspect" })).toBe("site_inspection_requested"));
+  it("no home size given", () => expect(manual({ propertySize: null })).toBe("size_missing"));
+  it("office moves and 'not sure' sizes", () => {
+    expect(manual({ propertySize: "commercial" })).toBe("commercial_or_unsure_size");
+    expect(manual({ propertySize: "unsure" })).toBe("commercial_or_unsure_size");
   });
   it("special items (piano, pool table, safe)", () => expect(manual({ specialItems: true })).toBe("special_items"));
-  it("no moving date -- holiday pricing can't be settled", () => expect(manual({ movingDate: null })).toBe("date_missing"));
+  it("no moving date", () => expect(manual({ movingDate: null })).toBe("date_missing"));
   it("either distance missing", () => {
     expect(manual({ depotToPickup: null })).toBe("distance_unavailable");
     expect(manual({ pickupToDropoff: null })).toBe("distance_unavailable");
   });
-  it("pickup too far from the depot", () => {
+  it("outside the service area", () => {
     expect(manual({ depotToPickup: { km: 61, minutes: 50 } })).toBe("outside_service_area");
-  });
-  it("move too long", () => {
     expect(manual({ pickupToDropoff: { km: 81, minutes: 70 } })).toBe("outside_service_area");
   });
-  it("GST treatment not confirmed -- never guessed", () => {
+  it("home size guide missing for that size -- only that size refuses", () => {
+    const noTwoBed = { ...card, jobSizes: { ...card.jobSizes, "2_bed": null } };
+    expect(manual({}, noTwoBed)).toBe("rate_card_incomplete");
+    expect(price({ propertySize: "3_bed" }, noTwoBed).amountAud).toBe(1360);
+  });
+  it("not confirmed whether the guide's hours include driving", () => {
+    expect(manual({}, { ...card, typicalHoursIncludeDriving: null })).toBe("rate_card_incomplete");
+  });
+  it("GST treatment not confirmed", () => {
     expect(manual({}, { ...card, gst: { ratesIncludeGst: null, ratePercent: 10 } })).toBe("rate_card_incomplete");
   });
-  it("weekend surcharge not confirmed -- weekend dates refuse, weekday dates still price", () => {
+  it("weekend surcharge not confirmed -- weekends refuse, weekdays still estimate", () => {
     const unconfirmed = { ...card, weekendSurchargePercent: null };
     expect(manual({ movingDate: SATURDAY }, unconfirmed)).toBe("rate_card_incomplete");
-    expect(price({ movingDate: WEEKDAY }, unconfirmed).amountAud).toBe(780);
+    expect(price({}, unconfirmed).amountAud).toBe(720);
   });
-  it("public-holiday surcharge not confirmed -- holiday dates refuse, other dates still price", () => {
+  it("public-holiday surcharge not confirmed -- holidays refuse, other days still estimate", () => {
     const unconfirmed = { ...card, publicHolidaySurchargePercent: null };
     expect(manual({ movingDate: HOLIDAY }, unconfirmed)).toBe("rate_card_incomplete");
-    expect(price({ movingDate: SATURDAY }, unconfirmed).amountAud).toBe(940);
+    expect(price({ movingDate: SATURDAY }, unconfirmed).amountAud).toBe(860);
   });
-  it("loading hours not supplied for a truck + crew -- only that combination refuses", () => {
-    const noTwoMovers = { ...card, trucks: { ...card.trucks, "6.0T": { ...card.trucks["6.0T"], labourHours: { "2": null, "4": 3 } } } };
-    expect(manual({}, noTwoMovers)).toBe("rate_card_incomplete");
-    expect(price({ movers: 4 }, noTwoMovers).amountAud).toBe(1240);
-  });
-  it("truck rate not supplied -- jobs needing that truck refuse", () => {
-    const no35 = { ...card, trucks: { ...card.trucks, "3.5T": { ...card.trucks["3.5T"], hourlyRateAud: null } } };
-    expect(manual({ truck: "3.5T" }, no35)).toBe("rate_card_incomplete");
-    expect(price({}, no35).amountAud).toBe(780);
-  });
-  it("service-area limits not set -- can't tell if a job is in range, so refuse", () => {
-    const noLimits = { ...card, serviceArea: { ...card.serviceArea, maxMoveKm: null } };
-    expect(manual({}, noLimits)).toBe("rate_card_incomplete");
+  it("service-area limits not set", () => {
+    expect(manual({}, { ...card, serviceArea: { ...card.serviceArea, maxMoveKm: null } })).toBe("rate_card_incomplete");
   });
 });
 
-describe("Blue Line's real rate card (price guide 2026-10-06 + manager's answers 2026-10-07)", () => {
-  it("holds exactly the numbers Blue Line has given", () => {
+describe("Blue Line's real rate card (Ayesha's email of 12 Oct 2026, Part A)", () => {
+  it("holds exactly the rates in the email", () => {
     const real = getActiveRateCard(); // also proves it passes the schema
-    expect(real.trucks["4.5T"].hourlyRateAud).toBe(120);
-    expect(real.trucks["6.0T"].hourlyRateAud).toBe(140);
-    expect(real.trucks["8.0T"].hourlyRateAud).toBe(140);
+    expect(real.trucks["4.5T"].hourlyRateAud).toBe(130);
+    expect(real.trucks["6-8T"].hourlyRateAud).toBe(140);
+    expect(real.trucks["10T"].hourlyRateAud).toBe(180);
     expect(real.extraMoverHourlyRateAud).toBe(60);
     expect(real.minimumJobHours).toBe(2);
+    expect(real.accessExtras).toEqual({ perStairFlightAud: 40, longCarryAud: 40, perHeavyItemAud: 80 });
     expect(real.gst).toEqual({ ratesIncludeGst: false, ratePercent: 10 });
-    expect(real.weekendSurchargePercent).toBe(0);
-    expect(real.firstMoveDiscountPercent).toBe(30);
-    expect(real.publicHolidays).toContain("2026-12-28");
+    expect(real.firstMoveDiscountPercent).toBe(10);
+    expect(real.roundToNearestAud).toBe(10);
+    expect(real.validityDays).toBe(10);
   });
 
-  it("leaves every unconfirmed value empty instead of guessing", () => {
-    expect(blrRateCard.trucks["3.5T"].hourlyRateAud).toBeNull();
-    for (const t of Object.values(blrRateCard.trucks)) expect(t.labourHours).toEqual({ "2": null, "4": null });
+  it("leaves everything asked in Part B empty instead of guessing", () => {
+    expect(Object.values(blrRateCard.jobSizes).every((j) => j === null)).toBe(true);
+    expect(blrRateCard.typicalHoursIncludeDriving).toBeNull();
+    expect(blrRateCard.weekendSurchargePercent).toBeNull();
     expect(blrRateCard.publicHolidaySurchargePercent).toBeNull();
     expect(blrRateCard.serviceArea.maxPickupFromDepotKm).toBeNull();
     expect(blrRateCard.serviceArea.maxMoveKm).toBeNull();
   });
 
-  it("can't produce a price yet -- not even in test mode -- until the gaps are filled", () => {
+  it("can't produce an estimate yet -- not even in test mode -- until Part B is answered", () => {
     expect(manual({}, blrRateCard)).toBe("rate_card_not_confirmed");
     expect(manual({}, blrRateCard, true)).toBe("rate_card_incomplete");
   });

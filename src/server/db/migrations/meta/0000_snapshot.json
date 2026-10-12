@@ -1,5 +1,5 @@
 {
-  "id": "b4db24e5-6b9c-4451-b1c2-a005f9ed5d76",
+  "id": "549b712f-42d1-4428-9ee7-92f5245c47b9",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -407,6 +407,12 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "property_size": {
+          "name": "property_size",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "truck": {
           "name": "truck",

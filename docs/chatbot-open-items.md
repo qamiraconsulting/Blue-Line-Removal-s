@@ -1,6 +1,6 @@
-# Chatbot & instant quote — open items
+# Chatbot & instant estimate — open items
 
-Everything still needed before the chat and the website form can give real prices.
+Everything still needed before the chat and the website form can give real estimates.
 The source of truth is `src/server/openItems.ts`; a test fails if this page, or the
 rate card, falls out of step with it.
 
@@ -8,38 +8,49 @@ rate card, falls out of step with it.
 pricing confirmation and a few open points"*. Until each answer arrives, the system does what
 the "Meanwhile" column says: it never guesses.
 
-## Pricing
+## Asked in the 12 Oct email — waiting on Blue Line
 
-| Item | Question | Status | Meanwhile |
+| Item | Ref | Question | Meanwhile |
 |---|---|---|---|
-| `loading-hours` | Loading + unloading hours for a full load of each truck (3.5T, 4.5T, 6.0T, 8.0T) with 2 and with 4 movers | Asked | No instant prices — every quote goes to the team |
-| `apply-email-rates` | Put the rates from the 12 Oct email into the rate card (may differ slightly from the price guide) | Qamira — needs the email text | Price-guide values in use |
-| `truck-3.5t-rate` | Hourly rate for the 3.5 tonne truck | Asked | 3.5T goes to the team |
-| `truck-rates-confirm` | Confirm truck rates (4.5T $120; 6.0T and 8.0T $140) — the 12 Oct email may differ | Asked | Guide rates used in preview only |
-| `public-holiday-surcharge` | Public-holiday surcharge % | Asked | Public-holiday moves go to the team |
-| `service-area` | Furthest pickup from Tarneit, and longest move, to price automatically | Asked | No instant prices |
-| `gst-on-discount` | 30% offer: GST on the discounted price ($770 on a $1,000 job) or on the full price ($800)? | Asked | Built as $770 |
-| `extra-truck-rate` | "$180/hr" for an extra truck: includes movers? Shown on the quote? | Asked | Quote mentions inspection, no rate |
-| `access-pricing` | Free-text access notes are not priced — OK, or send those quotes to the team? | Asked | Notes shown, not priced |
-| `call-out` | Call-out still $60/hr from Tarneit, 1-hour minimum, rounded up? | To ask | Uses $60/hr, 1h minimum |
-| `junk-removal-pricing` | Junk removal: always a personal quote, or is there a price list? | To ask | Goes to the team |
-| `packing` | Packing is by the hour, depends on the job | Answered | Chat hands to the team |
-| `rounding-validity` | Round to nearest $10, quotes valid 14 days | Answered | In use |
-| `grand-final-eve-2027` | Add the 2027 AFL Grand Final eve holiday once the date is set | Qamira | Treated as a normal day |
-| `sign-off` | Blue Line signs off the full rate card (then status → confirmed) | To ask | Test prices only, never emailed |
+| `home-size-guide` | B1 | Usual truck, movers and typical hours for studio/1 bed, 2 bed, 3 bed, 4+ bed | No instant estimates — every request goes to the team |
+| `weekend-holiday-surcharge` | B2 | Weekend / public-holiday surcharge, and how much | Weekend and holiday moves go to the team |
+| `heavy-items` | B3 | Which items count as heavy ($80); items not moved | Captured in access notes, not priced |
+| `long-carry-distance` | B4 | Distance from parking that triggers the $40 long carry | Captured in access notes, not priced |
+| `service-area` | B5 | Furthest pickup from Tarneit, longest move (km); suburbs/regions covered | No instant estimates |
+| `furniture-wrapping` | B6 | Free furniture wrapping on request stays free? | Not mentioned |
+| `first-order-offer` | B7 | First-order offer 30% → 10% everywhere | 10% in engine, chat and emails; website still says 30% (home page ×2, FAQ, quote form) |
+| `whatsapp-number` | B8 | WhatsApp Business number for the website | Phone only |
+| `part-a-confirm` | Part A | Blue Line confirms the rates and rules as written | In the rate card; test figures only |
+| `defaults` | Defaults | Round to $10, valid 10 days, one discount per email/phone | In use |
 
-## Operations
+## To clarify with Blue Line (not in the email)
 
-| Item | Question | Status | Meanwhile |
-|---|---|---|---|
-| `team-inbox` | Which Blue Line inbox receives quote and hand-off emails? | To ask | Goes to qamiraconsulting@gmail.com |
-| `sending-domain` | Verify bluelineremovals.com.au in Resend (DNS via Namecheap) | Qamira | Sends from the verified address |
-| `whatsapp-alerts` | WhatsApp Business Platform/Cloud API, or just the app? | To ask | Email alerts + dashboard |
-| `admin-users` | Who at Blue Line needs dashboard access? | To ask | Only listed user IDs get in |
+| Item | Question | Meanwhile |
+|---|---|---|
+| `typical-hours-driving` | Do the "typical hours" include driving between addresses? (ask with the B1 answer) | No estimates until confirmed |
+| `crew-choice-hours` | If the customer picks a different truck/crew than the guide, do the hours change? | Guide's hours always used |
+| `access-pricing` | Should the form ask for counts of stairs/heavy items so they're priced in? | Notes shown, not priced |
+| `junk-removal-pricing` | Junk removal: always a personal quote, or a price list? | Goes to the team |
+| `commercial-moves` | Office moves: always a personal quote? | Goes to the team |
+| `sign-off` | Blue Line signs off the complete rate card (then status → confirmed) | Test figures only, never emailed |
+| `team-inbox` | Which Blue Line inbox receives estimate and hand-off emails? | qamiraconsulting@gmail.com |
+| `whatsapp-alerts` | WhatsApp Business Platform/Cloud API (for automatic alerts), or just the app? | Email alerts + dashboard |
+| `admin-users` | Who at Blue Line needs dashboard access? | Only listed user IDs get in |
+| `faq-facts` | Insurance, deposit/payment, cancellation, working hours | Chat hands to the team |
+| `privacy-policy` | Privacy policy names Anthropic, Google Maps, Resend, Neon; reviewed before launch | Short collection notice in chat |
 
-## Content & legal
+## Qamira actions and decisions
 
-| Item | Question | Status | Meanwhile |
-|---|---|---|---|
-| `faq-facts` | Insurance, deposit/payment, cancellation, working hours, items not moved | To ask | Chat hands to the team |
-| `privacy-policy` | Privacy policy names Anthropic, Google Maps, Resend, Neon; reviewed before launch | To ask | Short collection notice in chat |
+| Item | Question | Meanwhile |
+|---|---|---|
+| `estimate-vs-final` | Email makes every figure an estimate that "may vary"; the 6 Oct decision and the website say final/flat price, no call-out, "not an hourly meter". Confirm and update the website copy | Chat and emails say "estimate" |
+| `quote-form-fields` | Form: home size + optional truck (4.5T/6-8T/10T) + 2-4 movers + inspect + access notes; fix "30%" and "final price" wording | Form sends home size only |
+| `hourly-rate-disclosure` | May hourly rates be shown if a customer asks, now that figures are estimates? | Never shown |
+| `sending-domain` | Verify bluelineremovals.com.au in Resend (DNS via Namecheap) | Sends from the verified address |
+| `grand-final-eve-2027` | Add the 2027 AFL Grand Final eve holiday once the date is set | Treated as a normal day |
+
+## Answered and handled
+
+| Item | Answer | Handling |
+|---|---|---|
+| `piano-packing` | Piano from $200 (type/access); packing = materials at cost + hourly labour | Personal quote from the team |

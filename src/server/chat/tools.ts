@@ -1,6 +1,6 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
-import { handleQuoteRequest, truckChoices, type QuoteServiceDeps } from "../quote/service.js";
+import { handleQuoteRequest, propertySizeIds, truckChoices, type QuoteServiceDeps } from "../quote/service.js";
 import { renderHandoffEmail } from "./handoffEmail.js";
 import type { LeadStore } from "./leadStore.js";
 
@@ -18,13 +18,17 @@ export const getQuoteInput = z.object({
   from: z.string().describe("Pickup suburb or address, as the customer gave it (empty for junk removal if not given)."),
   to: z.string().describe("Drop-off suburb or address, as the customer gave it."),
   date: z.string().describe("Moving date as YYYY-MM-DD. Work relative dates out from today's date in your instructions."),
+  propertySize: z
+    .enum(propertySizeIds)
+    .describe("Home size: studio_1bed, 2_bed, 3_bed, 4plus_bed; commercial for an office; unsure if the customer doesn't know."),
   truck: z
     .enum(truckChoices)
-    .describe("The truck the customer chose: 3.5T, 4.5T, 6.0T or 8.0T -- or 'inspect' if they want the team to inspect and confirm."),
-  movers: z
-    .union([z.literal(2), z.literal(4)])
     .optional()
-    .describe("2 or 4 movers, as the customer chose. Leave out when truck is 'inspect'."),
+    .describe("Only if the customer chose a truck: 4.5T, 6-8T or 10T -- or 'inspect' if they want the team to inspect and confirm. Leave out if they want Blue Line's suggestion."),
+  movers: z
+    .union([z.literal(2), z.literal(3), z.literal(4)])
+    .optional()
+    .describe("Only if the customer chose a crew size: 2, 3 or 4 movers. Leave out if they want Blue Line's suggestion or chose 'inspect'."),
   accessNotes: z
     .string()
     .max(1000)
@@ -51,7 +55,7 @@ const tool = (name: string, description: string, schema: z.ZodType): Anthropic.T
 export const chatTools: Anthropic.Tool[] = [
   tool(
     "get_quote",
-    "Works out Blue Line's single flat price for a job and emails it to the customer. Call this ONLY after you " +
+    "Works out Blue Line's estimate for a job and emails it to the customer. Call this ONLY after you " +
       "have every field, have read the details back to the customer and they have confirmed them. Call it again " +
       "if they change any detail. The amountAud in its result is the ONLY dollar figure you may ever give.",
     getQuoteInput,

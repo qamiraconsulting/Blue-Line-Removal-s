@@ -8,8 +8,8 @@ const DOLLARS = /\$\s?(\d{1,3}(?:,\d{3})+|\d+)(?:\.\d{1,2})?/g;
 const RATE_TALK = /per[- ]hour|\/\s?h(?:ou)?r\b|hourly|call[- ]?out|travel (?:fee|charge)|minimum (?:of )?\d+ hours?/i;
 
 export const BLOCKED_REPLY =
-  `Sorry, I can't give a figure like that here. The only price I can give is one flat price worked out for your ` +
-  `exact move, with everything included. I'm happy to work that out for you, or you can call us on ${site.phone.display}.`;
+  `Sorry, I can't give a figure like that here. The only figure I can give is an estimate worked out for your ` +
+  `move from the details you share. I'm happy to work that out for you, or you can call us on ${site.phone.display}.`;
 
 export type GuardResult = { ok: true; text: string } | { ok: false; text: string; reason: "unquoted_amount" | "rate_talk" };
 

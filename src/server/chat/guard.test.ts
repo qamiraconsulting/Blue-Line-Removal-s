@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { ESTIMATE_DISCLAIMER } from "../quote/emails.js";
 import { BLOCKED_REPLY, guardReply } from "./guard.js";
 
 describe("guardReply", () => {
@@ -9,7 +10,7 @@ describe("guardReply", () => {
   });
 
   it("lets through replies with no dollar figure (percentages and phone numbers are fine)", () => {
-    expect(guardReply("First-time customers get 30% off! Call 03 9494 1070.", []).ok).toBe(true);
+    expect(guardReply("First-time customers get 10% off! Call 03 9494 1070.", []).ok).toBe(true);
   });
 
   it("blocks any figure the engine didn't produce", () => {
@@ -30,6 +31,10 @@ describe("guardReply", () => {
     ]) {
       expect(guardReply(text, [850])).toMatchObject({ ok: false, reason: "rate_talk" });
     }
+  });
+
+  it("Blue Line's estimate wording passes the guard", () => {
+    expect(guardReply(`Your estimate is $720. ${ESTIMATE_DISCLAIMER}`, [720]).ok).toBe(true);
   });
 
   it("the replacement reply itself passes the guard", () => {

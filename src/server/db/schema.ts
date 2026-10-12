@@ -77,8 +77,9 @@ export const quotes = pgTable(
     phoneNormalised: text("phone_normalised").notNull(),
 
     need: text("need").notNull(),
-    truck: text("truck"), // "3.5T" | "4.5T" | "6.0T" | "8.0T" | "inspect"
-    movers: integer("movers"),
+    propertySize: text("property_size"), // home size id, e.g. "2_bed"
+    truck: text("truck"), // the customer's choice: "4.5T" | "6-8T" | "10T" | "inspect"; null = the guide's
+    movers: integer("movers"), // the customer's choice (2-4); null = the guide's
     accessNotes: text("access_notes"), // free text: stairs, parking distance, heavy items
     movingDate: date("moving_date"),
     fromText: text("from_text"),

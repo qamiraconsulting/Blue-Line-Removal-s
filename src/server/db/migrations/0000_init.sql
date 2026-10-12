@@ -54,6 +54,7 @@ CREATE TABLE "quotes" (
 	"email_normalised" text NOT NULL,
 	"phone_normalised" text NOT NULL,
 	"need" text NOT NULL,
+	"property_size" text,
 	"truck" text,
 	"movers" integer,
 	"access_notes" text,

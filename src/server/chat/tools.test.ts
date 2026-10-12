@@ -3,10 +3,11 @@ import { fixtureRateCard } from "../quote/rateCard.fixture.js";
 import type { OutgoingEmail, QuoteServiceDeps } from "../quote/service.js";
 import type { NewQuoteRow, QuoteStore } from "../quote/store.js";
 import type { LeadPatch, LeadStore } from "./leadStore.js";
+import { ESTIMATE_DISCLAIMER } from "../quote/emails.js";
 import { buildSystemPrompt } from "./systemPrompt.js";
 import { chatTools, createToolRunner } from "./tools.js";
 
-// Same hand-checked numbers as the form's tests: 6t truck + 2 movers on a weekday, 20 km / 30 min legs = $780.
+// Same hand-checked numbers as the form's tests: 6t truck + 2 movers on a weekday, 20 km / 30 min legs = $720.
 const routeFetch = vi.fn(async () => ({
   ok: true,
   json: async () => ({ routes: [{ distanceMeters: 20000, duration: "1800s" }] }),
@@ -59,8 +60,7 @@ const quoteInput = {
   from: "Preston",
   to: "Brunswick",
   date: "2026-10-14",
-  truck: "6.0T",
-  movers: 2,
+  propertySize: "2_bed",
   firstMove: false,
   specialItems: false,
   accessNotes: "",
@@ -71,11 +71,11 @@ describe("get_quote uses the same engine and flow as the website form", () => {
     const { runTool, rows, sent, leadCalls } = setup();
     const run = await runTool("get_quote", quoteInput);
 
-    expect(run.result).toMatchObject({ ok: true, kind: "price", amountAud: 780, reference: "BLR-CHAT-1", emailed: true });
-    expect(run.record).toEqual({ name: "get_quote", quoteReference: "BLR-CHAT-1", quotedAmountAud: 780, outcome: "priced" });
-    expect(rows[0]).toMatchObject({ source: "chatbot", conversationId: "conv-1", truck: "6.0T", movers: 2, amountAud: 780 });
+    expect(run.result).toMatchObject({ ok: true, kind: "price", amountAud: 720, reference: "BLR-CHAT-1", emailed: true });
+    expect(run.record).toEqual({ name: "get_quote", quoteReference: "BLR-CHAT-1", quotedAmountAud: 720, outcome: "priced" });
+    expect(rows[0]).toMatchObject({ source: "chatbot", conversationId: "conv-1", propertySize: "2_bed", truck: null, movers: null, amountAud: 720 });
     expect(sent.find((e) => e.kind === "team")!.text).toContain("Via: website chat");
-    expect(sent.find((e) => e.kind === "team")!.text).toContain("Truck & crew: 6 tonne truck, 2 movers");
+    expect(sent.find((e) => e.kind === "team")!.text).toContain("Truck & crew: 6-8 tonne truck, 2 movers");
     expect(leadCalls[0]).toEqual(["conv-1", expect.objectContaining({ customerName: "Jane Smith", quoteReference: "BLR-CHAT-1" })]);
     expect(leadCalls[0]![1].humanFollowupRequired).toBeUndefined();
   });
@@ -83,14 +83,13 @@ describe("get_quote uses the same engine and flow as the website form", () => {
   it("prices the crew size the customer chose, and passes their access notes to the team", async () => {
     const { runTool, sent } = setup();
     const run = await runTool("get_quote", { ...quoteInput, movers: 4, accessNotes: "2 flights of stairs at pickup" });
-    expect(run.result).toMatchObject({ amountAud: 1240 }); // same as the form for 6t + 4 movers
+    expect(run.result).toMatchObject({ amountAud: 1510 }); // same as the form for a 2 bed with 4 movers
     expect(sent.find((e) => e.kind === "team")!.text).toContain("Access notes: 2 flights of stairs at pickup");
   });
 
   it("an inspection request goes to the team with no price", async () => {
     const { runTool, leadCalls } = setup();
-    const { movers: _omit, ...rest } = quoteInput;
-    const run = await runTool("get_quote", { ...rest, truck: "inspect" });
+    const run = await runTool("get_quote", { ...quoteInput, truck: "inspect" });
     expect(run.result).toMatchObject({ ok: true, kind: "manual" });
     expect(leadCalls[0]![1]).toMatchObject({ humanFollowupRequired: true });
   });
@@ -176,10 +175,12 @@ describe("tool and prompt wording", () => {
   });
 
   it("the prompt states today's Melbourne date and the flat-price rules, and quotes no dollar figures itself", () => {
-    const prompt = buildSystemPrompt(new Date("2026-10-06T15:30:00Z")); // already 7 Oct in Melbourne
+    const prompt = buildSystemPrompt(new Date("2026-10-06T15:30:00Z"), fixtureRateCard); // already 7 Oct in Melbourne
     expect(prompt).toContain("2026-10-07");
-    expect(prompt).toContain("one flat price");
-    expect(prompt).toContain("30% off");
+    expect(prompt).toContain("Always call it an estimate");
+    expect(prompt).toContain(ESTIMATE_DISCLAIMER);
+    expect(prompt).toContain("10% off");
+    expect(prompt).toContain("4.5 tonne truck, 6-8 tonne truck, 10 tonne truck");
     expect(prompt).not.toMatch(/\$\d/);
   });
 });
