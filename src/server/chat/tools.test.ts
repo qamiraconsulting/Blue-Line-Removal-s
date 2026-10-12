@@ -38,9 +38,17 @@ function setup(quoteDepsOverride?: Partial<QuoteServiceDeps> | null) {
           log: () => {},
           ...quoteDepsOverride,
         };
-  const leads: LeadStore = { upsertForConversation: async (id, patch) => void leadCalls.push([id, patch]) };
+  let flagged = false;
+  const leads: LeadStore = {
+    upsertForConversation: async (id, patch) => {
+      leadCalls.push([id, patch]);
+      const wasFlagged = flagged;
+      if (patch.humanFollowupRequired) flagged = true;
+      return { wasFlagged };
+    },
+  };
   const runTool = createToolRunner({ quoteDeps, leads, conversationId: "conv-1", log: () => {} });
-  return { runTool, rows, sent, leadCalls };
+  return { runTool, rows, sent, leadCalls, quoteDeps };
 }
 
 const quoteInput = {
@@ -132,6 +140,29 @@ describe("get_quote uses the same engine and flow as the website form", () => {
 });
 
 describe("request_human_followup", () => {
+  it("emails the team once when a chat is handed over, with a link to the conversation", async () => {
+    const { runTool, sent } = setup();
+    await runTool("request_human_followup", { reason: "asked for a person", name: "Jane", phone: "0412345678" });
+    await runTool("request_human_followup", { reason: "still waiting" });
+    const alerts = sent.filter((e) => e.subject.startsWith("Chat needs a person"));
+    expect(alerts).toHaveLength(1);
+    expect(alerts[0]).toMatchObject({ to: "team@example.com", kind: "team" });
+    expect(alerts[0]!.text).toContain("/admin/conversations/conv-1");
+    expect(alerts[0]!.text).toContain("Phone: 0412345678");
+  });
+
+  it("still emails the team if the dashboard store is down (the email is then the only record)", async () => {
+    const { quoteDeps, sent } = setup();
+    const runTool = createToolRunner({
+      quoteDeps,
+      leads: { upsertForConversation: async () => Promise.reject(new Error("db down")) },
+      conversationId: "c",
+      log: () => {},
+    });
+    await runTool("request_human_followup", { reason: "x" });
+    expect(sent).toHaveLength(1);
+  });
+
   it("flags the conversation with the reason and any contact details", async () => {
     const { runTool, leadCalls } = setup();
     await runTool("request_human_followup", { reason: "packing", name: "Jane", phone: "0412345678" });

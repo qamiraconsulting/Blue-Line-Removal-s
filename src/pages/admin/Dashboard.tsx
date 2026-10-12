@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
+import { QuotesPanel } from "./QuotesPanel";
 import { useAdminApi } from "./useAdminApi";
 
 interface LeadRow {
@@ -65,6 +66,8 @@ export default function Dashboard() {
           );
         })}
       </ul>
+
+      <QuotesPanel />
     </div>
   );
 }

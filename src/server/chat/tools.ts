@@ -1,6 +1,7 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { handleQuoteRequest, truckChoices, type QuoteServiceDeps } from "../quote/service.js";
+import { renderHandoffEmail } from "./handoffEmail.js";
 import type { LeadStore } from "./leadStore.js";
 
 // The chat has exactly two tools. get_quote runs the SAME flow as the website quote form
@@ -96,11 +97,13 @@ export function createToolRunner(deps: ChatToolDeps) {
   const log = deps.log ?? ((message, meta) => console.error(message, meta ?? ""));
 
   // Lead bookkeeping must never break the customer's chat.
-  const touchLead = async (patch: Parameters<LeadStore["upsertForConversation"]>[1]) => {
+  // Returns whether the chat was already flagged (null if the store failed).
+  const touchLead = async (patch: Parameters<LeadStore["upsertForConversation"]>[1]): Promise<boolean | null> => {
     try {
-      await deps.leads.upsertForConversation(deps.conversationId, patch);
+      return (await deps.leads.upsertForConversation(deps.conversationId, patch)).wasFlagged;
     } catch (err) {
       log("lead update failed", { err: String(err) });
+      return null;
     }
   };
 
@@ -144,7 +147,7 @@ export function createToolRunner(deps: ChatToolDeps) {
     if (name === "request_human_followup") {
       const parsed = requestHumanFollowupInput.safeParse(rawInput);
       const input = parsed.success ? parsed.data : { reason: "unspecified" };
-      await touchLead({
+      const wasFlagged = await touchLead({
         customerName: input.name,
         phone: input.phone,
         email: input.email,
@@ -153,6 +156,13 @@ export function createToolRunner(deps: ChatToolDeps) {
         humanFollowupRequired: true,
         notes: input.reason,
       });
+      // Alert the team once per hand-off -- not again while the chat is still waiting. If the
+      // dashboard store failed, the email is the only record, so always send it then.
+      if (wasFlagged !== true && deps.quoteDeps) {
+        const alert = renderHandoffEmail({ conversationId: deps.conversationId, ...input });
+        const sent = await deps.quoteDeps.sendEmail({ ...alert, to: deps.quoteDeps.teamEmail, kind: "team" }).catch(() => false);
+        if (!sent) log("hand-off email failed", { conversationId: deps.conversationId });
+      }
       return { result: { ok: true, acknowledged: true }, isError: false, record: { name, outcome: input.reason } };
     }
 

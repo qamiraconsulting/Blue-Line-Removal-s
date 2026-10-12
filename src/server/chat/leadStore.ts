@@ -1,3 +1,4 @@
+import { eq } from "drizzle-orm";
 import { getDb } from "../db/client.js";
 import { leads } from "../db/schema.js";
 
@@ -15,7 +16,8 @@ export interface LeadPatch {
 
 /** One lead per chat conversation; later details fill in or overwrite earlier ones. */
 export interface LeadStore {
-  upsertForConversation(conversationId: string, patch: LeadPatch): Promise<void>;
+  /** Returns whether the chat was ALREADY waiting for a person before this call. */
+  upsertForConversation(conversationId: string, patch: LeadPatch): Promise<{ wasFlagged: boolean }>;
 }
 
 // Drop blanks so a later call without (say) the phone never wipes one already captured.
@@ -24,10 +26,17 @@ const defined = (patch: LeadPatch) =>
 
 export const dbLeadStore: LeadStore = {
   async upsertForConversation(conversationId, patch) {
+    const db = getDb();
     const values = defined(patch);
-    await getDb()
+    const [existing] = await db
+      .select({ flagged: leads.humanFollowupRequired })
+      .from(leads)
+      .where(eq(leads.conversationId, conversationId))
+      .limit(1);
+    await db
       .insert(leads)
       .values({ ...values, conversationId, source: "chatbot" })
       .onConflictDoUpdate({ target: leads.conversationId, set: { ...values, updatedAt: new Date() } });
+    return { wasFlagged: existing?.flagged ?? false };
   },
 };

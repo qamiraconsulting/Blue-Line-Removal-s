@@ -10,6 +10,15 @@ interface Message {
   createdAt: string;
 }
 
+interface ChatQuote {
+  reference: string;
+  status: string;
+  amountAud: number | null;
+  truck: string | null;
+  movers: number | null;
+  movingDate: string | null;
+}
+
 interface Lead {
   customerName: string | null;
   phone: string | null;
@@ -21,6 +30,7 @@ export default function ConversationDetail() {
   const { adminFetch } = useAdminApi();
   const [messages, setMessages] = useState<Message[] | null>(null);
   const [lead, setLead] = useState<Lead | null>(null);
+  const [quotes, setQuotes] = useState<ChatQuote[]>([]);
   const [reply, setReply] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -34,6 +44,7 @@ export default function ConversationDetail() {
       .then((data) => {
         setMessages(data.messages);
         setLead(data.lead);
+        setQuotes(data.quotes ?? []);
       })
       .catch((err) => setError(err.message));
   }
@@ -70,6 +81,19 @@ export default function ConversationDetail() {
           <p className="text-sm text-slate-600">
             {lead.phone} &middot; {lead.email}
           </p>
+        </div>
+      )}
+
+      {quotes.length > 0 && (
+        <div className="mb-4 rounded-lg bg-white p-4 text-sm shadow-sm">
+          <p className="mb-1 font-display font-bold text-navy">Quotes from this chat</p>
+          {quotes.map((q) => (
+            <p key={q.reference} className="text-slate-600">
+              {q.reference} &middot; {q.status === "priced" ? `$${q.amountAud?.toLocaleString("en-AU")}` : "needs a personal quote"}
+              {q.truck && ` · ${q.truck === "inspect" ? "inspection" : `${q.truck}, ${q.movers ?? "?"} movers`}`}
+              {q.movingDate && ` · ${q.movingDate}`}
+            </p>
+          ))}
         </div>
       )}
 

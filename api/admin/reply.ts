@@ -3,7 +3,7 @@ import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { getDb } from "../../src/server/db/client.js";
 import { conversations, leads, messages } from "../../src/server/db/schema.js";
-import { requireAdminAuth, AdminAuthError } from "../../src/server/services/adminAuth.js";
+import { guardAdmin } from "../../src/server/services/adminAuth.js";
 
 const bodySchema = z.object({
   conversationId: z.string().uuid(),
@@ -23,15 +23,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  try {
-    await requireAdminAuth(req);
-  } catch (err) {
-    if (err instanceof AdminAuthError) {
-      res.status(401).json({ error: err.message });
-      return;
-    }
-    throw err;
-  }
+  if (!(await guardAdmin(req, res))) return;
 
   const parsed = bodySchema.safeParse(req.body);
   if (!parsed.success) {

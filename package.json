@@ -11,7 +11,8 @@
     "typecheck:api": "tsc --noEmit -p tsconfig.api.json",
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate"
+    "db:migrate": "drizzle-kit migrate",
+    "db:setup": "node scripts/db-setup.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.120.0",
@@ -19,7 +20,6 @@
     "@clerk/react-router": "^3.6.15",
     "@fontsource/archivo": "^5.3.0",
     "@fontsource/inter": "^5.3.0",
-    "@googlemaps/google-maps-services-js": "^3.4.2",
     "@react-router/node": "^7.18.1",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.38.2",
