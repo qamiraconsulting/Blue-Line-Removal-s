@@ -46,13 +46,13 @@ export const requestHumanFollowupInput = z.object({
   to: z.string().optional(),
 });
 
-const tool = (name: string, description: string, schema: z.ZodType): Anthropic.Tool => ({
+const tool = (name: string, description: string, schema: z.ZodType): Anthropic.Beta.Messages.BetaTool => ({
   name,
   description,
-  input_schema: z.toJSONSchema(schema) as Anthropic.Tool.InputSchema,
+  input_schema: z.toJSONSchema(schema) as Anthropic.Beta.Messages.BetaTool.InputSchema,
 });
 
-export const chatTools: Anthropic.Tool[] = [
+export const chatTools: Anthropic.Beta.Messages.BetaTool[] = [
   tool(
     "get_quote",
     "Works out Blue Line's estimate for a job and emails it to the customer. Call this ONLY after you " +

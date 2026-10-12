@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { MessageCircle, X } from "lucide-react";
 import clsx from "clsx";
+import { trackEvent } from "@/lib/analytics";
 import { ChatPanel } from "./ChatPanel";
 
 // Mounted globally in Layout.tsx. Every bottom offset below is relative to
@@ -26,7 +27,10 @@ export function ChatWidget() {
         type="button"
         aria-label={open ? "Close chat" : "Chat with us about your move"}
         aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => {
+          if (!open) trackEvent("chat_opened", { page: window.location.pathname });
+          setOpen((v) => !v);
+        }}
         className={clsx(
           "fixed bottom-[calc(var(--contact-bar-h)+6rem)] right-6 z-[110] flex h-14 w-14 items-center justify-center rounded-full bg-action text-white shadow-lg transition-all duration-300 ease-signature hover:bg-action-bright",
           open && "rotate-90",

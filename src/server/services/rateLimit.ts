@@ -28,6 +28,11 @@ export function checkRateLimit(key: string) {
   return check(getLimiter("blr_chat", 20, "1 m"), key);
 }
 
+// New chats: each one creates database rows, so cap how many one IP can start.
+export function checkChatSessionRateLimit(key: string) {
+  return check(getLimiter("blr_chat_session", 10, "1 h"), key);
+}
+
 // Quote form: public, and every submission costs a Google lookup and sends an email, so
 // this is much stricter -- 5 submissions per IP per 10 minutes.
 export function checkQuoteRateLimit(key: string) {

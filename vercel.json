@@ -1,5 +1,9 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": "build/client",
+  "functions": {
+    "api/chat/message.ts": { "maxDuration": 60 },
+    "api/quote.ts": { "maxDuration": 30 }
+  },
   "rewrites": [{ "source": "/(.*)", "destination": "/__spa-fallback.html" }]
 }

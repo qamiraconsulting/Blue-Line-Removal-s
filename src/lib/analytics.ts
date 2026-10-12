@@ -21,7 +21,15 @@ declare global {
 
 // Event names here are what the GTM triggers listen for -- renaming one
 // means updating the matching Custom Event trigger in GTM too.
-export type TrackedEvent = "quote_submitted" | "phone_click" | "email_click";
+export type TrackedEvent =
+  | "quote_submitted"
+  | "phone_click"
+  | "email_click"
+  // Chat widget (add matching Custom Event triggers in GTM to use them in GA4/Ads)
+  | "chat_opened"
+  | "chat_started"
+  | "chat_estimate_shown"
+  | "chat_handoff";
 
 export function trackEvent(event: TrackedEvent, params: Record<string, unknown> = {}) {
   if (typeof window === "undefined") return;

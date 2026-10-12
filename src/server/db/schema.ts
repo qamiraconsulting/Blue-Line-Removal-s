@@ -9,6 +9,9 @@ export const conversations = pgTable("conversations", {
   startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
   lastActivityAt: timestamp("last_activity_at", { withTimezone: true }).notNull().defaultNow(),
   channel: text("channel").notNull().default("web_chat"),
+  // "bot" = the assistant answers; "human" = a team member replied from the dashboard, so
+  // the assistant stays quiet until someone hands the chat back.
+  mode: text("mode").notNull().default("bot"),
 });
 
 // role is "user" | "assistant" | "human_agent". A reply sent from the internal dashboard
@@ -26,6 +29,8 @@ export const messages = pgTable(
     role: text("role").notNull(),
     content: text("content").notNull(),
     toolCalls: jsonb("tool_calls"),
+    // Assistant rows: Claude token usage for that reply (summed over tool rounds), for cost tracking.
+    usage: jsonb("usage"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("messages_conversation_idx").on(t.conversationId, t.createdAt)],

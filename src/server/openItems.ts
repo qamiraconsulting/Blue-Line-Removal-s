@@ -218,6 +218,13 @@ export const openItems: OpenItem[] = [
     status: "internal",
   },
   {
+    id: "gtm-chat-events",
+    topic: "website",
+    question: "Add GTM Custom Event triggers (and GA4 events) for the chat: chat_opened, chat_started, chat_estimate_shown, chat_handoff.",
+    meanwhile: "The site pushes the events to the dataLayer; nothing records them until the triggers exist.",
+    status: "internal",
+  },
+  {
     id: "sending-domain",
     topic: "operations",
     question: "Verify bluelineremovals.com.au in Resend (DNS records via Namecheap) so estimates come from Blue Line's own domain.",

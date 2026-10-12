@@ -1,5 +1,5 @@
 {
-  "id": "549b712f-42d1-4428-9ee7-92f5245c47b9",
+  "id": "3ddf878a-ea40-472b-bf58-f6373383cbc8",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -35,6 +35,13 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'web_chat'"
+        },
+        "mode": {
+          "name": "mode",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'bot'"
         }
       },
       "indexes": {},
@@ -267,6 +274,12 @@
         },
         "tool_calls": {
           "name": "tool_calls",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "usage": {
+          "name": "usage",
           "type": "jsonb",
           "primaryKey": false,
           "notNull": false

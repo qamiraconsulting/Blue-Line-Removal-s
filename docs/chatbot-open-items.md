@@ -46,6 +46,7 @@ the "Meanwhile" column says: it never guesses.
 | `estimate-vs-final` | Email makes every figure an estimate that "may vary"; the 6 Oct decision and the website say final/flat price, no call-out, "not an hourly meter". Confirm and update the website copy | Chat and emails say "estimate" |
 | `quote-form-fields` | Form: home size + optional truck (4.5T/6-8T/10T) + 2-4 movers + inspect + access notes; fix "30%" and "final price" wording | Form sends home size only |
 | `hourly-rate-disclosure` | May hourly rates be shown if a customer asks, now that figures are estimates? | Never shown |
+| `gtm-chat-events` | Add GTM triggers / GA4 events for chat_opened, chat_started, chat_estimate_shown, chat_handoff | Events pushed to the dataLayer, not yet recorded |
 | `sending-domain` | Verify bluelineremovals.com.au in Resend (DNS via Namecheap) | Sends from the verified address |
 | `grand-final-eve-2027` | Add the 2027 AFL Grand Final eve holiday once the date is set | Treated as a normal day |
 

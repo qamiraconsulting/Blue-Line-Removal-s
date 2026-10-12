@@ -3,19 +3,38 @@ import { guardReply } from "./guard.js";
 import { chatTools, type ToolRecord, type ToolRun } from "./tools.js";
 
 // One customer turn: send the conversation to Claude, run any tools it asks for (proper
-// tool_use / tool_result blocks), repeat until it answers in text, then run the reply
-// through the price guard. Pure apart from the injected model call and tool runner, so
-// it's tested without a network.
+// tool_use / tool_result blocks, appended unchanged so the turn stays append-only), repeat
+// until it answers in text, then run the reply through the price guard. Pure apart from the
+// injected model call and tool runner, so it's tested without a network.
 
+// Claude Sonnet 5.5: the architecture's Sonnet tier, sized for the AUD $150/month budget.
 export const DEFAULT_MODEL = "claude-sonnet-5-5";
+// Chat is short slot-filling turns; low effort keeps replies quick and cheap. Override with
+// ANTHROPIC_EFFORT if tool inputs ever come back wrong.
+export const DEFAULT_EFFORT = "low";
 const MAX_TOOL_ROUNDS = 4;
-export const FALLBACK_REPLY = "Sorry, I need a moment -- could you try that again?";
+// Thinking counts toward max_tokens, so leave room -- only tokens actually generated are billed.
+const MAX_TOKENS = 16000;
 
-export type CreateMessage = (params: Anthropic.MessageCreateParamsNonStreaming) => Promise<Anthropic.Message>;
+export const FALLBACK_REPLY = "Sorry, I need a moment -- could you try that again?";
+export const DECLINED_REPLY =
+  "Sorry, I can't help with that one here. I've asked a member of the Blue Line team to follow up with you.";
+
+type Effort = "low" | "medium" | "high" | "xhigh" | "max";
+export type CreateMessage = (params: Anthropic.Beta.Messages.MessageCreateParamsNonStreaming) => Promise<Anthropic.Beta.Messages.BetaMessage>;
 
 export interface StoredTurn {
   role: "user" | "assistant" | "human_agent";
   content: string;
+}
+
+export interface TurnUsage {
+  model: string;
+  rounds: number;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
 }
 
 export interface AgentTurnResult {
@@ -23,11 +42,14 @@ export interface AgentTurnResult {
   toolRecords: ToolRecord[];
   /** Set when the guard replaced the model's reply. */
   blocked: string | null;
+  /** The model (and any fallback) declined -- the caller should hand the chat to a person. */
+  declined: boolean;
+  usage: TurnUsage;
 }
 
 /** Stored turns -> Anthropic messages: starts with the customer, alternates roles. */
-export function toModelMessages(history: StoredTurn[]): Anthropic.MessageParam[] {
-  const out: Anthropic.MessageParam[] = [];
+export function toModelMessages(history: StoredTurn[]): Anthropic.Beta.Messages.BetaMessageParam[] {
+  const out: Anthropic.Beta.Messages.BetaMessageParam[] = [];
   for (const turn of history) {
     const role = turn.role === "user" ? "user" : "assistant";
     const content = turn.role === "human_agent" ? `[Reply from a Blue Line team member]: ${turn.content}` : turn.content;
@@ -42,50 +64,71 @@ export function toModelMessages(history: StoredTurn[]): Anthropic.MessageParam[]
 export async function runAgentTurn(params: {
   createMessage: CreateMessage;
   model?: string;
+  effort?: Effort;
   systemPrompt: string;
   history: StoredTurn[];
   runTool: (name: string, input: unknown) => Promise<ToolRun>;
   /** amountAud values already quoted earlier in this conversation. */
   previouslyQuoted: number[];
 }): Promise<AgentTurnResult> {
+  const model = params.model ?? DEFAULT_MODEL;
   const messages = toModelMessages(params.history);
   const toolRecords: ToolRecord[] = [];
+  const usage: TurnUsage = { model, rounds: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 };
   let text: string | null = null;
 
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
     const response = await params.createMessage({
-      model: params.model ?? DEFAULT_MODEL,
-      max_tokens: 1024,
+      model,
+      max_tokens: MAX_TOKENS,
+      output_config: { effort: params.effort ?? DEFAULT_EFFORT },
+      // If the model declines on safety grounds, the API retries on a suitable fallback
+      // model inside the same call.
+      betas: ["server-side-fallback-2026-07-01"],
+      fallbacks: "default",
       system: [{ type: "text", text: params.systemPrompt, cache_control: { type: "ephemeral" } }],
       tools: chatTools,
       messages,
     });
 
-    const toolUses = response.content.filter((b): b is Anthropic.ToolUseBlock => b.type === "tool_use");
+    usage.rounds += 1;
+    usage.inputTokens += response.usage.input_tokens;
+    usage.outputTokens += response.usage.output_tokens;
+    usage.cacheReadTokens += response.usage.cache_read_input_tokens ?? 0;
+    usage.cacheWriteTokens += response.usage.cache_creation_input_tokens ?? 0;
+
+    // The whole chain declined: never show a partial reply, hand to a person instead.
+    if (response.stop_reason === "refusal") {
+      return { reply: DECLINED_REPLY, toolRecords, blocked: null, declined: true, usage };
+    }
+
+    const toolUses = response.content.filter((b): b is Anthropic.Beta.Messages.BetaToolUseBlock => b.type === "tool_use");
     const replyText = response.content
-      .filter((b): b is Anthropic.TextBlock => b.type === "text")
+      .filter((b): b is Anthropic.Beta.Messages.BetaTextBlock => b.type === "text")
       .map((b) => b.text)
       .join("")
       .trim();
 
     if (response.stop_reason !== "tool_use" || toolUses.length === 0) {
-      text = replyText || null;
+      // A reply cut off at the length cap may end mid-sentence; don't show it.
+      text = response.stop_reason === "max_tokens" ? null : replyText || null;
       break;
     }
 
     messages.push({ role: "assistant", content: response.content });
-    const results: Anthropic.ToolResultBlockParam[] = [];
+    const results: Anthropic.Beta.Messages.BetaToolResultBlockParam[] = [];
     for (const use of toolUses) {
       const run = await params.runTool(use.name, use.input);
       toolRecords.push(run.record);
       results.push({ type: "tool_result", tool_use_id: use.id, content: JSON.stringify(run.result), is_error: run.isError });
     }
+    // All results for one assistant message go back in a single user message.
     messages.push({ role: "user", content: results });
   }
 
-  if (!text) return { reply: FALLBACK_REPLY, toolRecords, blocked: null };
+  if (!text) return { reply: FALLBACK_REPLY, toolRecords, blocked: null, declined: false, usage };
 
   const quoted = [...params.previouslyQuoted, ...toolRecords.flatMap((r) => (r.quotedAmountAud === undefined ? [] : [r.quotedAmountAud]))];
   const guarded = guardReply(text, quoted);
-  return { reply: guarded.text, toolRecords, blocked: guarded.ok ? null : guarded.reason };
+  return { reply: guarded.text, toolRecords, blocked: guarded.ok ? null : guarded.reason, declined: false, usage };
 }

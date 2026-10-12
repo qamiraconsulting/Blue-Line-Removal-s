@@ -15,7 +15,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   if (!process.env.DATABASE_URL || !process.env.ANTHROPIC_API_KEY) {
-    res.status(500).json({ error: "The chat assistant isn't configured yet. Please use the quote form instead." });
+    res.status(503).json({ error: "The chat assistant isn't available yet.", unavailable: true });
     return;
   }
 
@@ -34,8 +34,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const reply = await postMessage(parsed.data.conversationId, parsed.data.message);
-    res.status(200).json({ reply });
+    const result = await postMessage(parsed.data.conversationId, parsed.data.message);
+    res.status(200).json(result);
   } catch (err) {
     if (err instanceof ConversationNotFoundError) {
       res.status(404).json({ error: "This chat has expired. Please refresh to start a new one." });

@@ -2,7 +2,8 @@ CREATE TABLE "conversations" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"started_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"last_activity_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"channel" text DEFAULT 'web_chat' NOT NULL
+	"channel" text DEFAULT 'web_chat' NOT NULL,
+	"mode" text DEFAULT 'bot' NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "distance_cache" (
@@ -37,6 +38,7 @@ CREATE TABLE "messages" (
 	"role" text NOT NULL,
 	"content" text NOT NULL,
 	"tool_calls" jsonb,
+	"usage" jsonb,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint

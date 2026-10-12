@@ -31,6 +31,7 @@ export default function ConversationDetail() {
   const [messages, setMessages] = useState<Message[] | null>(null);
   const [lead, setLead] = useState<Lead | null>(null);
   const [quotes, setQuotes] = useState<ChatQuote[]>([]);
+  const [mode, setMode] = useState<"bot" | "human">("bot");
   const [reply, setReply] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,6 +46,7 @@ export default function ConversationDetail() {
         setMessages(data.messages);
         setLead(data.lead);
         setQuotes(data.quotes ?? []);
+        setMode(data.conversation?.mode === "human" ? "human" : "bot");
       })
       .catch((err) => setError(err.message));
   }
@@ -52,16 +54,13 @@ export default function ConversationDetail() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(load, [id]);
 
-  async function handleSend(e: React.FormEvent) {
-    e.preventDefault();
-    const text = reply.trim();
-    if (!text || sending) return;
+  async function post(body: { message?: string; handBackToAssistant?: boolean }) {
     setSending(true);
     setError(null);
     try {
       const res = await adminFetch("/api/admin/reply", {
         method: "POST",
-        body: JSON.stringify({ conversationId: id, message: text }),
+        body: JSON.stringify({ conversationId: id, ...body }),
       });
       if (!res.ok) throw new Error((await res.json()).error ?? "Failed to send");
       setReply("");
@@ -71,6 +70,13 @@ export default function ConversationDetail() {
     } finally {
       setSending(false);
     }
+  }
+
+  function handleSend(e: React.FormEvent) {
+    e.preventDefault();
+    const text = reply.trim();
+    if (!text || sending) return;
+    void post({ message: text });
   }
 
   return (
@@ -116,7 +122,25 @@ export default function ConversationDetail() {
         ))}
       </div>
 
-      <form onSubmit={handleSend} className="mt-4 flex gap-2">
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-sm">
+        <p className="text-slate-600">
+          {mode === "human"
+            ? "You're handling this chat -- the assistant won't reply until you hand it back."
+            : "The assistant is answering this chat. Sending a reply takes it over."}
+        </p>
+        {mode === "human" && (
+          <button
+            type="button"
+            disabled={sending}
+            onClick={() => void post({ handBackToAssistant: true })}
+            className="rounded-full border border-navy px-4 py-1.5 text-xs font-bold text-navy disabled:opacity-40"
+          >
+            Hand back to the assistant
+          </button>
+        )}
+      </div>
+
+      <form onSubmit={handleSend} className="mt-3 flex gap-2">
         <input
           type="text"
           value={reply}

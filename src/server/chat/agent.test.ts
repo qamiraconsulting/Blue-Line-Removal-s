@@ -1,17 +1,19 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { describe, expect, it, vi } from "vitest";
-import { FALLBACK_REPLY, runAgentTurn, toModelMessages, type CreateMessage } from "./agent.js";
+import { DECLINED_REPLY, FALLBACK_REPLY, runAgentTurn, toModelMessages, type CreateMessage } from "./agent.js";
 import { BLOCKED_REPLY } from "./guard.js";
 import type { ToolRun } from "./tools.js";
 
-const msg = (content: Anthropic.ContentBlock[], stop: Anthropic.Message["stop_reason"]): Anthropic.Message =>
-  ({ id: "m", type: "message", role: "assistant", model: "x", content, stop_reason: stop, stop_sequence: null, usage: {} }) as unknown as Anthropic.Message;
-const text = (t: string) => ({ type: "text", text: t, citations: null }) as Anthropic.TextBlock;
-const toolUse = (name: string, input: unknown, id = "tu_1") => ({ type: "tool_use", id, name, input }) as Anthropic.ToolUseBlock;
+type Msg = Anthropic.Beta.Messages.BetaMessage;
+const usage = { input_tokens: 100, output_tokens: 20, cache_read_input_tokens: 80, cache_creation_input_tokens: 0 };
+const msg = (content: Anthropic.Beta.Messages.BetaContentBlock[], stop: Msg["stop_reason"]): Msg =>
+  ({ id: "m", type: "message", role: "assistant", model: "x", content, stop_reason: stop, stop_sequence: null, usage }) as unknown as Msg;
+const text = (t: string) => ({ type: "text", text: t, citations: null }) as Anthropic.Beta.Messages.BetaTextBlock;
+const toolUse = (name: string, input: unknown, id = "tu_1") => ({ type: "tool_use", id, name, input }) as Anthropic.Beta.Messages.BetaToolUseBlock;
 
 /** A scripted model: returns the given responses in order and records each request. */
-function scripted(...responses: Anthropic.Message[]) {
-  const calls: Anthropic.MessageCreateParamsNonStreaming[] = [];
+function scripted(...responses: Msg[]) {
+  const calls: Anthropic.Beta.Messages.MessageCreateParamsNonStreaming[] = [];
   const createMessage: CreateMessage = async (params) => {
     calls.push(structuredClone(params));
     const next = responses.shift();
@@ -61,14 +63,15 @@ describe("runAgentTurn", () => {
 
     const out = await runAgentTurn({ ...base, createMessage, history, runTool });
 
-    expect(out).toEqual({ reply: "Your flat price is $850 all up.", toolRecords: [priced(850).record], blocked: null });
+    expect(out).toMatchObject({ reply: "Your flat price is $850 all up.", toolRecords: [priced(850).record], blocked: null, declined: false });
+    expect(out.usage).toEqual({ model: "claude-sonnet-5-5", rounds: 2, inputTokens: 200, outputTokens: 40, cacheReadTokens: 160, cacheWriteTokens: 0 });
     expect(runTool).toHaveBeenCalledWith("get_quote", { name: "Jane" });
     const second = calls[1]!.messages;
     expect(second.at(-1)).toEqual({
       role: "user",
       content: [{ type: "tool_result", tool_use_id: "tu_1", content: JSON.stringify(priced(850).result), is_error: false }],
     });
-    expect(calls[0]!.tools!.map((t) => (t as Anthropic.Tool).name)).toEqual(["get_quote", "request_human_followup"]);
+    expect(calls[0]!.tools!.map((t) => (t as Anthropic.Beta.Messages.BetaTool).name)).toEqual(["get_quote", "request_human_followup"]);
   });
 
   it("replaces a reply containing a price the engine didn't produce", async () => {
@@ -92,9 +95,28 @@ describe("runAgentTurn", () => {
     expect(calls).toHaveLength(4);
   });
 
-  it("uses the configured model and caches the system prompt", async () => {
+  it("uses the configured model, low effort by default, server-side fallback, and caches the system prompt", async () => {
     const { createMessage, calls } = scripted(msg([text("Hello!")], "end_turn"));
     await runAgentTurn({ ...base, createMessage, history, runTool: vi.fn(), model: "claude-test" });
-    expect(calls[0]).toMatchObject({ model: "claude-test", system: [{ type: "text", text: "SYS", cache_control: { type: "ephemeral" } }] });
+    expect(calls[0]).toMatchObject({
+      model: "claude-test",
+      output_config: { effort: "low" },
+      betas: ["server-side-fallback-2026-07-01"],
+      fallbacks: "default",
+      system: [{ type: "text", text: "SYS", cache_control: { type: "ephemeral" } }],
+    });
+    expect(calls[0]!.max_tokens).toBeGreaterThanOrEqual(8000); // thinking counts toward the cap
+  });
+
+  it("if the model (and its fallback) declines, nothing partial is shown and the chat is handed over", async () => {
+    const { createMessage } = scripted(msg([text("partial")], "refusal"));
+    const out = await runAgentTurn({ ...base, createMessage, history, runTool: vi.fn() });
+    expect(out).toMatchObject({ reply: DECLINED_REPLY, declined: true });
+  });
+
+  it("a reply cut off at the length cap is not shown", async () => {
+    const { createMessage } = scripted(msg([text("Your estimate is")], "max_tokens"));
+    const out = await runAgentTurn({ ...base, createMessage, history, runTool: vi.fn() });
+    expect(out.reply).toBe(FALLBACK_REPLY);
   });
 });
