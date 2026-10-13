@@ -163,7 +163,13 @@ describe("request_booking", () => {
       bookings: {
         findQuote: async () => stored,
         markRequested: async () => ((marked = true), true),
-        markConfirmed: async () => false,
+        loadCapacity: async () => ({
+          settings: { autoConfirm: false, workingDays: [], arrivalTimes: [], dayEndTime: null, bufferMinutes: null, moversPerDay: null, minNoticeHours: null, maxDaysAhead: null, autoConfirmMaxAud: null },
+          trucks: [],
+          override: null,
+          bookings: [],
+        }),
+        confirm: async () => null,
       },
       conversationId: "conv-1",
       log: () => {},
@@ -228,8 +234,8 @@ describe("request_human_followup", () => {
 });
 
 describe("tool and prompt wording", () => {
-  it("offers exactly three tools", () => {
-    expect(chatTools.map((t) => t.name)).toEqual(["get_quote", "request_booking", "request_human_followup"]);
+  it("offers exactly four tools", () => {
+    expect(chatTools.map((t) => t.name)).toEqual(["get_quote", "check_availability", "request_booking", "request_human_followup"]);
   });
 
   it("the prompt states today's Melbourne date and the flat-price rules, and quotes no dollar figures itself", () => {

@@ -123,11 +123,32 @@ export const openItems: OpenItem[] = [
     status: "to_ask",
   },
   {
-    id: "booking-confirmation",
+    id: "capacity-setup",
     topic: "operations",
     question:
-      "Who confirms a booking? Built: the chat takes a booking request and the team confirms it on the dashboard (no availability calendar exists). Instant confirmation in the chat would need daily capacity rules.",
-    meanwhile: "Customer is told the request is in and the team will confirm; the team confirms on the dashboard, which emails the customer.",
+      "Blue Line fills in Bookings & capacity on the dashboard: trucks (size each), working days, arrival times offered, end of day, gap between jobs, movers per day, minimum notice, how far ahead, optional instant-confirm limit -- and keeps every phone booking in the calendar. Then decide whether to switch instant confirmation on.",
+    meanwhile: "Instant confirmation is off; every chat booking is a request the team confirms on the dashboard.",
+    status: "to_ask",
+  },
+  {
+    id: "existing-booking-tool",
+    topic: "operations",
+    question: "Does Blue Line keep bookings in another calendar or tool today? If so, either enter them on the dashboard too, or we connect to it -- otherwise instant confirmation could double-book.",
+    meanwhile: "Only bookings in the dashboard calendar count.",
+    status: "to_ask",
+  },
+  {
+    id: "cancellation-policy",
+    topic: "legal",
+    question: "Deposit and cancellation/rescheduling policy for bookings (needed in the booking terms, especially before instant confirmation).",
+    meanwhile: "No deposit is taken; cancellations are handled by phone; the customer isn't emailed when the team cancels.",
+    status: "to_ask",
+  },
+  {
+    id: "truck-gps",
+    topic: "operations",
+    question: "Idea, parked: use the trucks' GPS to know where each truck is (e.g. for travel or same-day slots). Not being explored yet.",
+    meanwhile: "Not used.",
     status: "internal",
   },
   {

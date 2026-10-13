@@ -16,6 +16,14 @@ export interface BookingEmailInput {
   amountAud: number;
   details: QuoteDetails;
   notes: string;
+  /** "HH:MM" when the customer picked an arrival time. */
+  arrivalTime?: string | null;
+}
+
+/** "07:30" -> "7:30am". */
+export function formatArrivalTime(hhmm: string): string {
+  const [h, m] = hhmm.split(":").map(Number) as [number, number];
+  return `${h % 12 || 12}:${String(m).padStart(2, "0")}${h < 12 ? "am" : "pm"}`;
 }
 
 function detailRows(input: BookingEmailInput): [string, string][] {
@@ -25,6 +33,7 @@ function detailRows(input: BookingEmailInput): [string, string][] {
     ["From", d.from],
     ["To", d.to],
     ["Date", d.dateLabel],
+    ["Arrival time", input.arrivalTime ? formatArrivalTime(input.arrivalTime) : ""],
     ["Home size", d.propertySize],
     ["Truck & crew", d.capacity],
     ["Access", d.accessNotes],
@@ -81,9 +90,9 @@ export function renderBookingConfirmedEmail(input: BookingEmailInput): EmailCont
 }
 
 /** Internal: a customer agreed to the terms in the chat and asked to book. */
-export function renderBookingTeamEmail(input: BookingEmailInput & { phone: string; email: string; testMode: boolean }): EmailContent {
+export function renderBookingTeamEmail(input: BookingEmailInput & { phone: string; email: string; testMode: boolean; autoConfirmed: boolean }): EmailContent {
   const text = [
-    `${input.testMode ? "[TEST MODE -- placeholder rate card] " : ""}BOOKING REQUEST -- please confirm with the customer`,
+    `${input.testMode ? "[TEST MODE -- placeholder rate card] " : ""}${input.autoConfirmed ? "BOOKED -- confirmed instantly in the chat and added to the calendar" : "BOOKING REQUEST -- please confirm with the customer"}`,
     "",
     `Name: ${input.name}`,
     `Phone: ${input.phone}`,
@@ -93,10 +102,12 @@ export function renderBookingTeamEmail(input: BookingEmailInput & { phone: strin
     `Agreed in the chat to the booking terms (version ${BOOKING_TERMS_VERSION}):`,
     BOOKING_TERMS,
     "",
-    "Confirm it on the dashboard under Booking requests -- the customer is emailed when you do.",
+    input.autoConfirmed
+      ? "Nothing to do -- it's in the calendar. Cancel it on the dashboard (Bookings & capacity) if anything's wrong."
+      : "Confirm it on the dashboard under Booking requests -- the customer is emailed when you do.",
   ].join("\n");
   return {
-    subject: `Booking request: ${input.name} -- ${input.details.dateLabel || "date tbc"} (${input.reference})`,
+    subject: `${input.autoConfirmed ? "Booked" : "Booking request"}: ${input.name} -- ${input.details.dateLabel || "date tbc"} (${input.reference})`,
     text,
     html: `<pre style="font-family:Consolas,monospace;font-size:13px;white-space:pre-wrap">${esc(text)}</pre>`,
   };

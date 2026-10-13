@@ -170,12 +170,13 @@ export function useChatSession() {
         const data = (await res.json()) as {
           reply: string | null;
           awaitingTeam: boolean;
-          outcome: "estimate" | "booking_requested" | "personal_quote" | "handoff" | null;
+          outcome: "estimate" | "booking_confirmed" | "booking_requested" | "personal_quote" | "handoff" | null;
         };
         if (data.reply) setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: "assistant", content: data.reply! }]);
         setAwaitingTeam(data.awaitingTeam);
         if (data.outcome === "estimate") trackEvent("chat_estimate_shown");
         if (data.outcome === "booking_requested") trackEvent("chat_booking_requested");
+        if (data.outcome === "booking_confirmed") trackEvent("chat_booking_confirmed");
         if (data.outcome === "personal_quote" || data.outcome === "handoff") trackEvent("chat_handoff", { handoff_type: data.outcome });
         setStatus("idle");
       } catch (err) {

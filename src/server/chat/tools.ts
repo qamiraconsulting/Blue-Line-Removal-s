@@ -1,7 +1,7 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { handleQuoteRequest, propertySizeIds, truckChoices, type QuoteServiceDeps } from "../quote/service.js";
-import { requestBooking, type BookingStore } from "../quote/booking.js";
+import { availabilityForQuote, requestBooking, type BookingStore } from "../quote/booking.js";
 import { renderHandoffEmail } from "./handoffEmail.js";
 import type { LeadStore } from "./leadStore.js";
 
@@ -49,12 +49,21 @@ export const requestHumanFollowupInput = z.object({
   callbackTime: z.string().optional().describe("When they'd like the call, in their words (e.g. 'tomorrow after 3pm')."),
 });
 
+export const checkAvailabilityInput = z.object({
+  quoteReference: z.string().min(4).describe("The reference get_quote returned for the estimate."),
+});
+
 export const requestBookingInput = z.object({
   quoteReference: z.string().min(4).describe("The reference get_quote returned for the estimate being booked."),
+  arrivalTime: z
+    .string()
+    .regex(/^\d{2}:\d{2}$/)
+    .optional()
+    .describe("HH:MM -- only one of the availableTimes check_availability returned. Leave out if none were offered."),
   agreedToTerms: z
     .literal(true)
     .describe("Only true after you showed the customer the booking terms word for word and they clearly said yes."),
-  notes: z.string().max(500).optional().describe("Anything they asked for, e.g. a preferred arrival time."),
+  notes: z.string().max(500).optional().describe("Anything they asked for -- e.g. a preferred arrival time when no times were offered."),
 });
 
 const tool = (name: string, description: string, schema: z.ZodType): Anthropic.Beta.Messages.BetaTool => ({
@@ -72,8 +81,15 @@ export const chatTools: Anthropic.Beta.Messages.BetaTool[] = [
     getQuoteInput,
   ),
   tool(
+    "check_availability",
+    "Shows which arrival times are free on the estimate's moving date, and whether booking one would be confirmed " +
+      "on the spot. Call it when the customer wants to book, before showing the booking terms.",
+    checkAvailabilityInput,
+  ),
+  tool(
     "request_booking",
-    "Takes a booking request on an estimate from get_quote. Call ONLY after you have shown the customer the " +
+    "Books an estimate from get_quote -- confirmed on the spot or as a request for the team (see status in the " +
+      "result). Call ONLY after you have shown the customer the " +
       "booking terms word for word and they have clearly agreed. Never call it for a personal quote, and never if " +
       "they hesitate -- offer the team, a call back or the phone number instead.",
     requestBookingInput,
@@ -168,6 +184,26 @@ export function createToolRunner(deps: ChatToolDeps) {
       };
     }
 
+    if (name === "check_availability") {
+      const parsed = checkAvailabilityInput.safeParse(rawInput);
+      if (!parsed.success || !deps.bookings || !deps.quoteDeps) {
+        return {
+          result: { ok: true, onlineBookingOpen: false, why: "Online arrival times aren't available -- take a booking request with their preferred time in notes.", availableTimes: [], instantConfirm: false },
+          isError: false,
+          record: { name, outcome: "not_available" },
+        };
+      }
+      const availability = await availabilityForQuote(
+        { reference: parsed.data.quoteReference, conversationId: deps.conversationId },
+        { ...deps.quoteDeps, bookings: deps.bookings },
+      );
+      return {
+        result: availability,
+        isError: false,
+        record: { name, quoteReference: parsed.data.quoteReference, outcome: availability.ok ? (availability.onlineBookingOpen ? "times_offered" : "no_online_times") : availability.reason },
+      };
+    }
+
     if (name === "request_booking") {
       const parsed = requestBookingInput.safeParse(rawInput);
       if (!parsed.success) {
@@ -186,11 +222,14 @@ export function createToolRunner(deps: ChatToolDeps) {
         };
       }
       const booking = await requestBooking(
-        { reference: parsed.data.quoteReference, conversationId: deps.conversationId, notes: parsed.data.notes },
+        { reference: parsed.data.quoteReference, conversationId: deps.conversationId, notes: parsed.data.notes, arrivalTime: parsed.data.arrivalTime },
         { ...deps.quoteDeps, bookings: deps.bookings },
       );
       if (booking.ok && booking.status === "requested") {
         await touchLead({ quoteReference: booking.reference, humanFollowupRequired: true, notes: "Booking request -- confirm with the customer" });
+      }
+      if (booking.ok && booking.status === "confirmed") {
+        await touchLead({ quoteReference: booking.reference, notes: "Booked in the chat (confirmed instantly)" });
       }
       return {
         result: booking,

@@ -30,6 +30,7 @@ export type TrackedEvent =
   | "chat_started"
   | "chat_estimate_shown"
   | "chat_booking_requested"
+  | "chat_booking_confirmed"
   | "chat_handoff";
 
 export function trackEvent(event: TrackedEvent, params: Record<string, unknown> = {}) {

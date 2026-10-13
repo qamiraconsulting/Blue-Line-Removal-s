@@ -1,4 +1,4 @@
-import { Outlet } from "react-router";
+import { NavLink, Outlet } from "react-router";
 import { ClerkProvider, SignIn } from "@clerk/react-router";
 // @clerk/react-router's own type exports don't surface Show/UserButton
 // (even though it wraps @clerk/react, which has them) -- importing
@@ -43,7 +43,19 @@ export default function AdminLayout() {
       <Show when="signed-in">
         <div className="min-h-screen bg-slate-50">
           <header className="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-4">
-            <h1 className="font-display text-lg font-bold text-navy">Blue Line Removals -- Lead Review</h1>
+            <div className="flex flex-wrap items-center gap-6">
+              <h1 className="font-display text-lg font-bold text-navy">Blue Line Removals</h1>
+              <nav className="flex gap-4 text-sm">
+                {[
+                  ["/admin", "Lead review"],
+                  ["/admin/capacity", "Bookings & capacity"],
+                ].map(([to, label]) => (
+                  <NavLink key={to} to={to!} end className={({ isActive }) => (isActive ? "font-bold text-action" : "text-slate-600 hover:text-navy")}>
+                    {label}
+                  </NavLink>
+                ))}
+              </nav>
+            </div>
             <UserButton />
           </header>
           <main className="mx-auto max-w-4xl px-6 py-8">

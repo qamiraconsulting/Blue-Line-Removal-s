@@ -15,5 +15,6 @@ export default [
   layout("components/admin/AdminLayout.tsx", [
     route("admin", "pages/admin/Dashboard.tsx"),
     route("admin/conversations/:id", "pages/admin/ConversationDetail.tsx"),
+    route("admin/capacity", "pages/admin/Capacity.tsx"),
   ]),
 ] satisfies RouteConfig;

@@ -53,6 +53,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         bookingStatus: quotes.bookingStatus,
         bookingRequestedAt: quotes.bookingRequestedAt,
         bookingNotes: quotes.bookingNotes,
+        bookingArrivalTime: quotes.bookingArrivalTime,
       })
       .from(quotes)
       .where(and(status ? eq(quotes.status, status) : undefined, booking ? eq(quotes.bookingStatus, booking) : undefined))

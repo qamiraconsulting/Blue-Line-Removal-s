@@ -28,6 +28,9 @@ the "Meanwhile" column says: it never guesses.
 | Item | Question | Meanwhile |
 |---|---|---|
 | `booking-terms` | Approve the booking terms customers agree to in the chat (book on the estimate; team inspects on the move day and confirms final charges) | Draft terms shown word for word; exact text stored per booking |
+| `capacity-setup` | Fill in Bookings & capacity on the dashboard (trucks, working days, arrival times, end of day, gap, movers, notice, days ahead, optional limit), keep phone bookings in the calendar, then decide on instant confirmation | Instant confirmation off; team confirms every booking |
+| `existing-booking-tool` | Is there another calendar/tool with bookings today? Enter them on the dashboard or we connect to it | Only dashboard bookings count |
+| `cancellation-policy` | Deposit and cancellation/rescheduling policy for the booking terms | No deposit; cancellations by phone |
 | `typical-hours-driving` | Do the "typical hours" include driving between addresses? (ask with the B1 answer) | No estimates until confirmed |
 | `crew-choice-hours` | If the customer picks a different truck/crew than the guide, do the hours change? | Guide's hours always used |
 | `access-pricing` | Should the form ask for counts of stairs/heavy items so they're priced in? | Notes shown, not priced |
@@ -44,12 +47,12 @@ the "Meanwhile" column says: it never guesses.
 
 | Item | Question | Meanwhile |
 |---|---|---|
-| `booking-confirmation` | Chat takes a booking request, the team confirms on the dashboard (no availability calendar). Instant confirmation would need daily capacity rules | Team confirms; customer emailed |
 | `estimate-vs-final` | Email makes every figure an estimate that "may vary"; the 6 Oct decision and the website say final/flat price, no call-out, "not an hourly meter". Confirm and update the website copy | Chat and emails say "estimate" |
 | `quote-form-fields` | Form: home size + optional truck (4.5T/6-8T/10T) + 2-4 movers + inspect + access notes; fix "30%" and "final price" wording | Form sends home size only |
 | `hourly-rate-disclosure` | May hourly rates be shown if a customer asks, now that figures are estimates? | Never shown |
 | `gtm-chat-events` | Add GTM triggers / GA4 events for chat_opened, chat_started, chat_estimate_shown, chat_handoff | Events pushed to the dataLayer, not yet recorded |
 | `sending-domain` | Verify bluelineremovals.com.au in Resend (DNS via Namecheap) | Sends from the verified address |
+| `truck-gps` | Idea, parked: use truck GPS (e.g. for travel or same-day slots) | Not used |
 | `grand-final-eve-2027` | Add the 2027 AFL Grand Final eve holiday once the date is set | Treated as a normal day |
 
 ## Answered and handled

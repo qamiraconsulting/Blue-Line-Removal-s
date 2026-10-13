@@ -33,7 +33,7 @@ export interface MessageResult {
   reply: string | null;
   awaitingTeam: boolean;
   /** For analytics: what the chat produced this turn. */
-  outcome: "estimate" | "booking_requested" | "personal_quote" | "handoff" | null;
+  outcome: "estimate" | "booking_confirmed" | "booking_requested" | "personal_quote" | "handoff" | null;
 }
 
 export class ConversationNotFoundError extends Error {}
@@ -142,7 +142,9 @@ export async function postMessage(conversationId: string, userMessage: string): 
     usage: turn.usage,
   });
 
-  const outcome = turn.toolRecords.some((r) => r.outcome === "booking_requested")
+  const outcome = turn.toolRecords.some((r) => r.outcome === "booking_confirmed")
+    ? "booking_confirmed"
+    : turn.toolRecords.some((r) => r.outcome === "booking_requested")
     ? "booking_requested"
     : turn.toolRecords.some((r) => r.outcome === "priced" || r.outcome === "priced_test")
       ? "estimate"

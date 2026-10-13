@@ -16,9 +16,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (env.DATABASE_URL) {
     try {
       const rows = await getDb().execute<{ n: number }>(
-        sql`select count(*)::int as n from information_schema.tables where table_schema = 'public' and table_name in ('conversations','messages','leads','quotes','distance_cache')`,
+        sql`select count(*)::int as n from information_schema.tables where table_schema = 'public' and table_name in ('conversations','messages','leads','quotes','distance_cache','booking_settings','trucks','day_overrides','bookings')`,
       );
-      database = rows[0]?.n === 5 ? "ok" : "tables_missing";
+      database = rows[0]?.n === 9 ? "ok" : "tables_missing";
     } catch {
       database = "unreachable";
     }
