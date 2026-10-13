@@ -83,8 +83,8 @@ export const openItems: OpenItem[] = [
     id: "first-order-offer",
     topic: "pricing",
     question: "First-order offer changes from 30% to 10% across website, chatbot and social -- Blue Line to object if they prefer otherwise.",
-    meanwhile: "Engine, chat and emails use 10%; the website still says 30% (home.ts x2, faq.ts, Quote.tsx) until Blue Line replies.",
-    status: "asked",
+    meanwhile: "10% everywhere: engine, chat, emails and website copy (Ayesha confirmed 13 Oct).",
+    status: "answered",
     ref: "Email 12 Oct, B7",
   },
   {

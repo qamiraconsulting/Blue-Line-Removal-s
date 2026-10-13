@@ -80,7 +80,7 @@ export const faq = {
     },
     {
       question: "Do you offer a discount for new customers?",
-      answer: "Yes — first-time customers get 30% off their flat-rate quote. Just note it on the quote form.",
+      answer: "Yes — first-time customers get 10% off their flat-rate quote. Just note it on the quote form.",
     },
     {
       question: "Can you move specialty or fragile items like pianos?",

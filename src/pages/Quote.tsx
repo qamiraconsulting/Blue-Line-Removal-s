@@ -139,7 +139,7 @@ export function Quote() {
                   <label className="flex cursor-pointer items-start gap-3 rounded-md border border-ink/15 bg-white px-3.5 py-3 text-sm text-ink">
                     <input type="checkbox" name="firstMove" className="mt-0.5 h-4 w-4 shrink-0 accent-action" />
                     <span>
-                      <span className="font-bold text-navy">First time with Blue Line?</span> Tick to apply your 30% first-move offer.
+                      <span className="font-bold text-navy">First time with Blue Line?</span> Tick to apply your 10% first-move offer.
                     </span>
                   </label>
 
@@ -285,7 +285,7 @@ function QuoteResultCard({ result }: { result: QuoteApiResult }) {
 
       {result.firstMoveApplied && (
         <span className="rounded-full bg-action/10 px-3 py-1 font-display text-xs font-bold uppercase tracking-[0.04em] text-action-dim">
-          30% first-move offer applied
+          10% first-move offer applied
         </span>
       )}
       {result.firstMoveDenied && (
