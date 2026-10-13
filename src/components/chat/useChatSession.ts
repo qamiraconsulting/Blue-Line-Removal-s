@@ -62,6 +62,9 @@ export function useChatSession() {
   const [error, setError] = useState<string | null>(null);
   const [awaitingTeam, setAwaitingTeam] = useState(false);
   const sendingRef = useRef(false);
+  // Load or start the chat once per mount. React's development mode runs effects twice;
+  // without this guard that started two conversations and the second replaced the first.
+  const initialisedRef = useRef(false);
 
   const startSession = useCallback(async () => {
     setStatus("starting");
@@ -113,6 +116,8 @@ export function useChatSession() {
   );
 
   useEffect(() => {
+    if (initialisedRef.current) return;
+    initialisedRef.current = true;
     const existing = store.get(STORAGE_KEY);
     const startedAt = Number(store.get(STARTED_KEY) ?? 0);
     const stale = !startedAt || Date.now() - startedAt > MAX_AGE_DAYS * 86_400_000;
