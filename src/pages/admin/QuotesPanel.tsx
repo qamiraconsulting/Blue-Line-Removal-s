@@ -16,6 +16,7 @@ interface QuoteRow {
   truck: string | null;
   movers: number | null;
   accessNotes: string | null;
+  jobDescription: string | null;
   movingDate: string | null;
   fromText: string | null;
   toText: string | null;
@@ -34,6 +35,14 @@ const REASONS: Record<string, string> = {
   rate_card_not_confirmed: "Price list not signed off yet",
   rate_card_incomplete: "Price list incomplete for this job",
   service_unavailable: "Quote system unavailable",
+  // Sent straight to the team by the chat (personal quote):
+  small_load: "A few boxes / single items",
+  specialist_item: "Specialist item (piano, safe...)",
+  office_move: "Office move",
+  outside_melbourne: "Outside metro Melbourne",
+  urgent_or_timed: "Today or a fixed deadline",
+  packing: "Packing",
+  other: "Needs a personal quote",
 };
 
 const capacity = (q: QuoteRow) =>
@@ -81,6 +90,7 @@ export function QuotesPanel() {
               {q.movingDate && ` · ${q.movingDate}`}
               {capacity(q) && ` · ${capacity(q)}`}
             </p>
+            {q.jobDescription && <p className="mt-1 text-sm text-slate-600">Job: {q.jobDescription}</p>}
             {q.accessNotes && <p className="mt-1 text-sm text-slate-600">Access: {q.accessNotes}</p>}
             <p className="mt-1 text-sm font-bold text-action">{REASONS[q.manualReason ?? ""] ?? q.manualReason ?? "Needs review"}</p>
             {q.conversationId && (

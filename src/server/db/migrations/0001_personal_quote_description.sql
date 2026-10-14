@@ -1,0 +1,1 @@
+ALTER TABLE "quotes" ADD COLUMN "job_description" text;

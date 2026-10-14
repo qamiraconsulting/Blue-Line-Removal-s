@@ -136,7 +136,25 @@ function requestError(error: z.ZodError, input: Record<string, unknown>): string
 export interface QuoteRequestContext {
   source: "quote_form" | "chatbot";
   conversationId?: string;
+  /**
+   * The chat already knows this job needs the team (a few boxes, regional, a piano...): skip
+   * pricing and the distance lookups, record it for a personal quote with the customer's own
+   * description, and acknowledge it.
+   */
+  personalQuote?: { reason: PersonalQuoteReason; description: string };
 }
+
+export const personalQuoteReasons = [
+  "small_load",
+  "specialist_item",
+  "junk_removal",
+  "office_move",
+  "outside_melbourne",
+  "urgent_or_timed",
+  "packing",
+  "other",
+] as const;
+export type PersonalQuoteReason = (typeof personalQuoteReasons)[number];
 
 export async function handleQuoteRequest(
   rawBody: unknown,
@@ -186,7 +204,7 @@ export async function handleQuoteRequest(
   }
 
   // No database or no Maps key = we can't price safely or record what we quoted.
-  const canPrice = Boolean(deps.store && deps.routes);
+  const canPrice = Boolean(deps.store && deps.routes) && !context.personalQuote;
   let depotToPickup: LegDistance | null = null;
   let pickupToDropoff: LegDistance | null = null;
   if (canPrice && req.from && req.to) {
@@ -211,8 +229,10 @@ export async function handleQuoteRequest(
     pickupToDropoff,
   };
 
-  type Outcome = QuoteOutcome | { kind: "manual"; reason: ManualReason | "service_unavailable" };
-  let outcome: Outcome = canPrice
+  type Outcome = QuoteOutcome | { kind: "manual"; reason: ManualReason | PersonalQuoteReason | "service_unavailable" };
+  let outcome: Outcome = context.personalQuote
+    ? { kind: "manual", reason: context.personalQuote.reason }
+    : canPrice
     ? calculateQuote(inputs, deps.rateCard, { allowPlaceholderRateCard: deps.allowPlaceholderRateCard })
     : { kind: "manual", reason: "service_unavailable" };
 
@@ -235,6 +255,7 @@ export async function handleQuoteRequest(
     truck: req.truck ?? null,
     movers: req.movers ?? null,
     accessNotes: req.accessNotes || null,
+    jobDescription: context.personalQuote?.description || null,
     movingDate,
     fromText: req.from || null,
     toText: req.to || null,
@@ -290,7 +311,9 @@ export async function handleQuoteRequest(
 
   const outcomeLine = priced
     ? `PRICED ${formatAud(priced.amountAud)} (rate card ${deps.rateCard.version}, ${deps.rateCard.status})`
-    : `MANUAL REVIEW -- ${(outcome as { reason: string }).reason}`;
+    : context.personalQuote
+      ? `PERSONAL QUOTE REQUESTED in the chat -- ${context.personalQuote.reason}`
+      : `MANUAL REVIEW -- ${(outcome as { reason: string }).reason}`;
   const team = renderTeamEmail({
     reference,
     name: req.name,
@@ -302,6 +325,7 @@ export async function handleQuoteRequest(
     firstMoveApplied: priced?.customer.firstMoveApplied ?? false,
     outcomeLine: testMode ? `[TEST MODE -- placeholder rate card] ${outcomeLine}` : outcomeLine,
     internalBreakdown: priced ? { ...priced.internal } : null,
+    jobDescription: context.personalQuote?.description,
     source: context.source,
   });
 

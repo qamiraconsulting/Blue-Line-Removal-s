@@ -1,6 +1,6 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
-import { handleQuoteRequest, propertySizeIds, truckChoices, type QuoteServiceDeps } from "../quote/service.js";
+import { handleQuoteRequest, personalQuoteReasons, propertySizeIds, truckChoices, type QuoteServiceDeps } from "../quote/service.js";
 import { availabilityForQuote, requestBooking, type BookingStore } from "../quote/booking.js";
 import { renderHandoffEmail } from "./handoffEmail.js";
 import type { LeadStore } from "./leadStore.js";
@@ -36,6 +36,26 @@ export const getQuoteInput = z.object({
     .describe("What the customer said about stairs, parking distance from the door and heavy items, in their words. Empty if nothing."),
   firstMove: z.boolean().describe("True only if the customer said this is their first move with Blue Line."),
   specialItems: z.boolean().describe("True if there's a piano, pool table, safe, spa or similar specialist item."),
+});
+
+export const requestPersonalQuoteInput = z.object({
+  name: z.string().min(1).describe("Customer's name."),
+  phone: z.string().min(6).describe("Customer's phone number, as they gave it."),
+  email: z.string().min(3).describe("Customer's email address."),
+  need: z.enum(["moving", "junk"]).describe("'junk' for junk removal, otherwise 'moving'."),
+  description: z
+    .string()
+    .min(3)
+    .max(1000)
+    .describe("What's being moved and anything the team must know (e.g. '3-4 boxes, must arrive before 3pm'), in the customer's words."),
+  from: z.string().describe("Pickup suburb or address (empty if not given)."),
+  to: z.string().describe("Drop-off suburb or address (empty if not given)."),
+  date: z.string().describe("YYYY-MM-DD if they gave a date, else empty."),
+  reason: z
+    .enum(personalQuoteReasons)
+    .describe(
+      "Why this needs the team: small_load (a few boxes/single items, not a home move), specialist_item, junk_removal, office_move, outside_melbourne, urgent_or_timed (today, or a fixed deadline), packing, other.",
+    ),
 });
 
 export const requestHumanFollowupInput = z.object({
@@ -79,6 +99,14 @@ export const chatTools: Anthropic.Beta.Messages.BetaTool[] = [
       "have every field, have read the details back to the customer and they have confirmed them. Call it again " +
       "if they change any detail. The amountAud in its result is the ONLY dollar figure you may ever give.",
     getQuoteInput,
+  ),
+  tool(
+    "request_personal_quote",
+    "Sends a job that needs a personal quote to the Blue Line team (a few boxes or single items, junk, an office, a " +
+      "piano or similar, packing, outside metropolitan Melbourne, today or a fixed deadline). Needs only the job " +
+      "description, addresses, date and contact details -- never ask estimate questions for these jobs. Call it once " +
+      "the customer has confirmed the details.",
+    requestPersonalQuoteInput,
   ),
   tool(
     "check_availability",
@@ -181,6 +209,38 @@ export function createToolRunner(deps: ChatToolDeps) {
         result: { ok: true, ...quote },
         isError: false,
         record: { name, quoteReference: quote.reference, quotedAmountAud: quote.amountAud, outcome: quote.testMode ? "priced_test" : "priced" },
+      };
+    }
+
+    if (name === "request_personal_quote") {
+      const parsed = requestPersonalQuoteInput.safeParse(rawInput);
+      if (!parsed.success) {
+        return {
+          result: { ok: false, error: `Missing or invalid details: ${parsed.error.issues.map((i) => i.path.join(".")).join(", ")}` },
+          isError: true,
+          record: { name, outcome: "invalid_input" },
+        };
+      }
+      const { description, reason, ...job } = parsed.data;
+      const contact = { customerName: job.name, phone: job.phone, email: job.email, fromText: job.from, toText: job.to };
+      if (!deps.quoteDeps) {
+        await touchLead({ ...contact, humanFollowupRequired: true, notes: `Personal quote (${reason}): ${description}` });
+        return { result: UNAVAILABLE, isError: false, record: { name, outcome: "service_unavailable" } };
+      }
+      const res = await handleQuoteRequest(job, deps.quoteDeps, {
+        source: "chatbot",
+        conversationId: deps.conversationId,
+        personalQuote: { reason, description },
+      });
+      if (!res.body.ok) {
+        return { result: { ok: false, error: res.body.error }, isError: false, record: { name, outcome: `error_${res.status}` } };
+      }
+      const quote = res.body.result;
+      await touchLead({ ...contact, quoteReference: quote.reference, humanFollowupRequired: true, notes: `Personal quote (${reason}): ${description}` });
+      return {
+        result: { ok: true, kind: "personal_quote", reference: quote.reference, emailed: quote.emailed },
+        isError: false,
+        record: { name, quoteReference: quote.reference, outcome: "personal_quote" },
       };
     }
 

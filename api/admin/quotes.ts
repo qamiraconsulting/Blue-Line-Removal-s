@@ -40,6 +40,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         truck: quotes.truck,
         movers: quotes.movers,
         accessNotes: quotes.accessNotes,
+        jobDescription: quotes.jobDescription,
         movingDate: quotes.movingDate,
         fromText: quotes.fromText,
         toText: quotes.toText,

@@ -86,6 +86,7 @@ export const quotes = pgTable(
     truck: text("truck"), // the customer's choice: "4.5T" | "6-8T" | "10T" | "inspect"; null = the guide's
     movers: integer("movers"), // the customer's choice (2-4); null = the guide's
     accessNotes: text("access_notes"), // free text: stairs, parking distance, heavy items
+    jobDescription: text("job_description"), // personal-quote requests: what is being moved, in the customer's words
     movingDate: date("moving_date"),
     fromText: text("from_text"),
     toText: text("to_text"),

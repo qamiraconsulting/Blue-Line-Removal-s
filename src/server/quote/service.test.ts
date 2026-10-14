@@ -218,6 +218,25 @@ describe("when it can't give a price, a person follows up -- and the lead is nev
   });
 });
 
+describe("personal quote straight from the chat (the team prices it)", () => {
+  it("skips pricing and Google, records the job in the customer's words, and tells the team and the customer", async () => {
+    const fetchImpl = routeFetch();
+    const { sent, store } = setup({ routes: { apiKey: "k", fetchImpl } });
+    const res = await handleQuoteRequest(
+      { name: "Sam Lee", phone: "0400 111 222", email: "sam@example.com", need: "moving", from: "Chirnside Park", to: "Milawa", date: "2026-10-15" },
+      { rateCard: card, allowPlaceholderRateCard: false, routes: { apiKey: "k", fetchImpl }, store: store!, sendEmail: async (e) => (sent.push(e), true), teamEmail: "team@example.com", customerReplyTo: "hello@example.com", now: () => NOW, makeReference: () => "BLR-TEST-000002", log: () => {} },
+      { source: "chatbot", conversationId: "conv-9", personalQuote: { reason: "small_load", description: "3-4 boxes, must arrive by 3pm" } },
+    );
+    expect(res).toMatchObject({ status: 200, body: { ok: true, result: { kind: "manual", reference: "BLR-TEST-000002" } } });
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(store!.rows[0]).toMatchObject({ status: "manual_review", manualReason: "small_load", jobDescription: "3-4 boxes, must arrive by 3pm", amountAud: null });
+    const team = sent.find((e) => e.kind === "team")!;
+    expect(team.text).toContain("PERSONAL QUOTE REQUESTED");
+    expect(team.text).toContain("3-4 boxes, must arrive by 3pm");
+    expect(sent.find((e) => e.kind === "customer")!.subject).toContain("got your quote request");
+  });
+});
+
 describe("placeholder rate card in dev/preview", () => {
   const placeholder: RateCard = { ...card, status: "placeholder" };
 

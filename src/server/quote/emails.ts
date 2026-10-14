@@ -168,11 +168,14 @@ export function renderTeamEmail(input: {
   outcomeLine: string;
   internalBreakdown: Record<string, unknown> | null;
   source?: "quote_form" | "chatbot";
+  /** Personal-quote requests: the job in the customer's words. */
+  jobDescription?: string;
 }): EmailContent {
   const lines = [
     `Reference: ${input.reference}`,
     `Via: ${input.source === "chatbot" ? "website chat" : "website quote form"}`,
     `Outcome: ${input.outcomeLine}`,
+    ...(input.jobDescription ? ["", `The job (customer's words): ${input.jobDescription}`] : []),
     "",
     `Name: ${input.name}`,
     `Phone: ${input.phone}`,

@@ -148,7 +148,7 @@ export async function postMessage(conversationId: string, userMessage: string): 
     ? "booking_requested"
     : turn.toolRecords.some((r) => r.outcome === "priced" || r.outcome === "priced_test")
       ? "estimate"
-    : turn.toolRecords.some((r) => r.name === "get_quote" && r.outcome === "manual")
+    : turn.toolRecords.some((r) => (r.name === "get_quote" && r.outcome === "manual") || r.outcome === "personal_quote")
       ? "personal_quote"
       : turn.toolRecords.some((r) => r.name === "request_human_followup")
         ? "handoff"

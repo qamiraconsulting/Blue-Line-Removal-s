@@ -137,6 +137,37 @@ describe("get_quote uses the same engine and flow as the website form", () => {
   });
 });
 
+describe("request_personal_quote", () => {
+  const job = {
+    name: "Sam Lee",
+    phone: "0400 111 222",
+    email: "sam@example.com",
+    need: "moving",
+    description: "3-4 boxes, must arrive before 3pm",
+    from: "Chirnside Park",
+    to: "Milawa",
+    date: "2026-10-15",
+    reason: "small_load",
+  };
+
+  it("sends the job to the team with only the details it needs -- no home size, truck or access questions", async () => {
+    const { runTool, rows, sent, leadCalls } = setup();
+    const run = await runTool("request_personal_quote", job);
+    expect(run.result).toEqual({ ok: true, kind: "personal_quote", reference: "BLR-CHAT-1", emailed: true });
+    expect(run.record).toEqual({ name: "request_personal_quote", quoteReference: "BLR-CHAT-1", outcome: "personal_quote" });
+    expect(rows[0]).toMatchObject({ source: "chatbot", manualReason: "small_load", jobDescription: "3-4 boxes, must arrive before 3pm", propertySize: null });
+    expect(sent.find((e) => e.kind === "team")!.text).toContain("3-4 boxes, must arrive before 3pm");
+    expect(leadCalls.at(-1)![1]).toMatchObject({ humanFollowupRequired: true, quoteReference: "BLR-CHAT-1" });
+  });
+
+  it("rejects a request without a description or reason", async () => {
+    const { runTool } = setup();
+    const { description: _d, ...noDescription } = job;
+    expect(await runTool("request_personal_quote", noDescription)).toMatchObject({ isError: true });
+    expect(await runTool("request_personal_quote", { ...job, reason: "because" })).toMatchObject({ isError: true });
+  });
+});
+
 describe("request_booking", () => {
   it("refuses unless the customer clearly agreed to the booking terms", async () => {
     const { runTool } = setup();
@@ -234,14 +265,18 @@ describe("request_human_followup", () => {
 });
 
 describe("tool and prompt wording", () => {
-  it("offers exactly four tools", () => {
-    expect(chatTools.map((t) => t.name)).toEqual(["get_quote", "check_availability", "request_booking", "request_human_followup"]);
+  it("offers exactly five tools", () => {
+    expect(chatTools.map((t) => t.name)).toEqual(["get_quote", "request_personal_quote", "check_availability", "request_booking", "request_human_followup"]);
   });
 
   it("the prompt states today's Melbourne date and the flat-price rules, and quotes no dollar figures itself", () => {
     const prompt = buildSystemPrompt(new Date("2026-10-06T15:30:00Z"), fixtureRateCard); // already 7 Oct in Melbourne
     expect(prompt).toContain("2026-10-07");
     expect(prompt).toContain("Always call it an estimate");
+    // pick the path first; personal-quote jobs never get the estimate questionnaire
+    expect(prompt).toContain("FIRST, PICK THE PATH");
+    expect(prompt).toContain("Never ask path A questions (home size, truck, crew, specialist items, access, first order) on path B");
+    expect(prompt).toContain("Never ask for something the customer has already told you");
     expect(prompt).toContain(ESTIMATE_DISCLAIMER);
     expect(prompt).toContain("10% off");
     expect(prompt).toContain("4.5 tonne truck, 6-8 tonne truck, 10 tonne truck");
