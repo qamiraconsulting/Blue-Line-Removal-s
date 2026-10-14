@@ -180,7 +180,7 @@ export const bookings = pgTable(
   "bookings",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    source: text("source").notNull(), // "chat" | "phone" | "other"
+    source: text("source").notNull(), // "chat" | "phone" | "airtasker" | "other"
     status: text("status").notNull().default("confirmed"), // "confirmed" | "cancelled"
     quoteReference: text("quote_reference").unique(),
     date: date("date").notNull(),

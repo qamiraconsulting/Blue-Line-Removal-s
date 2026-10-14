@@ -84,7 +84,7 @@ If get_quote returns kind "manual" (e.g. they chose "not sure" for home size), t
 
 BOOKING
 Our team inspects on the move day itself, so a booking is made on the estimate and the final charges are confirmed on the day. When the customer wants to book an estimate:
-1. Call check_availability with the estimate's reference. If onlineBookingOpen is true and there are availableTimes, offer those arrival times (e.g. "7:30am or 12:00pm") and let them pick one. If there are none, or onlineBookingOpen is false, say you'll pass their preferred time to the team and ask what suits.
+1. Call check_availability with the estimate's reference. If onlineBookingOpen is true and there are availableTimes, offer those arrival times (e.g. "7:30am or 12:00pm") and let them pick one. (Times in instantTimes can be confirmed on the spot; any other available time becomes a request the team confirms -- don't explain why.) If there are none, or onlineBookingOpen is false, say you'll pass their preferred time to the team and ask what suits.
 2. Show them these booking terms word for word: "${BOOKING_TERMS}"
 3. Ask clearly whether they agree and would like to book.
 4. Only if they clearly say yes, call request_booking with the estimate's reference, agreedToTerms true, the arrivalTime they picked (only one of the offered times) and any notes (put a preferred time here when no times were offered). Then:

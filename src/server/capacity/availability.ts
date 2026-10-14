@@ -6,7 +6,10 @@
 // default. Capacity model, per arrival time:
 //  - the job occupies [arrival, arrival + estimated time + buffer] and must end by day end;
 //  - a truck of the job's size must be free for that whole window (trucks off that day and
-//    other bookings' trucks excluded; bookings without a truck still use one of that size);
+//    other bookings' trucks excluded; bookings without a truck still use one of that size).
+//    If none is, another free truck can still do it -- a smaller one in more trips (Blue Line,
+//    2026-10-14: never turn a job away just because the bigger truck is busy). Such a time is
+//    still offered, but never confirmed instantly: the team decides;
 //  - the movers on all jobs overlapping the window, plus this one, fit the day's movers.
 
 export interface CapacitySettings {
@@ -67,7 +70,15 @@ export interface SlotResult {
   reason?: SlotUnavailableReason;
   /** The free truck that would be assigned. */
   truckId?: string;
+  /**
+   * Set when no truck of the job's size is free and a different one would go instead
+   * (a smaller truck doing more trips, or failing that a bigger one). The team confirms these.
+   */
+  substituteTruckType?: string;
 }
+
+// Smallest to largest. A substitute is tried closest-smaller first, then closest-bigger.
+const SIZE_ORDER = ["4.5T", "6-8T", "10T"];
 
 export interface AvailabilityResult {
   /** Arrival times are set up and the day can take bookings at all. */
@@ -119,7 +130,6 @@ export function checkAvailability(job: JobRequest, snap: CapacitySnapshot): Avai
   const dayEnd = toMinutes(s.dayEndTime);
   const moversCap = snap.override?.moversAvailable ?? s.moversPerDay;
   const offToday = new Set(snap.override?.trucksUnavailable ?? []);
-  const sameSize = snap.trucks.filter((t) => t.active && t.truckType === job.truckType && !offToday.has(t.id));
 
   const slots = [...s.arrivalTimes].sort().map((time): SlotResult => {
     const start = toMinutes(time);
@@ -136,14 +146,34 @@ export function checkAvailability(job: JobRequest, snap: CapacitySnapshot): Avai
     });
 
     const busyTrucks = new Set(overlapping.map((b) => b.truckId).filter((id): id is string => Boolean(id)));
-    const unassignedSameSize = overlapping.filter((b) => !b.truckId && b.truckType === job.truckType).length;
-    const freeTrucks = sameSize.filter((t) => !busyTrucks.has(t.id));
-    if (freeTrucks.length <= unassignedSameSize) return { time, available: false, reason: "no_truck" };
+    // A free truck of a given size: not booked, and not needed by a booking of that size
+    // that has no truck assigned yet.
+    const freeOfSize = (size: string) => {
+      const unassigned = overlapping.filter((b) => !b.truckId && b.truckType === size).length;
+      const free = snap.trucks.filter((t) => t.active && t.truckType === size && !offToday.has(t.id) && !busyTrucks.has(t.id));
+      return free.length > unassigned ? free[unassigned]!.id : null;
+    };
+
+    let truckId = freeOfSize(job.truckType);
+    let substituteTruckType: string | undefined;
+    if (!truckId) {
+      const at = SIZE_ORDER.indexOf(job.truckType);
+      const smaller = SIZE_ORDER.slice(0, Math.max(at, 0)).reverse();
+      const bigger = at >= 0 ? SIZE_ORDER.slice(at + 1) : [];
+      for (const size of [...smaller, ...bigger]) {
+        truckId = freeOfSize(size);
+        if (truckId) {
+          substituteTruckType = size;
+          break;
+        }
+      }
+    }
+    if (!truckId) return { time, available: false, reason: "no_truck" };
 
     const moversInUse = overlapping.reduce((sum, b) => sum + b.movers, 0);
     if (moversInUse + job.movers > moversCap) return { time, available: false, reason: "no_movers" };
 
-    return { time, available: true, truckId: freeTrucks[unassignedSameSize]!.id };
+    return substituteTruckType ? { time, available: true, truckId, substituteTruckType } : { time, available: true, truckId };
   });
 
   const blockedBy: string[] = [];

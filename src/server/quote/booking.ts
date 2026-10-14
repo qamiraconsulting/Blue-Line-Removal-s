@@ -105,8 +105,8 @@ export type AvailabilityToolResult =
       onlineBookingOpen: boolean;
       why?: string;
       availableTimes: string[];
-      /** Booking one of these times would be confirmed on the spot. */
-      instantConfirm: boolean;
+      /** The available times that would be confirmed on the spot (the rest: the team confirms). */
+      instantTimes: string[];
     }
   | { ok: false; reason: Problem; error: string };
 
@@ -205,7 +205,7 @@ export async function availabilityForQuote(input: { reference: string; conversat
     onlineBookingOpen: result.dayOpen,
     why: result.dayOpen ? undefined : DAY_CLOSED_WORDS[result.dayReason ?? "not_set_up"],
     availableTimes: result.slots.filter((s) => s.available).map((s) => s.time),
-    instantConfirm: result.dayOpen && result.instantConfirm,
+    instantTimes: result.dayOpen && result.instantConfirm ? result.slots.filter((s) => s.available && !s.substituteTruckType).map((s) => s.time) : [],
   };
 }
 
@@ -226,6 +226,9 @@ export async function requestBooking(
   const testMode = q.rateCardStatus !== "confirmed";
   const job = jobFromQuote(q);
 
+  // Told to the team when the job would go on a different truck than estimated.
+  let capacityNote: string | null = null;
+
   // A chosen arrival time must actually be free (when the team has set arrival times up).
   if (arrivalTime && job) {
     const check = checkAvailability(job, { ...(await deps.bookings.loadCapacity(job.date)), nowLocal });
@@ -236,15 +239,20 @@ export async function requestBooking(
         return { ok: false, reason: "time_unavailable", error: "That arrival time isn't available -- offer one of the available times.", availableTimes };
       }
 
+      if (slot.substituteTruckType) {
+        capacityNote = `No ${job.truckType} truck is free at ${arrivalTime}; a ${slot.substituteTruckType} is free (more trips if smaller). Please check it works, then confirm.`;
+      }
+
       // Instant confirmation: re-checked under the date lock so the last truck can't go twice.
-      if (check.instantConfirm && !testMode) {
+      // Never when it would go on a different truck -- the team decides those.
+      if (check.instantConfirm && !testMode && !slot.substituteTruckType) {
         const booked = await deps.bookings.confirm(
           q.reference,
           job.date,
           (capacity) => {
             const again = checkAvailability(job, { ...capacity, nowLocal });
             const s = again.slots.find((x) => x.time === arrivalTime);
-            if (!again.dayOpen || !again.instantConfirm || !s?.available) return null;
+            if (!again.dayOpen || !again.instantConfirm || !s?.available || s.substituteTruckType) return null;
             return { booking: calendarRow(q, job, arrivalTime, s.truckId ?? null, "chat (confirmed instantly)", notes || null), result: { truckId: s.truckId ?? null } };
           },
           terms,
@@ -275,7 +283,7 @@ export async function requestBooking(
   }
   const details = emailInput(q, notes, arrivalTime);
   const [, customerSent] = await Promise.all([
-    deps.sendEmail({ ...renderBookingTeamEmail({ ...details, phone: q.phone, email: q.email, testMode, autoConfirmed: false }), to: deps.teamEmail, replyTo: `${q.customerName} <${q.email}>`, kind: "team" }).catch(() => false),
+    deps.sendEmail({ ...renderBookingTeamEmail({ ...details, phone: q.phone, email: q.email, testMode, autoConfirmed: false, capacityNote }), to: deps.teamEmail, replyTo: `${q.customerName} <${q.email}>`, kind: "team" }).catch(() => false),
     // Test-mode (placeholder rate card) estimates are never emailed to a customer.
     testMode ? Promise.resolve(false) : deps.sendEmail({ ...renderBookingRequestEmail(details), to: q.email, replyTo: deps.customerReplyTo, kind: "customer" }).catch(() => false),
   ]);
@@ -304,7 +312,15 @@ export async function confirmBooking(
       const check = checkAvailability(job, { ...capacity, nowLocal });
       const slot = check.slots.find((s) => s.time === arrivalTime);
       const truckId = input.truckId ?? slot?.truckId ?? null;
-      const capacityWarning = !check.dayOpen ? (check.dayReason ?? "not_set_up") : !slot ? "time_not_in_settings" : slot.available ? null : (slot.reason ?? null);
+      const capacityWarning = !check.dayOpen
+        ? (check.dayReason ?? "not_set_up")
+        : !slot
+          ? "time_not_in_settings"
+          : !slot.available
+            ? (slot.reason ?? null)
+            : slot.substituteTruckType && !input.truckId
+              ? `no ${job.truckType} free -- ${slot.substituteTruckType} assigned (more trips if smaller)`
+              : null;
       return { booking: calendarRow(q, job, arrivalTime, truckId, input.confirmedBy, q.bookingNotes), result: { capacityWarning } };
     },
     { arrivalTime },

@@ -70,7 +70,7 @@ const actionSchema = z.discriminatedUnion("action", [
   z.object({
     action: z.literal("addBooking"),
     booking: z.object({
-      source: z.enum(["phone", "other"]),
+      source: z.enum(["phone", "airtasker", "other"]),
       date: day,
       arrivalTime: time,
       estimatedMinutes: z.number().int().min(30).max(24 * 60),

@@ -90,10 +90,11 @@ export function renderBookingConfirmedEmail(input: BookingEmailInput): EmailCont
 }
 
 /** Internal: a customer agreed to the terms in the chat and asked to book. */
-export function renderBookingTeamEmail(input: BookingEmailInput & { phone: string; email: string; testMode: boolean; autoConfirmed: boolean }): EmailContent {
+export function renderBookingTeamEmail(input: BookingEmailInput & { phone: string; email: string; testMode: boolean; autoConfirmed: boolean; capacityNote?: string | null }): EmailContent {
   const text = [
     `${input.testMode ? "[TEST MODE -- placeholder rate card] " : ""}${input.autoConfirmed ? "BOOKED -- confirmed instantly in the chat and added to the calendar" : "BOOKING REQUEST -- please confirm with the customer"}`,
     "",
+    ...(input.capacityNote ? [`TRUCK: ${input.capacityNote}`, ""] : []),
     `Name: ${input.name}`,
     `Phone: ${input.phone}`,
     `Email: ${input.email}`,

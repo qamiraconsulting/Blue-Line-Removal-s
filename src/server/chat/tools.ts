@@ -248,7 +248,7 @@ export function createToolRunner(deps: ChatToolDeps) {
       const parsed = checkAvailabilityInput.safeParse(rawInput);
       if (!parsed.success || !deps.bookings || !deps.quoteDeps) {
         return {
-          result: { ok: true, onlineBookingOpen: false, why: "Online arrival times aren't available -- take a booking request with their preferred time in notes.", availableTimes: [], instantConfirm: false },
+          result: { ok: true, onlineBookingOpen: false, why: "Online arrival times aren't available -- take a booking request with their preferred time in notes.", availableTimes: [], instantTimes: [] },
           isError: false,
           record: { name, outcome: "not_available" },
         };

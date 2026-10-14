@@ -38,7 +38,11 @@ describe("checkAvailability", () => {
 
   it("a booked truck blocks overlapping times only (job + buffer)", () => {
     // 07:30 + 4.5h + 30min buffer = 12:30, so the 12:00 slot overlaps; 07:30 is taken
-    const booked = snap({ bookings: [{ arrivalTime: "07:30", estimatedMinutes: 270, truckType: "6-8T", truckId: "t1", movers: 2 }] });
+    // (only the 6-8T truck here, so there's nothing to stand in)
+    const booked = snap({
+      trucks: [{ id: "t1", truckType: "6-8T", active: true }],
+      bookings: [{ arrivalTime: "07:30", estimatedMinutes: 270, truckType: "6-8T", truckId: "t1", movers: 2 }],
+    });
     expect(checkAvailability(job, booked).slots.map((s) => [s.time, s.available, s.reason])).toEqual([
       ["07:30", false, "no_truck"],
       ["12:00", false, "no_truck"],
@@ -49,8 +53,31 @@ describe("checkAvailability", () => {
   });
 
   it("a phone booking with no truck assigned still uses up a truck of its size", () => {
-    const out = checkAvailability(job, snap({ bookings: [{ arrivalTime: "07:30", estimatedMinutes: 600, truckType: "6-8T", truckId: null, movers: 2 }] }));
+    const out = checkAvailability(
+      job,
+      snap({ trucks: [{ id: "t1", truckType: "6-8T", active: true }], bookings: [{ arrivalTime: "07:30", estimatedMinutes: 600, truckType: "6-8T", truckId: null, movers: 2 }] }),
+    );
     expect(out.slots.every((s) => !s.available && s.reason === "no_truck")).toBe(true);
+  });
+
+  it("when the right size is busy, a smaller free truck stands in (more trips) -- offered, for the team to confirm", () => {
+    const busy = snap({ bookings: [{ arrivalTime: "07:30", estimatedMinutes: 600, truckType: "6-8T", truckId: "t1", movers: 2 }] });
+    expect(checkAvailability(job, busy).slots[0]).toEqual({ time: "07:30", available: true, truckId: "t2", substituteTruckType: "4.5T" });
+  });
+
+  it("a smaller truck is preferred as the stand-in, then a bigger one", () => {
+    const fleet = [
+      { id: "small", truckType: "4.5T", active: true },
+      { id: "mid", truckType: "6-8T", active: true },
+      { id: "big", truckType: "10T", active: true },
+    ];
+    const midBusy = [{ arrivalTime: "07:30", estimatedMinutes: 600, truckType: "6-8T", truckId: "mid", movers: 2 }];
+    expect(checkAvailability(job, snap({ trucks: fleet, bookings: midBusy })).slots[0]).toMatchObject({ truckId: "small", substituteTruckType: "4.5T" });
+    const midAndSmallBusy = [...midBusy, { arrivalTime: "07:30", estimatedMinutes: 600, truckType: "4.5T", truckId: "small", movers: 2 }];
+    expect(checkAvailability(job, snap({ trucks: fleet, bookings: midAndSmallBusy, settings: { ...settings, moversPerDay: 10 } })).slots[0]).toMatchObject({
+      truckId: "big",
+      substituteTruckType: "10T",
+    });
   });
 
   it("another size's booking doesn't block the truck, but its movers count", () => {
@@ -78,7 +105,7 @@ describe("checkAvailability", () => {
   });
 
   it("a truck taken off for the day, or fewer movers that day, reduces capacity", () => {
-    const off = snap({ override: { closed: false, moversAvailable: null, trucksUnavailable: ["t1"] } });
+    const off = snap({ override: { closed: false, moversAvailable: null, trucksUnavailable: ["t1", "t2"] } });
     expect(checkAvailability(job, off).slots.every((s) => s.reason === "no_truck")).toBe(true);
     const fewMovers = snap({ override: { closed: false, moversAvailable: 1, trucksUnavailable: [] } });
     expect(checkAvailability(job, fewMovers).slots.every((s) => s.reason === "no_movers")).toBe(true);

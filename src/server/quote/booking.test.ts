@@ -56,13 +56,13 @@ const READY: CapacitySettings = {
   autoConfirmMaxAud: null,
 };
 
-function setup(stored: StoredQuote | null, settings: CapacitySettings = NOT_SET_UP) {
+function setup(stored: StoredQuote | null, settings: CapacitySettings = NOT_SET_UP, extraTrucks: CapacitySnapshot["trucks"] = []) {
   const sent: OutgoingEmail[] = [];
   const calendar: NewCalendarBooking[] = [];
   let row = stored;
   const capacity = (): Omit<CapacitySnapshot, "nowLocal"> => ({
     settings,
-    trucks: [{ id: "truck-a", truckType: "6-8T", active: true }],
+    trucks: [{ id: "truck-a", truckType: "6-8T", active: true }, ...extraTrucks],
     override: null,
     bookings: calendar.map((b) => ({ arrivalTime: b.arrivalTime, estimatedMinutes: b.estimatedMinutes, truckType: b.truckType, truckId: b.truckId ?? null, movers: b.movers })),
   });
@@ -132,14 +132,14 @@ describe("booking request (team confirms) -- the default until capacity is set u
 
   it("with no arrival times set up, the chat is told to take the preferred time in notes", async () => {
     const out = await availabilityForQuote({ reference: "BLR-20261012-ABC123", conversationId: "conv-1" }, setup(quote()).deps);
-    expect(out).toMatchObject({ ok: true, onlineBookingOpen: false, availableTimes: [], instantConfirm: false });
+    expect(out).toMatchObject({ ok: true, onlineBookingOpen: false, availableTimes: [], instantTimes: [] });
   });
 });
 
 describe("instant confirmation (switched on by the team, everything set up)", () => {
   it("offers the free arrival times and says they'd be confirmed on the spot", async () => {
     const out = await availabilityForQuote({ reference: "BLR-20261012-ABC123", conversationId: "conv-1" }, setup(quote(), READY).deps);
-    expect(out).toEqual({ ok: true, date: "2026-10-21", onlineBookingOpen: true, availableTimes: ["07:30", "12:00"], instantConfirm: true });
+    expect(out).toEqual({ ok: true, date: "2026-10-21", onlineBookingOpen: true, availableTimes: ["07:30", "12:00"], instantTimes: ["07:30", "12:00"] });
   });
 
   it("books it, adds it to the calendar with the truck, and emails 'your move is booked'", async () => {
@@ -167,6 +167,19 @@ describe("instant confirmation (switched on by the team, everything set up)", ()
     };
     expect(await ask(deps, { arrivalTime: "07:30" })).toMatchObject({ ok: false, reason: "time_unavailable" });
     expect(calendar).toHaveLength(1);
+  });
+
+  it("if only a smaller truck is free, the time is still offered -- as a request, with a truck note for the team", async () => {
+    const { deps, sent, calendar } = setup(quote(), READY, [{ id: "truck-small", truckType: "4.5T", active: true }]);
+    // the 6-8T is busy all day; the 4.5T is free
+    calendar.push({ source: "phone", date: "2026-10-21", arrivalTime: "07:00", estimatedMinutes: 600, truckType: "6-8T", truckId: "truck-a", movers: 2 });
+
+    const times = await availabilityForQuote({ reference: "BLR-20261012-ABC123", conversationId: "conv-1" }, deps);
+    expect(times).toMatchObject({ ok: true, availableTimes: ["07:30", "12:00"], instantTimes: [] });
+
+    expect(await ask(deps, { arrivalTime: "07:30" })).toMatchObject({ ok: true, status: "requested", arrivalTime: "07:30" });
+    expect(calendar).toHaveLength(1); // not confirmed instantly
+    expect(sent.find((e) => e.kind === "team")!.text).toContain("TRUCK: No 6-8T truck is free at 07:30; a 4.5T is free (more trips if smaller)");
   });
 
   it("over the instant-confirm limit, or in test mode, it becomes a request for the team", async () => {
