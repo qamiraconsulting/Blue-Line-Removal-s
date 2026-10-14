@@ -1,4 +1,4 @@
-import { NavLink, Outlet } from "react-router";
+import { NavLink, Outlet, useLocation } from "react-router";
 import { ClerkProvider, SignIn } from "@clerk/react-router";
 // @clerk/react-router's own type exports don't surface Show/UserButton
 // (even though it wraps @clerk/react, which has them) -- importing
@@ -22,6 +22,7 @@ import { Show, UserButton } from "@clerk/react";
 const publishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as string | undefined;
 
 export default function AdminLayout() {
+  const { pathname } = useLocation();
   if (!publishableKey) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50 p-8 text-center">
@@ -37,7 +38,13 @@ export default function AdminLayout() {
     <ClerkProvider publishableKey={publishableKey}>
       <Show when="signed-out">
         <div className="flex min-h-screen items-center justify-center bg-slate-50">
-          <SignIn />
+          {/*
+            routing="hash": Clerk's later steps (password, email code) live after a # on this
+            same page. Its default path routing moved to /admin/factor-one etc., which this
+            static site has no page for ("Page not found"). withSignUp keeps sign-up inside the
+            same box for the same reason. After signing in, stay on the page they opened.
+          */}
+          <SignIn routing="hash" withSignUp fallbackRedirectUrl={pathname} signUpFallbackRedirectUrl={pathname} />
         </div>
       </Show>
       <Show when="signed-in">
