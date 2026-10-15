@@ -14,6 +14,7 @@ export default [
   // SPA fallback rather than baked into a static file at build time.
   layout("components/admin/AdminLayout.tsx", [
     route("admin", "pages/admin/Dashboard.tsx"),
+    route("admin/overview", "pages/admin/Overview.tsx"),
     route("admin/conversations/:id", "pages/admin/ConversationDetail.tsx"),
     route("admin/capacity", "pages/admin/Capacity.tsx"),
   ]),

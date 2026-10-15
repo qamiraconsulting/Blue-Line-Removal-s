@@ -170,6 +170,8 @@ export function renderTeamEmail(input: {
   source?: "quote_form" | "chatbot";
   /** Personal-quote requests: the job in the customer's words. */
   jobDescription?: string;
+  /** The website form's optional "Additional notes". */
+  customerNotes?: string;
 }): EmailContent {
   const lines = [
     `Reference: ${input.reference}`,
@@ -187,6 +189,7 @@ export function renderTeamEmail(input: {
     `Home size: ${input.details.propertySize || "-"}`,
     `Truck & crew: ${input.details.capacity || "-"}`,
     `Access notes: ${input.details.accessNotes || "-"}`,
+    ...(input.customerNotes ? [`Customer notes: ${input.customerNotes}`] : []),
     `First-move offer: ${input.firstMoveRequested ? (input.firstMoveApplied ? "requested and applied" : "requested, NOT applied (already used)") : "not requested"}`,
     ...(input.internalBreakdown ? ["", "Internal breakdown (not shown to the customer):", JSON.stringify(input.internalBreakdown, null, 2)] : []),
   ];

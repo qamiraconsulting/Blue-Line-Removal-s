@@ -54,6 +54,7 @@ export default function AdminLayout() {
               <h1 className="font-display text-lg font-bold text-navy">Blue Line Removals</h1>
               <nav className="flex gap-4 text-sm">
                 {[
+                  ["/admin/overview", "Overview"],
                   ["/admin", "Lead review"],
                   ["/admin/capacity", "Bookings & capacity"],
                 ].map(([to, label]) => (

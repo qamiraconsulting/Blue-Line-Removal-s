@@ -70,7 +70,7 @@ const actionSchema = z.discriminatedUnion("action", [
   z.object({
     action: z.literal("addBooking"),
     booking: z.object({
-      source: z.enum(["phone", "airtasker", "other"]),
+      source: z.enum(["phone", "airtasker", "moval", "other"]),
       date: day,
       arrivalTime: time,
       estimatedMinutes: z.number().int().min(30).max(24 * 60),
@@ -156,7 +156,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       case "cancelBooking": {
         const [row] = await getDb().select({ quoteReference: bookings.quoteReference }).from(bookings).where(eq(bookings.id, body.id)).limit(1);
         await cancelBooking(body.id);
-        if (row?.quoteReference) await getDb().update(quotes).set({ bookingStatus: "cancelled" }).where(eq(quotes.reference, row.quoteReference));
+        // Keep the job's status in step with the calendar.
+        if (row?.quoteReference) {
+          await getDb()
+            .update(quotes)
+            .set({ bookingStatus: "cancelled", jobStatus: "cancelled", statusUpdatedAt: new Date(), closedReason: "Cancelled on the calendar", closedBy: admin.userId })
+            .where(eq(quotes.reference, row.quoteReference));
+        }
         break;
       }
     }

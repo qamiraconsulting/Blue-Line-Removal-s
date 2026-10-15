@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useSearchParams } from "react-router";
 import clsx from "clsx";
-import { User, Phone, Mail, MapPin, Calendar, Home as HomeIcon, Truck, Trash2, DollarSign, Clock, ShieldCheck, CircleCheck } from "lucide-react";
+import { User, Phone, Mail, MapPin, Calendar, Home as HomeIcon, Truck, Trash2, DollarSign, Clock, ShieldCheck, CircleCheck, MessageSquare } from "lucide-react";
 import { Container } from "@/components/ui/Container";
 import { Section } from "@/components/ui/Section";
 import { Reveal } from "@/components/ui/Reveal";
@@ -47,6 +47,7 @@ export function Quote() {
       to: data.get("to"),
       date: data.get("date"),
       propertySize: data.get("propertySize"),
+      notes: data.get("notes"),
       firstMove: data.get("firstMove") === "on",
     };
 
@@ -133,6 +134,23 @@ export function Quote() {
                           <option key={size}>{size}</option>
                         ))}
                       </select>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-1.5">
+                    <label htmlFor="notes" className="text-xs font-bold uppercase tracking-[0.06em] text-ink-dim">
+                      Additional notes <span className="font-medium normal-case tracking-normal">(optional)</span>
+                    </label>
+                    <div className="relative">
+                      <MessageSquare className="pointer-events-none absolute left-3.5 top-3 h-4 w-4 text-ink-dim" aria-hidden="true" />
+                      <textarea
+                        id="notes"
+                        name="notes"
+                        rows={3}
+                        maxLength={1000}
+                        placeholder="Stairs, parking, heavy or fragile items, anything we should know"
+                        className="w-full resize-y rounded-md border border-ink/15 bg-white py-2.5 pl-10 pr-3.5 text-sm text-ink outline-none focus:border-action"
+                      />
                     </div>
                   </div>
 
@@ -279,7 +297,7 @@ function QuoteResultCard({ result }: { result: QuoteApiResult }) {
         </p>
       )}
       <CircleCheck className="h-10 w-10 text-eco" aria-hidden="true" />
-      <p className="font-display text-sm font-bold uppercase tracking-[0.06em] text-ink-dim">Your fixed price</p>
+      <p className="font-display text-sm font-bold uppercase tracking-[0.06em] text-ink-dim">Your estimate</p>
       <p className="font-display text-5xl font-black text-navy">{formatAud(result.amountAud)}</p>
       <p className="text-xs text-ink-dim">GST included</p>
 
@@ -294,8 +312,9 @@ function QuoteResultCard({ result }: { result: QuoteApiResult }) {
         </p>
       )}
 
-      <p className="max-w-[38ch] text-sm text-ink">
-        This is the <strong>final price</strong> for the move you described — no hidden fees or extras.
+      <p className="max-w-[44ch] text-sm text-ink">
+        This is an estimate based on the details you&apos;ve provided. The final price may vary depending on the actual hours worked,
+        inventory, access, stairs, parking and any special requirements.
       </p>
 
       <ul className="mt-1 grid gap-1 text-left text-sm text-ink-dim">
@@ -312,13 +331,185 @@ function QuoteResultCard({ result }: { result: QuoteApiResult }) {
       </p>
       {result.emailed && <p className="text-xs text-ink-dim">We've emailed you a copy of this quote.</p>}
 
-      <p className="mt-2 text-sm text-ink">
-        Ready to book? Call{" "}
-        <a href={site.phone.href} className="font-bold text-action hover:underline">
-          {site.phone.display}
-        </a>{" "}
-        or reply to our email.
-      </p>
+      {result.bookingToken ? (
+        <BookEstimate reference={result.reference} token={result.bookingToken} />
+      ) : (
+        <p className="mt-2 text-sm text-ink">
+          Ready to book? Call{" "}
+          <a href={site.phone.href} className="font-bold text-action hover:underline">
+            {site.phone.display}
+          </a>{" "}
+          or reply to our email.
+        </p>
+      )}
     </div>
+  );
+}
+
+interface BookingInfo {
+  ok: boolean;
+  error?: string;
+  terms?: string;
+  onlineBookingOpen?: boolean;
+  availableTimes?: string[];
+  instantTimes?: string[];
+}
+
+/** "07:30" -> "7:30am" */
+function formatTime(hhmm: string) {
+  const [h, m] = hhmm.split(":").map(Number) as [number, number];
+  return `${h % 12 || 12}:${String(m).padStart(2, "0")}${h < 12 ? "am" : "pm"}`;
+}
+
+// Book the estimate just shown (Ayesha, 2026-10-15): pick an arrival time if the team has set
+// them up, agree to the booking terms, and it goes to the team to confirm -- they email the
+// confirmed quote. Same terms and rules as the chat.
+function BookEstimate({ reference, token }: { reference: string; token: string }) {
+  const [info, setInfo] = useState<BookingInfo | null>(null);
+  const [time, setTime] = useState("");
+  const [preferred, setPreferred] = useState("");
+  const [notes, setNotes] = useState("");
+  const [agreed, setAgreed] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [done, setDone] = useState<{ status: string; emailed: boolean; arrivalTime?: string | null } | null>(null);
+
+  useEffect(() => {
+    fetch(`/api/booking?reference=${encodeURIComponent(reference)}&token=${encodeURIComponent(token)}`)
+      .then((res) => res.json() as Promise<BookingInfo>)
+      .then(setInfo)
+      .catch(() => setInfo({ ok: false, error: "Online booking isn't available right now." }));
+  }, [reference, token]);
+
+  async function book(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setError(null);
+    setSending(true);
+    try {
+      const noteParts = [!time && preferred ? `Preferred arrival time: ${preferred}` : "", notes].filter(Boolean);
+      const res = await fetch("/api/booking", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reference, token, agreedToTerms: agreed, arrivalTime: time || undefined, notes: noteParts.join(" -- ") || undefined }),
+      });
+      const body = (await res.json()) as { ok?: boolean; error?: string; status?: string; emailed?: boolean; arrivalTime?: string | null; availableTimes?: string[] };
+      if (!res.ok || !body.ok) {
+        setError(body.error ?? "We couldn't take that booking just now. Please call us instead.");
+        if (body.availableTimes && info) setInfo({ ...info, availableTimes: body.availableTimes });
+        setTime("");
+        return;
+      }
+      setDone({ status: body.status ?? "requested", emailed: Boolean(body.emailed), arrivalTime: body.arrivalTime });
+      trackEvent(body.status === "confirmed" ? "form_booking_confirmed" : "form_booking_requested");
+    } catch {
+      setError("We couldn't take that booking just now. Please check your connection and try again.");
+    } finally {
+      setSending(false);
+    }
+  }
+
+  const callUs = (
+    <a href={site.phone.href} className="font-bold text-action hover:underline">
+      {site.phone.display}
+    </a>
+  );
+
+  if (done) {
+    const booked = done.status === "confirmed" || done.status === "already_confirmed";
+    return (
+      <div className="mt-4 w-full rounded-lg border border-eco/40 bg-eco/5 p-4 text-left text-sm text-ink" role="status">
+        <p className="font-display text-base font-bold text-navy">{booked ? "You're booked!" : "Booking request received"}</p>
+        <p className="mt-1">
+          {booked
+            ? `Your move is booked${done.arrivalTime ? ` with arrival at ${formatTime(done.arrivalTime)}` : ""}. We've emailed your confirmed quote.`
+            : "Our team will check the details and confirm your booking shortly — you'll get your confirmed quote by email."}
+        </p>
+        <p className="mt-2 text-xs text-ink-dim">
+          Reference {reference} · Questions? Call {callUs}
+        </p>
+      </div>
+    );
+  }
+
+  if (!info) return <p className="mt-4 text-xs text-ink-dim">Loading booking options...</p>;
+  if (!info.ok || !info.terms) {
+    return (
+      <p className="mt-4 text-sm text-ink">
+        Ready to book? Call {callUs} or reply to our email.
+      </p>
+    );
+  }
+
+  const times = info.onlineBookingOpen ? (info.availableTimes ?? []) : [];
+  return (
+    <form onSubmit={book} className="mt-4 grid w-full gap-4 rounded-lg border border-ink/10 bg-paper p-4 text-left">
+      <p className="font-display text-base font-bold text-navy">Book this estimate</p>
+
+      {times.length > 0 ? (
+        <fieldset className="grid gap-2">
+          <legend className="mb-1 text-xs font-bold uppercase tracking-[0.06em] text-ink-dim">Arrival time</legend>
+          <div className="flex flex-wrap gap-2">
+            {times.map((t) => (
+              <label
+                key={t}
+                className={clsx(
+                  "cursor-pointer rounded-full border px-3.5 py-1.5 text-sm",
+                  time === t ? "border-action bg-action/10 font-bold text-action-dim" : "border-ink/15 bg-white text-ink",
+                )}
+              >
+                <input type="radio" name="arrivalTime" value={t} checked={time === t} onChange={() => setTime(t)} className="sr-only" required />
+                {formatTime(t)}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      ) : (
+        <label className="grid gap-1.5 text-sm">
+          <span className="text-xs font-bold uppercase tracking-[0.06em] text-ink-dim">
+            Preferred arrival time <span className="font-medium normal-case tracking-normal">(optional)</span>
+          </span>
+          <input
+            value={preferred}
+            onChange={(e) => setPreferred(e.target.value)}
+            maxLength={60}
+            placeholder="e.g. early morning"
+            className="rounded-md border border-ink/15 bg-white px-3.5 py-2 text-sm text-ink outline-none focus:border-action"
+          />
+        </label>
+      )}
+
+      <label className="grid gap-1.5 text-sm">
+        <span className="text-xs font-bold uppercase tracking-[0.06em] text-ink-dim">
+          Anything else for the team <span className="font-medium normal-case tracking-normal">(optional)</span>
+        </span>
+        <textarea
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          rows={2}
+          maxLength={400}
+          className="resize-y rounded-md border border-ink/15 bg-white px-3.5 py-2 text-sm text-ink outline-none focus:border-action"
+        />
+      </label>
+
+      <div className="rounded-md border border-ink/15 bg-white p-3 text-xs leading-relaxed text-ink-dim">
+        <p className="mb-1 font-bold uppercase tracking-[0.06em]">Booking terms</p>
+        <p>{info.terms}</p>
+      </div>
+      <label className="flex cursor-pointer items-start gap-3 text-sm text-ink">
+        <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} required className="mt-0.5 h-4 w-4 shrink-0 accent-action" />
+        <span>I agree to the booking terms and would like to book this estimate.</span>
+      </label>
+
+      {error && (
+        <p className="rounded-md border border-action/30 bg-action/5 px-3 py-2 text-sm text-action-dim" role="alert">
+          {error}
+        </p>
+      )}
+
+      <Button type="submit" arrow disabled={sending || !agreed} className="w-full justify-center">
+        {sending ? "Sending…" : time && info.instantTimes?.includes(time) ? "Book now" : "Request booking"}
+      </Button>
+      <p className="text-center text-xs text-ink-dim">Prefer to talk? Call {callUs}.</p>
+    </form>
   );
 }

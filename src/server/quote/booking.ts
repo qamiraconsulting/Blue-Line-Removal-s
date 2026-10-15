@@ -3,25 +3,28 @@ import { checkAvailability, type CapacitySnapshot, type JobRequest } from "../ca
 import { loadCapacity, melbourneNowLocal, reserve, type NewCalendarBooking } from "../capacity/store.js";
 import { getDb } from "../db/client.js";
 import { quotes } from "../db/schema.js";
+import { linesFromEstimate } from "../jobs/lines.js";
+import { sendCustomerQuote } from "../jobs/sendQuote.js";
+import type { PdfSender } from "../jobs/pdfQuote.js";
 import {
   BOOKING_TERMS,
   BOOKING_TERMS_VERSION,
-  renderBookingConfirmedEmail,
   renderBookingRequestEmail,
   renderBookingTeamEmail,
   type BookingEmailInput,
 } from "./bookingEmails.js";
-import type { PropertySizeId } from "./calculateQuote.js";
+import type { InternalBreakdown, PropertySizeId } from "./calculateQuote.js";
 import { formatDateLabel, type QuoteDetails } from "./emails.js";
 import type { RateCard } from "./rateCard.js";
-import { melbourneToday, SIZE_LABEL, type OutgoingEmail } from "./service.js";
+import { customerRecipient, melbourneToday, SIZE_LABEL, type OutgoingEmail } from "./service.js";
 
-// Booking on an estimate. The team inspects on the move day itself, so the customer books on
-// the estimate and the final charges are confirmed on the day. A booking is only taken once
-// the customer has explicitly agreed to BOOKING_TERMS in the chat. It is then either:
+// Booking on an estimate -- from the chat or the website form. The team inspects on the move
+// day itself, so the customer books on the estimate and the final charges are confirmed on the
+// day. A booking is only taken once the customer has explicitly agreed to BOOKING_TERMS (in the
+// chat, or the form's tick-box). It is then either:
 //  - confirmed on the spot, when the team has switched instant confirmation on, filled in
 //    every capacity setting, and the chosen arrival time has a free truck and crew; or
-//  - a request, which the team confirms on the dashboard.
+//  - a request, which the team confirms (and may edit) on the dashboard -- src/server/jobs/actions.ts.
 // Either way a confirmed booking goes into the calendar (bookings table). Nothing here ever
 // changes the estimate.
 
@@ -29,6 +32,8 @@ export type StoredQuote = Pick<
   typeof quotes.$inferSelect,
   | "reference"
   | "conversationId"
+  | "source"
+  | "bookingToken"
   | "status"
   | "amountAud"
   | "validUntil"
@@ -80,8 +85,13 @@ export interface BookingDeps {
   sendEmail: (email: OutgoingEmail) => Promise<boolean>;
   teamEmail: string;
   customerReplyTo: string;
+  testEmailTo?: string | null;
+  pdf?: PdfSender;
   now?: () => Date;
 }
+
+/** Who may book an estimate: the chat it was given in, or the website form that showed it. */
+export type BookingAuth = { conversationId: string } | { bookingToken: string };
 
 type Problem = "not_found" | "no_estimate" | "expired" | "not_pending" | "time_unavailable" | "time_needed";
 
@@ -152,9 +162,16 @@ const emailInput = (q: StoredQuote, notes: string, arrivalTime: string | null): 
   arrivalTime,
 });
 
+/** The calendar's "booked via" for a quote. */
+export function calendarSource(q: Pick<StoredQuote, "source">, channel?: string | null): string {
+  if (q.source === "chatbot") return "chat";
+  if (q.source === "quote_form") return "web_form";
+  return channel ?? "other";
+}
+
 function calendarRow(q: StoredQuote, job: JobRequest, arrivalTime: string, truckId: string | null, createdBy: string, notes: string | null): NewCalendarBooking {
   return {
-    source: "chat",
+    source: calendarSource(q),
     quoteReference: q.reference,
     date: job.date,
     arrivalTime,
@@ -171,16 +188,19 @@ function calendarRow(q: StoredQuote, job: JobRequest, arrivalTime: string, truck
   };
 }
 
-/** Shared checks: the estimate is from this chat, priced, and still current. */
+/** Shared checks: the estimate is from this chat (or this form), priced, and still current. */
 async function bookableQuote(
   reference: string,
-  conversationId: string,
+  auth: BookingAuth,
   deps: BookingDeps,
 ): Promise<{ ok: true; q: StoredQuote; nowLocal: string } | { ok: false; reason: Problem; error: string }> {
   const now = (deps.now ?? (() => new Date()))();
   const today = melbourneToday(now);
   const q = await deps.bookings.findQuote(reference.trim().toUpperCase());
-  if (!q || q.conversationId !== conversationId) return { ok: false, reason: "not_found", error: "That estimate reference isn't from this chat." };
+  const allowed =
+    q !== null &&
+    ("conversationId" in auth ? q.conversationId === auth.conversationId : Boolean(q.bookingToken) && q.bookingToken === auth.bookingToken);
+  if (!q || !allowed) return { ok: false, reason: "not_found", error: "That estimate reference isn't from this chat." };
   if (q.status !== "priced" || q.amountAud === null) {
     return { ok: false, reason: "no_estimate", error: "This job needs a personal quote, so the team will arrange the booking with the customer." };
   }
@@ -191,8 +211,8 @@ async function bookableQuote(
 }
 
 /** Chat: which arrival times are free for this estimate's date, truck and crew. */
-export async function availabilityForQuote(input: { reference: string; conversationId: string }, deps: BookingDeps): Promise<AvailabilityToolResult> {
-  const checked = await bookableQuote(input.reference, input.conversationId, deps);
+export async function availabilityForQuote(input: { reference: string } & BookingAuth, deps: BookingDeps): Promise<AvailabilityToolResult> {
+  const checked = await bookableQuote(input.reference, input, deps);
   if (!checked.ok) return checked;
   const { q, nowLocal } = checked;
   const job = jobFromQuote(q);
@@ -209,12 +229,12 @@ export async function availabilityForQuote(input: { reference: string; conversat
   };
 }
 
-/** Chat: the customer agreed to the terms -- confirm on the spot if allowed, else take a request. */
+/** Chat or website form: the customer agreed to the terms -- confirm on the spot if allowed, else take a request. */
 export async function requestBooking(
-  input: { reference: string; conversationId: string; notes?: string; arrivalTime?: string },
+  input: { reference: string; notes?: string; arrivalTime?: string } & BookingAuth,
   deps: BookingDeps,
 ): Promise<BookingResult> {
-  const checked = await bookableQuote(input.reference, input.conversationId, deps);
+  const checked = await bookableQuote(input.reference, input, deps);
   if (!checked.ok) return checked;
   const { q, nowLocal } = checked;
   if (q.bookingStatus === "confirmed") return { ok: true, status: "already_confirmed", reference: q.reference, emailed: false, arrivalTime: q.bookingArrivalTime };
@@ -259,11 +279,33 @@ export async function requestBooking(
         );
         if (booked) {
           const details = emailInput(q, notes, arrivalTime);
-          const [, customerSent] = await Promise.all([
-            deps.sendEmail({ ...renderBookingTeamEmail({ ...details, phone: q.phone, email: q.email, testMode, autoConfirmed: true }), to: deps.teamEmail, replyTo: `${q.customerName} <${q.email}>`, kind: "team" }).catch(() => false),
-            deps.sendEmail({ ...renderBookingConfirmedEmail(details), to: q.email, replyTo: deps.customerReplyTo, kind: "customer" }).catch(() => false),
+          const card = q.rateCardSnapshot as Pick<RateCard, "gst" | "trucks">;
+          const lines = linesFromEstimate(q.internalBreakdown as InternalBreakdown, q.amountAud!, card);
+          const [, customer] = await Promise.all([
+            deps.sendEmail({ ...renderBookingTeamEmail({ ...details, phone: q.phone, email: q.email, testMode, autoConfirmed: true, via: q.source }), to: deps.teamEmail, replyTo: `${q.customerName} <${q.email}>`, kind: "team" }).catch(() => false),
+            // The branded PDF quote, marked Confirmed (plain email if the PDF can't be made).
+            sendCustomerQuote(
+              {
+                kind: "booked",
+                to: q.email,
+                reference: q.reference,
+                customerName: q.customerName,
+                email: q.email,
+                phone: q.phone,
+                movingDate: job.date,
+                arrivalTime,
+                from: q.fromText ?? "",
+                toAddress: q.toText ?? "",
+                lines,
+                truckLabel: lines.truck ? (card.trucks?.[lines.truck]?.label ?? lines.truck) : null,
+                note: null,
+                validUntil: null,
+                testMode,
+              },
+              deps,
+            ),
           ]);
-          return { ok: true, status: "confirmed", reference: q.reference, emailed: customerSent, arrivalTime };
+          return { ok: true, status: "confirmed", reference: q.reference, emailed: customer.emailed, arrivalTime };
         }
         // Someone took that time a moment ago.
         const fresh = checkAvailability(job, { ...(await deps.bookings.loadCapacity(job.date)), nowLocal });
@@ -282,58 +324,17 @@ export async function requestBooking(
     return { ok: true, status: "already_requested", reference: q.reference, emailed: false };
   }
   const details = emailInput(q, notes, arrivalTime);
+  // Test-mode (placeholder rate card) estimates are never emailed to a customer -- only to the
+  // preview's test inbox, if one is set.
+  const customerTo = customerRecipient(q.email, testMode, deps.testEmailTo);
+  const request = renderBookingRequestEmail(details);
   const [, customerSent] = await Promise.all([
-    deps.sendEmail({ ...renderBookingTeamEmail({ ...details, phone: q.phone, email: q.email, testMode, autoConfirmed: false, capacityNote }), to: deps.teamEmail, replyTo: `${q.customerName} <${q.email}>`, kind: "team" }).catch(() => false),
-    // Test-mode (placeholder rate card) estimates are never emailed to a customer.
-    testMode ? Promise.resolve(false) : deps.sendEmail({ ...renderBookingRequestEmail(details), to: q.email, replyTo: deps.customerReplyTo, kind: "customer" }).catch(() => false),
+    deps.sendEmail({ ...renderBookingTeamEmail({ ...details, phone: q.phone, email: q.email, testMode, autoConfirmed: false, capacityNote, via: q.source }), to: deps.teamEmail, replyTo: `${q.customerName} <${q.email}>`, kind: "team" }).catch(() => false),
+    customerTo
+      ? deps.sendEmail({ ...request, subject: testMode ? `[TEST] ${request.subject}` : request.subject, to: customerTo, replyTo: deps.customerReplyTo, kind: "customer" }).catch(() => false)
+      : Promise.resolve(false),
   ]);
   return { ok: true, status: "requested", reference: q.reference, emailed: customerSent, arrivalTime };
-}
-
-/** Dashboard: the team confirms a booking request -- added to the calendar, customer emailed. */
-export async function confirmBooking(
-  input: { reference: string; arrivalTime?: string; truckId?: string | null; confirmedBy: string },
-  deps: BookingDeps,
-): Promise<BookingResult> {
-  const q = await deps.bookings.findQuote(input.reference);
-  if (!q) return { ok: false, reason: "not_found", error: "Quote not found." };
-  if (q.bookingStatus !== "requested") return { ok: false, reason: "not_pending", error: "That booking isn't waiting for confirmation." };
-  const job = jobFromQuote(q);
-  if (!job) return { ok: false, reason: "no_estimate", error: "This quote has no estimate to book." };
-  const arrivalTime = input.arrivalTime ?? q.bookingArrivalTime;
-  if (!arrivalTime || !/^\d{2}:\d{2}$/.test(arrivalTime)) return { ok: false, reason: "time_needed", error: "Choose an arrival time first." };
-
-  const nowLocal = melbourneNowLocal((deps.now ?? (() => new Date()))());
-  const confirmed = await deps.bookings.confirm(
-    q.reference,
-    job.date,
-    (capacity) => {
-      // The team decides -- but say so if the calendar doesn't show room.
-      const check = checkAvailability(job, { ...capacity, nowLocal });
-      const slot = check.slots.find((s) => s.time === arrivalTime);
-      const truckId = input.truckId ?? slot?.truckId ?? null;
-      const capacityWarning = !check.dayOpen
-        ? (check.dayReason ?? "not_set_up")
-        : !slot
-          ? "time_not_in_settings"
-          : !slot.available
-            ? (slot.reason ?? null)
-            : slot.substituteTruckType && !input.truckId
-              ? `no ${job.truckType} free -- ${slot.substituteTruckType} assigned (more trips if smaller)`
-              : null;
-      return { booking: calendarRow(q, job, arrivalTime, truckId, input.confirmedBy, q.bookingNotes), result: { capacityWarning } };
-    },
-    { arrivalTime },
-  );
-  if (!confirmed) return { ok: false, reason: "not_pending", error: "That booking isn't waiting for confirmation." };
-
-  const testMode = q.rateCardStatus !== "confirmed";
-  const emailed = testMode
-    ? false
-    : await deps
-        .sendEmail({ ...renderBookingConfirmedEmail(emailInput(q, q.bookingNotes ?? "", arrivalTime)), to: q.email, replyTo: deps.customerReplyTo, kind: "customer" })
-        .catch(() => false);
-  return { ok: true, status: "confirmed", reference: q.reference, emailed, arrivalTime, capacityWarning: confirmed.capacityWarning };
 }
 
 class AlreadyConfirmed extends Error {}
@@ -348,6 +349,8 @@ export const dbBookingStore: BookingStore = {
       .update(quotes)
       .set({
         bookingStatus: "requested",
+        jobStatus: "booking_requested",
+        statusUpdatedAt: new Date(),
         bookingRequestedAt: new Date(),
         bookingTermsVersion: b.termsVersion,
         bookingTermsText: b.termsText,
@@ -366,6 +369,8 @@ export const dbBookingStore: BookingStore = {
           .update(quotes)
           .set({
             bookingStatus: "confirmed",
+            jobStatus: "booked",
+            statusUpdatedAt: new Date(),
             bookingConfirmedAt: new Date(),
             ...(fields.termsVersion ? { bookingRequestedAt: new Date(), bookingTermsVersion: fields.termsVersion, bookingTermsText: fields.termsText } : {}),
             ...(fields.notes !== undefined ? { bookingNotes: fields.notes } : {}),

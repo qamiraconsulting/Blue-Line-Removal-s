@@ -31,7 +31,10 @@ export type TrackedEvent =
   | "chat_estimate_shown"
   | "chat_booking_requested"
   | "chat_booking_confirmed"
-  | "chat_handoff";
+  | "chat_handoff"
+  // Website quote form booking
+  | "form_booking_requested"
+  | "form_booking_confirmed";
 
 export function trackEvent(event: TrackedEvent, params: Record<string, unknown> = {}) {
   if (typeof window === "undefined") return;

@@ -89,10 +89,11 @@ export function renderBookingConfirmedEmail(input: BookingEmailInput): EmailCont
   return customerEmail(input, `Your move is booked (ref ${input.reference})`, "Good news -- your move is booked.", "See you on the day!");
 }
 
-/** Internal: a customer agreed to the terms in the chat and asked to book. */
-export function renderBookingTeamEmail(input: BookingEmailInput & { phone: string; email: string; testMode: boolean; autoConfirmed: boolean; capacityNote?: string | null }): EmailContent {
+/** Internal: a customer agreed to the terms (chat or website form) and asked to book. */
+export function renderBookingTeamEmail(input: BookingEmailInput & { phone: string; email: string; testMode: boolean; autoConfirmed: boolean; capacityNote?: string | null; via?: string }): EmailContent {
+  const where = input.via === "quote_form" ? "on the website form" : "in the chat";
   const text = [
-    `${input.testMode ? "[TEST MODE -- placeholder rate card] " : ""}${input.autoConfirmed ? "BOOKED -- confirmed instantly in the chat and added to the calendar" : "BOOKING REQUEST -- please confirm with the customer"}`,
+    `${input.testMode ? "[TEST MODE -- placeholder rate card] " : ""}${input.autoConfirmed ? `BOOKED -- confirmed instantly ${where} and added to the calendar` : `BOOKING REQUEST (${where}) -- please confirm with the customer`}`,
     "",
     ...(input.capacityNote ? [`TRUCK: ${input.capacityNote}`, ""] : []),
     `Name: ${input.name}`,
@@ -100,12 +101,12 @@ export function renderBookingTeamEmail(input: BookingEmailInput & { phone: strin
     `Email: ${input.email}`,
     ...detailRows(input).map(([k, v]) => `${k}: ${v}`),
     "",
-    `Agreed in the chat to the booking terms (version ${BOOKING_TERMS_VERSION}):`,
+    `Agreed ${where} to the booking terms (version ${BOOKING_TERMS_VERSION}):`,
     BOOKING_TERMS,
     "",
     input.autoConfirmed
       ? "Nothing to do -- it's in the calendar. Cancel it on the dashboard (Bookings & capacity) if anything's wrong."
-      : "Confirm it on the dashboard under Booking requests -- the customer is emailed when you do.",
+      : "Check it on the dashboard under Booking requests -- you can change the details or the amount (with a note to the customer) before confirming. The customer gets the PDF quote when you confirm.",
   ].join("\n");
   return {
     subject: `${input.autoConfirmed ? "Booked" : "Booking request"}: ${input.name} -- ${input.details.dateLabel || "date tbc"} (${input.reference})`,

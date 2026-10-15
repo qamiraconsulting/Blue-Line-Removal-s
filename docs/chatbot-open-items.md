@@ -37,7 +37,7 @@ the "Meanwhile" column says: it never guesses.
 | `junk-removal-pricing` | Junk removal: always a personal quote, or a price list? | Goes to the team |
 | `commercial-moves` | Office moves: always a personal quote? | Goes to the team |
 | `sign-off` | Blue Line signs off the complete rate card (then status → confirmed) | Test figures only, never emailed |
-| `team-inbox` | Which Blue Line inbox receives estimate and hand-off emails? | qamiraconsulting@gmail.com |
+| `call-out-fee` | Matt's sheet adds a $100 call-out; the rate card says call-out is included, not charged. Which is right? | Website/chat: no call-out; Matt's quotes keep his |
 | `whatsapp-alerts` | WhatsApp Business Platform/Cloud API (for automatic alerts), or just the app? | Email alerts + dashboard |
 | `admin-users` | Who at Blue Line needs dashboard access? | Only listed user IDs get in |
 | `faq-facts` | Insurance, deposit/payment, cancellation, working hours | Chat hands to the team |
@@ -47,9 +47,12 @@ the "Meanwhile" column says: it never guesses.
 
 | Item | Question | Meanwhile |
 |---|---|---|
+| `team-inbox` | Team emails go to hello@bluelineremovals.com.au (15 Oct) -- check LEAD_TO_EMAIL in Vercel is that or unset | hello@ is the code default |
+| `apps-script-pdf` | Add docs/apps-script/blr-website-additions.gs to the quote Apps Script, deploy as web app, set APPS_SCRIPT_URL / APPS_SCRIPT_SECRET | Plain-email quotes; Matt's rows not on the dashboard |
+| `pdf-adjustment-row` | Add a 'Discount / adjustment' {{Adjustment}} row to BLR_Quote_Template.html | PDF lines may not add up when there's a discount or a team-set total |
 | `estimate-vs-final` | Email makes every figure an estimate that "may vary"; the 6 Oct decision and the website say final/flat price, no call-out, "not an hourly meter". Confirm and update the website copy | Chat and emails say "estimate" |
-| `quote-form-fields` | Form: home size + optional truck (4.5T/6-8T/10T) + 2-4 movers + inspect + access notes; fix "30%" and "final price" wording | Form sends home size only |
-| `hourly-rate-disclosure` | May hourly rates be shown if a customer asks, now that figures are estimates? | Never shown |
+| `quote-form-fields` | Form: home size + optional truck (4.5T/6-8T/10T) + 2-4 movers + inspect + access notes; new Property Size options (awaited from Ayesha) | Form sends home size + optional notes; result says "estimate" |
+| `hourly-rate-disclosure` | The PDF quote shows rate x hours (15 Oct). Should the chat also answer hourly-rate questions? | PDF shows the breakdown; the chat never states a rate |
 | `gtm-chat-events` | Add GTM triggers / GA4 events for chat_opened, chat_started, chat_estimate_shown, chat_handoff | Events pushed to the dataLayer, not yet recorded |
 | `sending-domain` | Verify bluelineremovals.com.au in Resend (DNS via Namecheap) | Sends from the verified address |
 | `truck-gps` | Idea, parked: use truck GPS (e.g. for travel or same-day slots) | Not used |

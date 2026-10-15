@@ -1,7 +1,8 @@
 import { Resend } from "resend";
 import { site } from "../../data/site.js";
+import { appsScriptSender } from "../jobs/pdfQuote.js";
 import { getActiveRateCard } from "./rateCard.js";
-import type { OutgoingEmail, QuoteServiceDeps } from "./service.js";
+import { melbourneToday, type OutgoingEmail, type QuoteServiceDeps } from "./service.js";
 import { dbDistanceCache, dbQuoteStore } from "./store.js";
 
 // The ONE place the real quote dependencies are built from environment variables, shared
@@ -13,7 +14,9 @@ import { dbDistanceCache, dbQuoteStore } from "./store.js";
 // Variables), never committed. See .env.example.
 //
 // LEAD_FROM_EMAIL must be an address on a domain verified in Resend. LEAD_TO_EMAIL is the
-// team inbox -- a temporary default until the client's real mailbox exists.
+// team inbox -- Blue Line's hello@ (Ayesha, 2026-10-15) unless set otherwise.
+// APPS_SCRIPT_URL + APPS_SCRIPT_SECRET: the branded PDF quote (see src/server/jobs/pdfQuote.ts).
+// TEST_EMAIL_REDIRECT (previews only): where test-mode customer emails go.
 
 export type Env = Record<string, string | undefined>;
 
@@ -56,7 +59,12 @@ export function buildQuoteDeps(env: Env = process.env): QuoteServiceDeps | null 
     cache: databaseConfigured ? dbDistanceCache : undefined,
     store: databaseConfigured ? dbQuoteStore : undefined,
     sendEmail,
-    teamEmail: env.LEAD_TO_EMAIL ?? "qamiraconsulting@gmail.com",
+    teamEmail: env.LEAD_TO_EMAIL ?? site.email,
     customerReplyTo: site.email,
+    testEmailTo: env.VERCEL_ENV !== "production" ? env.TEST_EMAIL_REDIRECT || null : null,
+    pdf:
+      env.APPS_SCRIPT_URL && env.APPS_SCRIPT_SECRET
+        ? appsScriptSender({ url: env.APPS_SCRIPT_URL, secret: env.APPS_SCRIPT_SECRET, today: () => melbourneToday(new Date()) })
+        : undefined,
   };
 }

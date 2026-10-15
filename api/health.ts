@@ -30,11 +30,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     environment: env.VERCEL_ENV ?? "local",
     database,
     email: Boolean(env.RESEND_API_KEY && env.LEAD_FROM_EMAIL),
-    teamInbox: env.LEAD_TO_EMAIL ? "set" : "default (Qamira)",
+    teamInbox: env.LEAD_TO_EMAIL ? "set" : "default (hello@)",
     distances: Boolean(env.GOOGLE_MAPS_SERVER_KEY),
     chatAssistant: Boolean(env.ANTHROPIC_API_KEY),
     adminDashboard: Boolean(env.CLERK_SECRET_KEY) && Boolean(env.ADMIN_USER_IDS?.trim()),
     rateLimiting: Boolean(env.UPSTASH_REDIS_REST_URL && env.UPSTASH_REDIS_REST_TOKEN),
+    // Branded PDF quotes + Matt's Google Form intake (the quote Apps Script).
+    pdfQuotes: Boolean(env.APPS_SCRIPT_URL && env.APPS_SCRIPT_SECRET),
+    googleFormIntake: Boolean(env.APPS_SCRIPT_SECRET),
+    testInbox: Boolean(env.TEST_EMAIL_REDIRECT) && env.VERCEL_ENV !== "production",
     rateCard: { version: rateCard.version, status: rateCard.status },
     testPrices: env.QUOTE_ALLOW_PLACEHOLDER === "true" && env.VERCEL_ENV !== "production",
   });

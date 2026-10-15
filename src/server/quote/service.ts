@@ -21,6 +21,7 @@ import {
 import type { QuoteApiResult } from "../../lib/quoteContract.js";
 import { moverCounts, truckIds, type RateCard } from "./rateCard.js";
 import type { NewQuoteRow, QuoteStore } from "./store.js";
+import type { PdfSender } from "../jobs/pdfQuote.js";
 
 // Ties the quote form to the engine: validate -> distances -> price -> store -> email.
 // Everything external (Google, the database, email, the clock) is injected, so the whole
@@ -62,6 +63,8 @@ export const quoteRequestSchema = z.object({
   propertySize: z.string().trim().max(100).optional().default(""),
   // Stairs, parking distance, heavy items -- free text, passed to the team with the quote.
   accessNotes: z.string().trim().max(1000).optional().default(""),
+  // The website form's optional "Additional notes" box.
+  notes: z.string().trim().max(1000).optional().default(""),
   firstMove: z.boolean().optional().default(false),
   specialItems: z.boolean().optional().default(false),
 });
@@ -84,6 +87,14 @@ export interface QuoteServiceDeps {
   sendEmail: (email: OutgoingEmail) => Promise<boolean>;
   teamEmail: string;
   customerReplyTo: string;
+  /**
+   * Preview only: while prices are test figures, customer emails go HERE instead of to the
+   * customer (subject marked [TEST]) so the team can try the whole flow. Unset = test-mode
+   * customer emails aren't sent at all. Never used in production.
+   */
+  testEmailTo?: string | null;
+  /** Makes and emails the branded PDF quote (Apps Script). Unset = plain email instead. */
+  pdf?: PdfSender;
   now?: () => Date;
   makeReference?: (now: Date) => string;
   log?: (message: string, meta?: Record<string, unknown>) => void;
@@ -238,12 +249,16 @@ export async function handleQuoteRequest(
 
   const reference = (deps.makeReference ?? defaultReference)(now);
   const testMode = deps.rateCard.status !== "confirmed";
+  const bookingToken = context.source === "quote_form" ? randomBytes(16).toString("hex") : null;
 
   const buildRow = (o: Outcome): NewQuoteRow => ({
     reference,
     source: context.source,
     conversationId: context.conversationId ?? null,
     status: o.kind === "price" ? "priced" : "manual_review",
+    jobStatus: o.kind === "price" ? "estimate_sent" : "waiting_for_quote",
+    bookingToken: o.kind === "price" ? bookingToken : null,
+    customerNotes: req.notes || null,
     manualReason: o.kind === "manual" ? o.reason : null,
     customerName: req.name,
     phone: req.phone,
@@ -326,11 +341,14 @@ export async function handleQuoteRequest(
     outcomeLine: testMode ? `[TEST MODE -- placeholder rate card] ${outcomeLine}` : outcomeLine,
     internalBreakdown: priced ? { ...priced.internal } : null,
     jobDescription: context.personalQuote?.description,
+    customerNotes: req.notes || undefined,
     source: context.source,
   });
 
-  // Placeholder prices are never emailed to a customer.
-  const customerContent: EmailContent | null = testMode
+  // Placeholder prices are never emailed to a customer -- in a preview they can go to the
+  // team's test inbox instead.
+  const customerTo = customerRecipient(req.email, testMode, deps.testEmailTo);
+  const customerContent: EmailContent | null = !customerTo
     ? null
     : priced
       ? renderCustomerQuoteEmail({
@@ -347,8 +365,10 @@ export async function handleQuoteRequest(
 
   const [teamSent, customerSent] = await Promise.all([
     deps.sendEmail({ ...team, to: deps.teamEmail, replyTo: `${req.name} <${req.email}>`, kind: "team" }).catch(() => false),
-    customerContent
-      ? deps.sendEmail({ ...customerContent, to: req.email, replyTo: deps.customerReplyTo, kind: "customer" }).catch(() => false)
+    customerContent && customerTo
+      ? deps
+          .sendEmail({ ...customerContent, subject: testMode ? `[TEST] ${customerContent.subject}` : customerContent.subject, to: customerTo, replyTo: deps.customerReplyTo, kind: "customer" })
+          .catch(() => false)
       : Promise.resolve(false),
   ]);
 
@@ -381,7 +401,14 @@ export async function handleQuoteRequest(
         validUntil,
         emailed: customerSent,
         testMode,
+        ...(bookingToken ? { bookingToken } : {}),
       },
     },
   };
+}
+
+/** Where a customer email goes: the customer -- or, for test figures, the preview's test inbox (or nowhere). */
+export function customerRecipient(email: string, testMode: boolean, testEmailTo: string | null | undefined): string | null {
+  if (!testMode) return email;
+  return testEmailTo || null;
 }

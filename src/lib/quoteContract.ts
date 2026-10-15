@@ -15,5 +15,7 @@ export type QuoteApiResult =
       emailed: boolean;
       /** Priced from a placeholder rate card (dev/preview only) -- show a clear test banner. */
       testMode: boolean;
+      /** Website form only: lets the page book this estimate (POST /api/booking). */
+      bookingToken?: string;
     }
   | { kind: "manual"; reference: string; emailed: boolean };

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { CapacitySettings, CapacitySnapshot } from "../capacity/availability.js";
 import type { NewCalendarBooking } from "../capacity/store.js";
-import { availabilityForQuote, confirmBooking, requestBooking, type BookingStore, type StoredQuote } from "./booking.js";
+import { availabilityForQuote, requestBooking, type BookingStore, type StoredQuote } from "./booking.js";
 import { BOOKING_TERMS, BOOKING_TERMS_VERSION } from "./bookingEmails.js";
 import { fixtureRateCard } from "./rateCard.fixture.js";
 import type { OutgoingEmail } from "./service.js";
@@ -11,6 +11,8 @@ const NOW = new Date("2026-10-12T02:00:00Z"); // Mon 12 Oct, 13:00 in Melbourne
 const quote = (over: Partial<StoredQuote> = {}): StoredQuote => ({
   reference: "BLR-20261012-ABC123",
   conversationId: "conv-1",
+  source: "chatbot",
+  bookingToken: null,
   status: "priced",
   amountAud: 720,
   validUntil: "2026-10-22",
@@ -24,7 +26,7 @@ const quote = (over: Partial<StoredQuote> = {}): StoredQuote => ({
   movingDate: "2026-10-21", // a Wednesday
   fromText: "Preston",
   toText: "Brunswick",
-  internalBreakdown: { truck: "6-8T", movers: 2, jobHours: 4.5 },
+  internalBreakdown: { truck: "6-8T", movers: 2, jobHours: 4.5, crewRateAudPerHour: 140, labourCostAud: 630, accessCostAud: 0 },
   rateCardSnapshot: fixtureRateCard,
   rateCardStatus: "confirmed",
   bookingStatus: null,
@@ -87,7 +89,7 @@ function setup(stored: StoredQuote | null, settings: CapacitySettings = NOT_SET_
   return { deps, sent, calendar, row: () => row };
 }
 
-const ask = (deps: ReturnType<typeof setup>["deps"], over: Partial<Parameters<typeof requestBooking>[0]> = {}) =>
+const ask = (deps: ReturnType<typeof setup>["deps"] & { testEmailTo?: string }, over: Partial<Parameters<typeof requestBooking>[0]> = {}) =>
   requestBooking({ reference: "BLR-20261012-ABC123", conversationId: "conv-1", notes: "Morning if possible", ...over }, deps);
 
 describe("booking request (team confirms) -- the default until capacity is set up", () => {
@@ -147,8 +149,11 @@ describe("instant confirmation (switched on by the team, everything set up)", ()
     expect(await ask(deps, { arrivalTime: "07:30" })).toMatchObject({ ok: true, status: "confirmed", arrivalTime: "07:30", emailed: true });
     expect(calendar[0]).toMatchObject({ quoteReference: "BLR-20261012-ABC123", date: "2026-10-21", arrivalTime: "07:30", truckId: "truck-a", movers: 2, estimatedMinutes: 270, source: "chat" });
     expect(row()!.bookingStatus).toBe("confirmed");
-    expect(sent.find((e) => e.kind === "customer")!.subject).toContain("Your move is booked");
-    expect(sent.find((e) => e.kind === "customer")!.text).toContain("Arrival time: 7:30am");
+    const customer = sent.find((e) => e.kind === "customer")!;
+    expect(customer.subject).toContain("Your move is booked");
+    expect(customer.text).toContain("arrival 7:30am");
+    expect(customer.text).toContain("Total (GST included): $720");
+    expect(customer.text).toContain(BOOKING_TERMS); // final charges still confirmed on the day
     expect(sent.find((e) => e.kind === "team")!.subject).toMatch(/^Booked:/);
   });
 
@@ -188,28 +193,31 @@ describe("instant confirmation (switched on by the team, everything set up)", ()
   });
 });
 
-describe("the team confirms on the dashboard", () => {
-  it("needs an arrival time, adds the booking to the calendar, and emails the customer", async () => {
-    const { deps, sent, calendar } = setup(quote());
-    await ask(deps);
-    sent.length = 0;
-    expect(await confirmBooking({ reference: "BLR-20261012-ABC123", confirmedBy: "user_sam" }, deps)).toMatchObject({ ok: false, reason: "time_needed" });
-    const out = await confirmBooking({ reference: "BLR-20261012-ABC123", arrivalTime: "08:00", confirmedBy: "user_sam" }, deps);
-    expect(out).toMatchObject({ ok: true, status: "confirmed", emailed: true, capacityWarning: "not_set_up" });
-    expect(calendar[0]).toMatchObject({ arrivalTime: "08:00", createdBy: "user_sam" });
-    expect(sent[0]!.subject).toContain("Your move is booked");
-    expect(sent[0]!.text).toContain(BOOKING_TERMS); // final charges are still confirmed on the day
+describe("the website form books with the token that came back with its estimate", () => {
+  const formQuote = () => quote({ conversationId: null, source: "quote_form", bookingToken: "a".repeat(32) });
+
+  it("books with the right token, and the team email says it came from the website form", async () => {
+    const { deps, sent, row } = setup(formQuote());
+    const out = await requestBooking({ reference: "BLR-20261012-ABC123", bookingToken: "a".repeat(32), notes: "" }, deps);
+    expect(out).toMatchObject({ ok: true, status: "requested" });
+    expect(row()!.bookingStatus).toBe("requested");
+    expect(sent.find((e) => e.kind === "team")!.text).toContain("on the website form");
   });
 
-  it("uses the customer's chosen time, and warns (but allows) when the calendar shows no room", async () => {
-    const { deps, calendar } = setup(quote(), { ...READY, autoConfirm: false });
-    await ask(deps, { arrivalTime: "12:00" });
-    calendar.push({ source: "phone", date: "2026-10-21", arrivalTime: "11:00", estimatedMinutes: 300, truckType: "6-8T", truckId: "truck-a", movers: 2 });
-    const out = await confirmBooking({ reference: "BLR-20261012-ABC123", confirmedBy: "user_sam" }, deps);
-    expect(out).toMatchObject({ ok: true, arrivalTime: "12:00", capacityWarning: "no_truck" });
+  it("refuses a wrong or missing token -- nobody can book someone else's estimate by its reference", async () => {
+    const { deps } = setup(formQuote());
+    expect(await requestBooking({ reference: "BLR-20261012-ABC123", bookingToken: "b".repeat(32) }, deps)).toMatchObject({ ok: false, reason: "not_found" });
+    expect(await requestBooking({ reference: "BLR-20261012-ABC123", conversationId: "conv-1" }, deps)).toMatchObject({ ok: false, reason: "not_found" });
+    const chatOnly = setup(quote()).deps; // a chat estimate has no token
+    expect(await requestBooking({ reference: "BLR-20261012-ABC123", bookingToken: "" }, chatOnly)).toMatchObject({ ok: false, reason: "not_found" });
   });
 
-  it("refuses to confirm something that wasn't requested", async () => {
-    expect(await confirmBooking({ reference: "BLR-20261012-ABC123", arrivalTime: "08:00", confirmedBy: "x" }, setup(quote()).deps)).toMatchObject({ ok: false, reason: "not_pending" });
+  it("in a preview, test-mode customer emails go to the test inbox, marked [TEST]", async () => {
+    const { deps, sent } = setup(quote({ rateCardStatus: "placeholder" }));
+    const out = await ask({ ...deps, testEmailTo: "tester@example.com" });
+    expect(out).toMatchObject({ ok: true, emailed: true });
+    const customer = sent.find((e) => e.kind === "customer")!;
+    expect(customer.to).toBe("tester@example.com");
+    expect(customer.subject.startsWith("[TEST] ")).toBe(true);
   });
 });

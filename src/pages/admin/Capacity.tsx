@@ -9,7 +9,7 @@ import { useAdminApi } from "./useAdminApi";
 
 const TRUCK_TYPES = ["4.5T", "6-8T", "10T"] as const;
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const SOURCES: Record<string, string> = { chat: "chat", phone: "phone", airtasker: "Airtasker", other: "other" };
+const SOURCES: Record<string, string> = { chat: "chat", web_form: "website form", phone: "phone", airtasker: "Airtasker", moval: "Moval", website_followup: "website follow-up", other: "other" };
 
 interface Settings {
   autoConfirm: boolean;
@@ -148,7 +148,7 @@ export default function Capacity() {
         <h2 className="font-display text-2xl font-bold text-navy">Bookings &amp; capacity</h2>
         <p className="mt-1 text-sm text-slate-600">
           The chat uses this page to offer customers free arrival times and, only when you switch it on, to confirm bookings on the spot. Keep the calendar
-          complete -- <strong>add every booking taken outside the chat</strong> (phone, Airtasker, anything else), or the chat can&apos;t see it.
+          complete -- <strong>every booking must be in the calendar</strong>. Chat and website-form bookings, and jobs Matt marks Confirmed in his Google Form, go in automatically; add anything else (phone, Airtasker, Moval...) here, or the chat can&apos;t see it.
         </p>
         {message && <p className={clsx("mt-3 text-sm", message.error ? "text-red-600" : "text-green-700")}>{message.text}</p>}
       </div>
@@ -452,14 +452,15 @@ function AddBooking({ trucks, busy, onAdd }: { trucks: Truck[]; busy: boolean; o
   return (
     <section className={box}>
       <SectionHeader
-        title="Add a booking taken outside the chat"
-        intro="For every job booked by phone, through Airtasker or any other way, so the chat knows that truck and those movers are busy. Chat bookings are added automatically -- don't add those."
+        title="Add a booking by hand"
+        intro="For jobs booked any other way (phone, Airtasker, Moval...) that did NOT go through Matt's Google Form, so the chat knows that truck and those movers are busy. Chat, website-form and Google Form bookings are added automatically -- don't add those."
       />
       <div className="mt-4 grid gap-4 sm:grid-cols-3">
         <Field label="Booked via" hint="Where the booking came from.">
           <select className={input} value={f.source} onChange={set("source")}>
             <option value="phone">Phone</option>
             <option value="airtasker">Airtasker</option>
+            <option value="moval">Moval</option>
             <option value="other">Other</option>
           </select>
         </Field>

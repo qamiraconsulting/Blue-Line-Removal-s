@@ -195,11 +195,19 @@ export const openItems: OpenItem[] = [
     status: "to_ask",
   },
   {
+    id: "call-out-fee",
+    topic: "pricing",
+    question:
+      "Matt's Google Sheet adds a $100 call-out fee to his quotes, but the rate card (12 Oct email, Part A) says the call-out is included in the hourly rate and never charged. Which is right?",
+    meanwhile: "Website and chat estimates have no call-out; Matt's quotes keep his sheet's call-out. The same job can be priced differently by channel.",
+    status: "to_ask",
+  },
+  {
     id: "team-inbox",
     topic: "operations",
-    question: "Which Blue Line inbox should receive estimate and hand-off emails (LEAD_TO_EMAIL)?",
-    meanwhile: "Team emails go to qamiraconsulting@gmail.com.",
-    status: "to_ask",
+    question: "Team emails go to hello@bluelineremovals.com.au (Ayesha, 15 Oct). Check LEAD_TO_EMAIL in Vercel is that address or unset.",
+    meanwhile: "hello@ is the default in the code; a LEAD_TO_EMAIL set in Vercel overrides it.",
+    status: "internal",
   },
   {
     id: "whatsapp-alerts",
@@ -236,7 +244,7 @@ export const openItems: OpenItem[] = [
     topic: "website",
     question:
       "The email makes every figure an estimate that 'may vary'; the decision of 6 Oct was a final price with no extra charges, and the website promises flat-rate, no call-out, 'not an hourly meter'. Confirm the switch and update the website copy to match.",
-    meanwhile: "Chat and emails say 'estimate' with Blue Line's wording; the website copy is unchanged.",
+    meanwhile: "Chat, emails and the quote form's result say 'estimate' with Blue Line's wording; the home page and FAQ copy are unchanged.",
     status: "internal",
   },
   {
@@ -244,14 +252,29 @@ export const openItems: OpenItem[] = [
     topic: "website",
     question:
       "Quote form: home size + optional truck (4.5T / 6-8T / 10T) + 2, 3 or 4 movers + 'let the team inspect' + access notes (the 7 Oct screenshot showed 3.5/4.5/6/8T and 2/4 movers -- the email supersedes it). Also change '30%' and 'final price' wording on the page.",
-    meanwhile: "The current form sends home size only, so estimates use the guide's truck and crew.",
+    meanwhile: "The form sends home size + optional notes (added 15 Oct), so estimates use the guide's truck and crew. New Property Size options awaited from Ayesha.",
     status: "internal",
   },
   {
     id: "hourly-rate-disclosure",
     topic: "pricing",
-    question: "Now that figures are estimates based on hours, may the chat or estimate show hourly rates if a customer asks?",
-    meanwhile: "Hourly rates are never shown (the chat guard blocks them).",
+    question: "The branded PDF quote shows the full breakdown incl. rate per hour (Ayesha, 15 Oct). Should the chat also answer hourly-rate questions?",
+    meanwhile: "The PDF quote shows rate x hours; the chat itself still never states an hourly rate (the guard blocks it).",
+    status: "internal",
+  },
+  {
+    id: "apps-script-pdf",
+    topic: "operations",
+    question:
+      "Add the website additions to the quote Apps Script (docs/apps-script/blr-website-additions.gs), deploy it as a web app, and set APPS_SCRIPT_URL / APPS_SCRIPT_SECRET in Vercel and the Script Properties.",
+    meanwhile: "Website and chat customers get their quote as a plain email with the same figures; Matt's Google Form rows don't reach the dashboard.",
+    status: "internal",
+  },
+  {
+    id: "pdf-adjustment-row",
+    topic: "content",
+    question: "Add a 'Discount / adjustment' row ({{Adjustment}}) to the estimate table in BLR_Quote_Template.html, for discounts, rounding and team-set totals.",
+    meanwhile: "Without it the PDF's lines may not add up to the total when there's a discount or a team-set total; the email note explains it.",
     status: "internal",
   },
   {

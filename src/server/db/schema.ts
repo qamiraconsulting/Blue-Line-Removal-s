@@ -68,7 +68,7 @@ export const quotes = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     reference: text("reference").notNull().unique(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    source: text("source").notNull().default("quote_form"), // "quote_form" | "chatbot"
+    source: text("source").notNull().default("quote_form"), // "quote_form" | "chatbot" | "team_form" (Matt's Google Form)
     conversationId: uuid("conversation_id").references(() => conversations.id),
 
     status: text("status").notNull(), // "priced" | "manual_review"
@@ -114,8 +114,42 @@ export const quotes = pgTable(
     bookingTermsText: text("booking_terms_text"), // the exact wording the customer agreed to
     bookingNotes: text("booking_notes"), // anything the customer asked for
     bookingArrivalTime: text("booking_arrival_time"), // "HH:MM" the customer chose, when arrival times are set up
+
+    // ---- One status for every request, whatever channel it came from (src/server/jobs/status.ts).
+    jobStatus: text("job_status").notNull().default("waiting_for_quote"),
+    statusUpdatedAt: timestamp("status_updated_at", { withTimezone: true }).notNull().defaultNow(),
+    // Where it came from beyond `source`: Matt's Google Form records phone / airtasker / moval /
+    // website_followup / other; the website form and chat leave it null.
+    channel: text("channel"),
+    externalRef: text("external_ref"), // the Google Sheet's booking number (BLRddmmyyNN)
+    platformJobNumber: text("platform_job_number"),
+    customerNotes: text("customer_notes"), // the website form's optional "Additional notes"
+    // Lets the website form book the estimate it just showed (sent back with the result).
+    bookingToken: text("booking_token"),
+
+    // ---- The quote the customer actually gets (team edits, Matt's quotes). `amountAud` stays
+    // the original instant estimate; `quotedAmountAud` is what was sent/confirmed, if different.
+    quoteLines: jsonb("quote_lines"), // QuoteLines -- the breakdown on the branded PDF
+    quotedAmountAud: integer("quoted_amount_aud"),
+    changeNote: text("change_note"), // shown to the customer: why the team changed the estimate
+    quoteSentAt: timestamp("quote_sent_at", { withTimezone: true }),
+    quoteSentBy: text("quote_sent_by"),
+    // Free-text calendar problem for jobs that are booked but couldn't go in the calendar
+    // (e.g. Matt's form had no arrival time or truck size).
+    calendarIssue: text("calendar_issue"),
+
+    // ---- Outcome
+    finalAmountAud: integer("final_amount_aud"), // charged on the day (after the inspection)
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    closedReason: text("closed_reason"), // why it was rejected / cancelled / lost
+    closedBy: text("closed_by"),
   },
-  (t) => [index("quotes_email_idx").on(t.emailNormalised), index("quotes_phone_idx").on(t.phoneNormalised)],
+  (t) => [
+    index("quotes_email_idx").on(t.emailNormalised),
+    index("quotes_phone_idx").on(t.phoneNormalised),
+    index("quotes_job_status_idx").on(t.jobStatus),
+    uniqueIndex("quotes_external_ref_idx").on(t.externalRef),
+  ],
 );
 
 // Google Routes lookups keyed by normalised place pair -- suburb pairs repeat constantly
@@ -180,7 +214,7 @@ export const bookings = pgTable(
   "bookings",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    source: text("source").notNull(), // "chat" | "phone" | "airtasker" | "other"
+    source: text("source").notNull(), // "chat" | "web_form" | "phone" | "airtasker" | "moval" | "website_followup" | "other"
     status: text("status").notNull().default("confirmed"), // "confirmed" | "cancelled"
     quoteReference: text("quote_reference").unique(),
     date: date("date").notNull(),
