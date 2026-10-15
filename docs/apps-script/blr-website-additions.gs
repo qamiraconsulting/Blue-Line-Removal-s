@@ -13,12 +13,7 @@
  *                                dashboard and block the truck in the booking calendar.
  *
  * Paste EVERYTHING BELOW the line "PASTE FROM HERE" at the bottom of Code.gs, then make the
- * four small edits to the existing code listed here:
- *
- *   EDIT A  -- in onFormSubmitInstallable(), in the `values` object, after the line
- *                Stair: money(getVal_(calc, 'Stair Carry')),
- *              add:
- *                Adjustment: '0.00',
+ * three small edits to the existing code listed here (applied 2026-10-15):
  *
  *   EDIT B  -- in onFormSubmitInstallable(), replace
  *                createQuoteDraft_(values, pdfBlob);
@@ -29,15 +24,14 @@
  *   EDIT C  -- in buildQuotePdf_(), after the line
  *                styleEstimateTable_(tempBody);
  *              add:
- *                removeZeroAdjustmentRow_(tempBody);
+ *                addAdjustmentRow_(tempBody, values);
  *
  *   EDIT D  -- replace the whole createQuoteDraft_() function with the version below
  *              (createQuoteDraft_ in this file). Same behaviour for Matt's quotes; the website
  *              can pass its own recipient, subject and a short intro (e.g. the team's note).
  *
- *   TEMPLATE -- in BLR_Quote_Template.html (Drive), in the "YOUR ESTIMATE" table, copy the
- *              Packing row, change its label to "Discount / adjustment" and {{Packing}} to
- *              {{Adjustment}}. The row is removed automatically from PDFs where it's 0.00.
+ *   No template change: addAdjustmentRow_() adds a "Discount / adjustment" line under Packing
+ *   only when the website sends a non-zero adjustment. Matt's PDFs are unchanged.
  *
  * SCRIPT PROPERTIES (Project Settings > Script Properties) -- never put these in the code:
  *   BLR_SHARED_SECRET   the long random password (same value as APPS_SCRIPT_SECRET in Vercel)
@@ -165,14 +159,30 @@ function sendRowToWebsite_(data, values, moveDateRaw, tz) {
   }
 }
 
-/** EDIT C: drops the "Discount / adjustment" row from the estimate table when it's 0.00. */
-function removeZeroAdjustmentRow_(body) {
+/**
+ * EDIT C: the website's quotes can carry a discount, rounding or a team-set total. When they
+ * do, add a "Discount / adjustment" line under Packing in the estimate table, so the lines add
+ * up to the total. Nothing happens for Matt's quotes (no Adjustment value).
+ */
+function addAdjustmentRow_(body, values) {
+  var amount = Number(values && values.Adjustment);
+  if (!amount) return;
   collect_(body, DocumentApp.ElementType.TABLE).forEach(function (t) {
     t = t.asTable();
     if (t.getRow(0).getText().indexOf('Amount (AUD)') === -1) return;
-    for (var r = t.getNumRows() - 1; r > 0; r--) {
-      var text = t.getRow(r).getText();
-      if (/adjustment/i.test(text) && /(^|[^\d])0\.00\s*$/.test(text.trim())) t.removeRow(r);
+    for (var r = 1; r < t.getNumRows(); r++) {
+      var row = t.getRow(r);
+      if (!/packing/i.test(row.getCell(0).getText())) continue;
+      var copy = row.copy();
+      var n = copy.getNumCells();
+      copy.getCell(0).editAsText().setText('Discount / adjustment');
+      for (var c = 1; c < n - 1; c++) copy.getCell(c).editAsText().setText('');
+      var amountText = copy.getCell(n - 1).editAsText();
+      var current = amountText.getText();
+      var packing = String(values.Packing);
+      amountText.setText(current.indexOf(packing) !== -1 ? current.replace(packing, values.Adjustment) : values.Adjustment);
+      t.insertTableRow(r + 1, copy);
+      return;
     }
   });
 }
