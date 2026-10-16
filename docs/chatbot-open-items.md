@@ -32,7 +32,6 @@ the "Meanwhile" column says: it never guesses.
 | `cancellation-policy` | Deposit and cancellation/rescheduling policy for the booking terms | No deposit; cancellations by phone |
 | `typical-hours-driving` | Do the "typical hours" include driving between addresses? (ask with the B1 answer) | No estimates until confirmed |
 | `crew-choice-hours` | If the customer picks a different truck/crew than the guide, do the hours change? | Guide's hours always used |
-| `apartment-charges` | What are 'extra apartment charges' beyond stairs and the long carry (lift bookings, high floors)? | Only stairs and long carry priced; chat says others may apply |
 | `deposit-terms` | Is the $100 deposit taken off the final bill, and refundable if the customer cancels or moves the date? | Chat only says a $100 deposit locks the booking in |
 | `bank-transfer-details` | Bank details for paying the deposit by transfer | Team emails them |
 | `junk-removal-pricing` | Junk removal: always a personal quote, or a price list? | Goes to the team |
@@ -67,4 +66,6 @@ the "Meanwhile" column says: it never guesses.
 |---|---|---|
 | `long-carry-distance` | Long carry applies over 100 m from the door (Ayesha, 16 Oct) | Asked in the chat and priced ($40) |
 | `access-pricing` | Stairs (no lift) and the long carry are priced (Ayesha, 16 Oct) | Asked in the chat and priced from the rate card |
+| `apartment-charges` | Apartments have no other extra charges, only stairs and the long carry (Ayesha, 16 Oct) | Chat names only those two |
+| `parking-unknown` | Customer doesn't know the parking distance (Ayesha, 16 Oct) | Not priced; customer told a long carry over 100 m is charged on the day; team sees "parking distance not known" |
 | `piano-packing` | Piano from $200 (type/access); packing = materials at cost + hourly labour | Personal quote from the team |

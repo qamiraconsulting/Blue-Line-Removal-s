@@ -159,14 +159,6 @@ export const openItems: OpenItem[] = [
     status: "to_ask",
   },
   {
-    id: "apartment-charges",
-    topic: "pricing",
-    question:
-      "Ayesha (16 Oct): the chat tells apartment customers 'extra apartment charges may apply'. Beyond stairs ($40/flight) and the long carry over 100 m ($40), what are they -- e.g. lift bookings, high floors?",
-    meanwhile: "Only stairs and the long carry are priced; the chat says other apartment charges may apply and are confirmed on the day.",
-    status: "to_ask",
-  },
-  {
     id: "deposit-terms",
     topic: "legal",
     question: "The $100 deposit (bookings 7+ days ahead): is it taken off the final bill, and is it refundable if the customer cancels or moves the date? (Goes into the booking terms.)",

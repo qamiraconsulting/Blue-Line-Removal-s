@@ -287,7 +287,12 @@ describe("tool and prompt wording", () => {
     expect(prompt).toContain("10% first-move discount has been applied");
     // apartments and parking over 100 m
     expect(prompt).toContain("within 100 metres");
-    expect(prompt).toContain("extra apartment charges may apply");
+    expect(prompt).toContain("The only extra charges for an apartment are stairs with no lift and a long carry");
+    expect(prompt).not.toContain("extra apartment charges may apply");
+    // unsure about parking: not priced, customer told, team told
+    expect(prompt).toContain("[[choices: Within 100 m | More than 100 m | Not sure]]");
+    expect(prompt).toContain("parking distance not known");
+    expect(prompt).toContain("not when they're unsure");
     // the deposit, and paying the rest
     expect(prompt).toContain("To lock in your booking we take a $100 deposit before the move.");
     expect(prompt).toContain("card, bank transfer or cash");
