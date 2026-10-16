@@ -36,6 +36,13 @@
       "when": 1792161485983,
       "tag": "0004_drivers_and_job_notices",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792162748448,
+      "tag": "0005_booking_deposit",
+      "breakpoints": true
     }
   ]
 }

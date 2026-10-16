@@ -1,6 +1,6 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { describe, expect, it, vi } from "vitest";
-import { DECLINED_REPLY, FALLBACK_REPLY, runAgentTurn, toModelMessages, type CreateMessage } from "./agent.js";
+import { DECLINED_REPLY, FALLBACK_REPLY, runAgentTurn, toModelMessages, type CreateMessage, withDepositLink } from "./agent.js";
 import { BLOCKED_REPLY } from "./guard.js";
 import type { ToolRun } from "./tools.js";
 
@@ -118,5 +118,16 @@ describe("runAgentTurn", () => {
     const { createMessage } = scripted(msg([text("Your estimate is")], "max_tokens"));
     const out = await runAgentTurn({ ...base, createMessage, history, runTool: vi.fn() });
     expect(out.reply).toBe(FALLBACK_REPLY);
+  });
+});
+
+describe("deposit link", () => {
+  const link = "https://checkout.stripe.com/c/pay/cs_test_a1#fidkdWxOYHwnPyd1blpxYHZxWjA0";
+  it("puts the exact link request_booking returned where the model wrote the marker", () => {
+    expect(withDepositLink("Pay here:\n[[deposit_link]]\nIt works for 24 hours.", [{ name: "request_booking", paymentLink: link, outcome: "booking_requested" }])).toBe(`Pay here:\n${link}\nIt works for 24 hours.`);
+  });
+  it("with no link this turn, points the customer to their email; leaves other replies alone", () => {
+    expect(withDepositLink("Pay here: [[deposit_link]]", [])).toBe("Pay here: (the secure payment link is in the email we sent you)");
+    expect(withDepositLink("No link here.", [{ name: "request_booking", paymentLink: link, outcome: "x" }])).toBe("No link here.");
   });
 });

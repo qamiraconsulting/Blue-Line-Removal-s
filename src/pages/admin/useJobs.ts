@@ -61,6 +61,10 @@ export interface Job {
   statusUpdatedAt: string;
   testMode: boolean;
   depositRequired: boolean;
+  depositStatus: "awaiting_payment" | "processing" | "paid" | "failed" | "expired" | null;
+  depositPaidAt: string | null;
+  depositPaymentMethod: string | null;
+  depositTestMode: boolean | null;
 }
 
 export interface Summary {

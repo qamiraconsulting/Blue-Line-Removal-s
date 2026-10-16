@@ -123,7 +123,7 @@ export function JobCard({ job, onChanged }: { job: Job; onChanged: (message: str
       {job.changeNote && <p className="mt-1 text-sm text-slate-600">Note sent to customer: {job.changeNote}</p>}
       {job.platformJobNumber && <p className="mt-1 text-sm text-slate-600">Platform job: {job.platformJobNumber}</p>}
       {job.calendarIssue && <p className="mt-1 text-sm font-bold text-red-600">{job.calendarIssue}</p>}
-      {job.depositRequired && <p className="mt-1 text-sm font-bold text-action">Deposit $100 required (move a week or more ahead) -- check it&apos;s paid before the move.</p>}
+      {(job.depositRequired || job.depositStatus) && <DepositLine job={job} />}
       {job.closedReason && <p className="mt-1 text-sm text-slate-500">Reason: {job.closedReason}</p>}
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -216,4 +216,23 @@ export function JobCard({ job, onChanged }: { job: Job; onChanged: (message: str
       {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
     </li>
   );
+}
+
+/** The $100 deposit, as Stripe last reported it. */
+function DepositLine({ job }: { job: Job }) {
+  const paidOn = job.depositPaidAt ? new Date(job.depositPaidAt).toLocaleDateString("en-AU", { day: "numeric", month: "short", timeZone: "Australia/Melbourne" }) : "";
+  const test = job.depositTestMode ? " (Stripe test)" : "";
+  const [text, tone] =
+    job.depositStatus === "paid"
+      ? [`Deposit $100 PAID${job.depositPaymentMethod ? ` by ${job.depositPaymentMethod}` : ""}${paidOn ? ` on ${paidOn}` : ""}${test}.${job.status === "booking_requested" ? " Not confirmed automatically -- please confirm a time with the customer, or refund it in Stripe." : ""}`, "text-emerald-700"]
+      : job.depositStatus === "processing"
+        ? ["Deposit $100: bank payment (PayTo) approved, waiting for Stripe to confirm it (usually within a minute).", "text-action"]
+        : job.depositStatus === "awaiting_payment"
+          ? ["Deposit $100: payment link sent, not paid yet. It confirms the booking automatically when paid.", "text-action"]
+          : job.depositStatus === "expired"
+            ? ["Deposit $100 NOT paid: the 24-hour payment link expired. Follow up with the customer.", "text-red-600"]
+            : job.depositStatus === "failed"
+              ? ["Deposit $100 NOT paid: the bank payment failed. Follow up with the customer.", "text-red-600"]
+              : ["Deposit $100 required (move a week or more ahead) -- no payment link was made (Stripe not set up). Send the customer one.", "text-action"];
+  return <p className={`mt-1 text-sm font-bold ${tone}`}>{text}</p>;
 }

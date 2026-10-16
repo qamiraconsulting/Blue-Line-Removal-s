@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { CapacitySettings, CapacitySnapshot } from "../capacity/availability.js";
 import type { NewCalendarBooking } from "../capacity/store.js";
-import { availabilityForQuote, requestBooking, type BookingStore, type StoredQuote } from "./booking.js";
+import { availabilityForQuote, confirmPaidBooking, requestBooking, type BookingStore, type StoredQuote } from "./booking.js";
+import type { DepositPaymentDeps } from "../payments/depositPayment.js";
+import type { DepositCheckoutRequest } from "../payments/stripe.js";
 import { BOOKING_TERMS, BOOKING_TERMS_VERSION } from "./bookingEmails.js";
 import { fixtureRateCard } from "./rateCard.fixture.js";
 import type { DriverNotifier, OutgoingEmail } from "./service.js";
@@ -32,6 +34,10 @@ const quote = (over: Partial<StoredQuote> = {}): StoredQuote => ({
   bookingStatus: null,
   bookingNotes: null,
   bookingArrivalTime: null,
+  depositStatus: null,
+  depositCheckoutUrl: null,
+  depositCheckoutExpiresAt: null,
+  depositPaymentMethod: null,
   ...over,
 });
 
@@ -253,17 +259,58 @@ describe("the website form books with the token that came back with its estimate
   });
 });
 
+/** Stripe stand-in: records the pages made; `fail` = Stripe says no. */
+function fakeDeposits(fail = false) {
+  const made: DepositCheckoutRequest[] = [];
+  const deposits: DepositPaymentDeps = {
+    stripe: { secretKey: "sk_test_x" },
+    siteUrl: "https://site.example",
+    store: { saveCheckout: async () => undefined, markProcessing: async () => undefined, markPaid: async () => true, markEnded: async () => true },
+    createCheckout: async (req) => {
+      if (fail) throw new Error("Stripe checkout failed (402 card_error)");
+      made.push(req);
+      return { id: `cs_test_${made.length}`, url: `https://checkout.stripe.com/c/pay/cs_test_${made.length}`, expiresAt: req.expiresAt };
+    },
+  };
+  return { deposits, made };
+}
+
 describe("the $100 deposit (a week or more ahead)", () => {
   // NOW is Mon 12 Oct; the quote's move is Wed 21 Oct -- 9 days away.
-  it("a booking 7+ days ahead needs the deposit: told in the result, the customer email and the team email", async () => {
+  it("a booking 7+ days ahead gets its own Stripe payment page: in the result, the customer email and the team email", async () => {
     const { deps, sent } = setup(quote());
-    const out = await ask({ ...deps, depositPaymentUrl: "https://pay.example.com/blr-deposit" } as typeof deps);
-    expect(out).toMatchObject({ ok: true, status: "requested", deposit: { required: true, amountAud: 100, daysUntilMove: 9, paymentLink: "https://pay.example.com/blr-deposit" } });
+    const { deposits, made } = fakeDeposits();
+    const out = await ask({ ...deps, deposits } as typeof deps);
+    expect(out).toMatchObject({ ok: true, status: "requested", deposit: { required: true, amountAud: 100, daysUntilMove: 9, paymentLink: "https://checkout.stripe.com/c/pay/cs_test_1", linkValidHours: 24 } });
+    expect(made[0]).toMatchObject({ reference: "BLR-20261012-ABC123", amountCents: 10000, customerEmail: "jane@example.com", successUrl: "https://site.example/deposit?status=paid&ref=BLR-20261012-ABC123" });
+    // Stripe allows at most 24 hours.
+    expect(made[0]!.expiresAt - NOW.getTime() / 1000).toBeLessThanOrEqual(24 * 3600);
     const customer = sent.find((e) => e.kind === "customer")!;
     expect(customer.text).toContain("To lock in your booking we take a $100 deposit before the move.");
-    expect(customer.text).toContain("Pay it securely here: https://pay.example.com/blr-deposit");
+    expect(customer.text).toContain("Pay it securely here, by card or straight from your bank account: https://checkout.stripe.com/c/pay/cs_test_1");
+    expect(customer.text).toContain("The link works for 24 hours.");
     expect(customer.text).toContain("card, bank transfer or cash");
-    expect(sent.find((e) => e.kind === "team")!.text).toContain("DEPOSIT: $100 required (move is 9 days away)");
+    expect(sent.find((e) => e.kind === "team")!.text).toContain("confirmed automatically if the time is still free");
+  });
+
+  it("asking again reuses the open payment page; an expired one is replaced; a paid one needs none", async () => {
+    const open = { depositStatus: "awaiting_payment", depositCheckoutUrl: "https://checkout.stripe.com/c/pay/cs_open", depositCheckoutExpiresAt: new Date(NOW.getTime() + 5 * 3600_000), bookingStatus: "requested" };
+    const a = fakeDeposits();
+    expect(await ask({ ...setup(quote(open)).deps, deposits: a.deposits } as never)).toMatchObject({ status: "already_requested", deposit: { paymentLink: "https://checkout.stripe.com/c/pay/cs_open" } });
+    expect(a.made).toHaveLength(0);
+    const b = fakeDeposits();
+    const expired = { ...open, depositCheckoutExpiresAt: new Date(NOW.getTime() - 60_000) };
+    expect(await ask({ ...setup(quote(expired)).deps, deposits: b.deposits } as never)).toMatchObject({ status: "already_requested", deposit: { paymentLink: "https://checkout.stripe.com/c/pay/cs_test_1" } });
+    const c = fakeDeposits();
+    expect(await ask({ ...setup(quote({ ...open, depositStatus: "paid" })).deps, deposits: c.deposits } as never)).toMatchObject({ deposit: { paid: true, paymentLink: null } });
+    expect(c.made).toHaveLength(0);
+  });
+
+  it("if Stripe fails, the customer is told a link is coming and the team is told to send one", async () => {
+    const { deps, sent } = setup(quote());
+    const { deposits } = fakeDeposits(true);
+    expect(await ask({ ...deps, deposits } as typeof deps)).toMatchObject({ ok: true, status: "requested", deposit: { paymentLink: null } });
+    expect(sent.find((e) => e.kind === "team")!.text).toContain("NO PAYMENT LINK SET UP");
   });
 
   it("without a payment link set up, the customer is told one is coming and the team is told to send it", async () => {
@@ -283,5 +330,42 @@ describe("the $100 deposit (a week or more ahead)", () => {
   it("check_availability says up front whether the deposit applies", async () => {
     const out = await availabilityForQuote({ reference: "BLR-20261012-ABC123", conversationId: "conv-1" }, setup(quote()).deps);
     expect(out).toMatchObject({ ok: true, deposit: { required: true, amountAud: 100 } });
+  });
+});
+
+describe("deposit paid -> confirmed automatically if the time is still free", () => {
+  // Booking request for Wed 21 Oct at 07:30 (9 days away).
+  const requested = (over: Partial<StoredQuote> = {}) => quote({ bookingStatus: "requested", bookingArrivalTime: "07:30", depositStatus: "paid", ...over });
+
+  it("books it into the calendar, emails the team, the customer and the driver -- even with the instant switch off", async () => {
+    const drivers: string[] = [];
+    const { deps, sent, calendar, row } = setup(requested(), { ...READY, autoConfirm: false });
+    const out = await confirmPaidBooking("BLR-20261012-ABC123", false, { ...deps, notifyDriver: async (t: { quoteReference?: string }) => (drivers.push(t.quoteReference ?? ""), null) } as never);
+    expect(out).toEqual({ outcome: "confirmed", emailed: true, arrivalTime: "07:30", date: "2026-10-21" });
+    expect(row()).toMatchObject({ bookingStatus: "confirmed" });
+    expect(calendar).toHaveLength(1);
+    expect(calendar[0]).toMatchObject({ arrivalTime: "07:30", truckId: "truck-a", createdBy: "deposit paid (confirmed automatically)" });
+    const team = sent.find((e) => e.kind === "team")!;
+    expect(team.subject).toContain("Booked + deposit paid");
+    expect(team.text).toContain("DEPOSIT: $100 PAID");
+    expect(sent.some((e) => e.kind === "customer")).toBe(true);
+    expect(drivers).toEqual(["BLR-20261012-ABC123"]);
+  });
+
+  it("goes to the team when the time was taken in the meantime, arrival times aren't set up, or no time was chosen", async () => {
+    const taken = setup(requested(), READY);
+    taken.calendar.push({ arrivalTime: "07:30", estimatedMinutes: 300, truckType: "6-8T", truckId: "truck-a", movers: 2 } as NewCalendarBooking);
+    expect(await confirmPaidBooking("BLR-20261012-ABC123", false, taken.deps)).toMatchObject({ outcome: "needs_team" });
+    expect(taken.row()).toMatchObject({ bookingStatus: "requested" });
+
+    expect(await confirmPaidBooking("BLR-20261012-ABC123", false, setup(requested(), NOT_SET_UP).deps)).toMatchObject({ outcome: "needs_team", problem: expect.stringContaining("aren't set up") });
+    expect(await confirmPaidBooking("BLR-20261012-ABC123", false, setup(requested({ bookingArrivalTime: null }), READY).deps)).toMatchObject({ outcome: "needs_team", problem: expect.stringContaining("arrival time") });
+  });
+
+  it("never books a test-price estimate on a real payment; already confirmed or cancelled is left alone", async () => {
+    expect(await confirmPaidBooking("BLR-20261012-ABC123", false, setup(requested({ rateCardStatus: "placeholder" }), READY).deps)).toMatchObject({ outcome: "needs_team" });
+    expect(await confirmPaidBooking("BLR-20261012-ABC123", true, setup(requested({ rateCardStatus: "placeholder" }), READY).deps)).toMatchObject({ outcome: "confirmed" });
+    expect(await confirmPaidBooking("BLR-20261012-ABC123", false, setup(requested({ bookingStatus: "confirmed" }), READY).deps)).toEqual({ outcome: "already_confirmed" });
+    expect(await confirmPaidBooking("BLR-20261012-ABC123", false, setup(requested({ bookingStatus: null }), READY).deps)).toMatchObject({ outcome: "needs_team" });
   });
 });

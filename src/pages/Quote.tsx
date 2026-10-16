@@ -338,6 +338,14 @@ function QuoteResultCard({ result }: { result: QuoteApiResult }) {
   );
 }
 
+interface BookingDeposit {
+  required: boolean;
+  paymentLink: string | null;
+  linkValidHours?: number;
+  paid?: boolean;
+  finalPayment: string;
+}
+
 interface BookingInfo {
   ok: boolean;
   error?: string;
@@ -364,7 +372,7 @@ function BookEstimate({ reference, token }: { reference: string; token: string }
   const [agreed, setAgreed] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState<{ status: string; emailed: boolean; arrivalTime?: string | null } | null>(null);
+  const [done, setDone] = useState<{ status: string; emailed: boolean; arrivalTime?: string | null; deposit?: BookingDeposit } | null>(null);
 
   useEffect(() => {
     fetch(`/api/booking?reference=${encodeURIComponent(reference)}&token=${encodeURIComponent(token)}`)
@@ -384,14 +392,14 @@ function BookEstimate({ reference, token }: { reference: string; token: string }
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ reference, token, agreedToTerms: agreed, arrivalTime: time || undefined, notes: noteParts.join(" -- ") || undefined }),
       });
-      const body = (await res.json()) as { ok?: boolean; error?: string; status?: string; emailed?: boolean; arrivalTime?: string | null; availableTimes?: string[] };
+      const body = (await res.json()) as { ok?: boolean; error?: string; status?: string; emailed?: boolean; arrivalTime?: string | null; availableTimes?: string[]; deposit?: BookingDeposit };
       if (!res.ok || !body.ok) {
         setError(body.error ?? "We couldn't take that booking just now. Please call us instead.");
         if (body.availableTimes && info) setInfo({ ...info, availableTimes: body.availableTimes });
         setTime("");
         return;
       }
-      setDone({ status: body.status ?? "requested", emailed: Boolean(body.emailed), arrivalTime: body.arrivalTime });
+      setDone({ status: body.status ?? "requested", emailed: Boolean(body.emailed), arrivalTime: body.arrivalTime, deposit: body.deposit });
       trackEvent(body.status === "confirmed" ? "form_booking_confirmed" : "form_booking_requested");
     } catch {
       setError("We couldn't take that booking just now. Please check your connection and try again.");
@@ -408,14 +416,38 @@ function BookEstimate({ reference, token }: { reference: string; token: string }
 
   if (done) {
     const booked = done.status === "confirmed" || done.status === "already_confirmed";
+    const deposit = done.deposit;
     return (
       <div className="mt-4 w-full rounded-lg border border-eco/40 bg-eco/5 p-4 text-left text-sm text-ink" role="status">
         <p className="font-display text-base font-bold text-navy">{booked ? "You're booked!" : "Booking request received"}</p>
         <p className="mt-1">
           {booked
             ? `Your move is booked${done.arrivalTime ? ` with arrival at ${formatTime(done.arrivalTime)}` : ""}. We've emailed your confirmed quote.`
-            : "Our team will check the details and confirm your booking shortly — you'll get your confirmed quote by email."}
+            : deposit?.required && !deposit.paid
+              ? "To lock in your booking we take a $100 deposit before the move."
+              : "Our team will check the details and confirm your booking shortly — you'll get your confirmed quote by email."}
         </p>
+        {!booked && deposit?.required && !deposit.paid && (
+          <div className="mt-3">
+            {deposit.paymentLink && /^https:\/\/checkout\.stripe\.com\//.test(deposit.paymentLink) ? (
+              <>
+                <a
+                  href={deposit.paymentLink}
+                  className="inline-flex items-center rounded-full bg-action px-5 py-2.5 font-bold text-white hover:opacity-90"
+                  onClick={() => trackEvent("deposit_link_clicked")}
+                >
+                  Pay $100 deposit securely
+                </a>
+                <p className="mt-2 text-xs text-ink-dim">
+                  Pay by card or straight from your bank account. The link works for {deposit.linkValidHours ?? 24} hours{done.emailed ? " and we've emailed it to you" : ""}. As soon as it's paid we confirm your booking (if your arrival time is still free) and email you.
+                </p>
+              </>
+            ) : (
+              <p className="text-xs text-ink-dim">We'll email you a secure payment link for it shortly.</p>
+            )}
+            <p className="mt-2 text-xs text-ink-dim">{deposit.finalPayment}</p>
+          </div>
+        )}
         <p className="mt-2 text-xs text-ink-dim">
           Reference {reference} · Questions? Call {callUs}
         </p>

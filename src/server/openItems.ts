@@ -162,14 +162,14 @@ export const openItems: OpenItem[] = [
     id: "deposit-terms",
     topic: "legal",
     question: "The $100 deposit (bookings 7+ days ahead): is it taken off the final bill, and is it refundable if the customer cancels or moves the date? (Goes into the booking terms.)",
-    meanwhile: "The chat and emails only say a $100 deposit locks the booking in; nothing about refunds or deducting it.",
+    meanwhile: "The chat and emails only say a $100 deposit locks the booking in; nothing about refunds or deducting it. Refunds are done by hand in Stripe.",
     status: "to_ask",
   },
   {
-    id: "bank-transfer-details",
+    id: "stripe-account",
     topic: "operations",
-    question: "Bank details customers can use to pay the deposit by transfer.",
-    meanwhile: "Customers who choose bank transfer are told the team will email the bank details.",
+    question: "Blue Line opens a Stripe account for the $100 deposit (ABN, owner ID check, the BSB and account number payouts go to), requests PayTo under Settings > Payment methods (customers can then pay straight from their bank account), switches on email receipts, and gives Qamira Developer access. Plain bank transfers were dropped (16 Oct): nothing could tell the system they arrived.",
+    meanwhile: "Testing with Qamira's own Stripe account in test mode (no real money). Without Stripe keys the customer is told the team will send a payment link.",
     status: "to_ask",
   },
   {
@@ -277,10 +277,10 @@ export const openItems: OpenItem[] = [
     status: "internal",
   },
   {
-    id: "deposit-payment-link",
+    id: "stripe-setup",
     topic: "operations",
-    question: "Set up a secure payment link for the $100 deposit (e.g. Stripe or Square payment link) and put it in Vercel as DEPOSIT_PAYMENT_URL.",
-    meanwhile: "The chat and emails say the team will send a secure payment link; the team email flags it.",
+    question: "Stripe for the deposit: add STRIPE_SECRET_KEY + STRIPE_WEBHOOK_SECRET in Vercel, the webhook endpoint <site>/api/stripe/webhook (checkout.session.completed / async_payment_succeeded / async_payment_failed / expired), and on previews Vercel's Protection Bypass for Automation so Stripe can reach it. Test keys now; Blue Line's live keys at go-live.",
+    meanwhile: "No payment page is made; the customer is told the team will send a link and the team email says so.",
     status: "internal",
   },
   {
@@ -288,13 +288,6 @@ export const openItems: OpenItem[] = [
     topic: "operations",
     question: "Enter each driver's name, mobile and email under Bookings & capacity > Drivers, and give every truck its usual driver. Drivers are emailed the job (date, time, pick-up, drop-off, customer details) when a booking is confirmed.",
     meanwhile: "A truck with no usual driver, or a driver with no email, means nobody is told; the dashboard says so next to the trip.",
-    status: "internal",
-  },
-  {
-    id: "deposit-paid-detection",
-    topic: "operations",
-    question: "Bookings 7+ days ahead are confirmed by the team once the $100 deposit is paid. To let the chat confirm them end to end, the payment provider (Stripe/Square) must tell the system when the deposit is paid (a webhook), which needs the account from deposit-payment-link.",
-    meanwhile: "Chat bookings with a deposit are always requests; Matt confirms them on the dashboard once the deposit has arrived.",
     status: "internal",
   },
   {

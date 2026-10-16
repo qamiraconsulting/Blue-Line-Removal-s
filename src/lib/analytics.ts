@@ -34,7 +34,10 @@ export type TrackedEvent =
   | "chat_handoff"
   // Website quote form booking
   | "form_booking_requested"
-  | "form_booking_confirmed";
+  | "form_booking_confirmed"
+  // Booking deposit (Stripe payment page)
+  | "deposit_link_clicked"
+  | "deposit_paid_page";
 
 export function trackEvent(event: TrackedEvent, params: Record<string, unknown> = {}) {
   if (typeof window === "undefined") return;

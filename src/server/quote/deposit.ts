@@ -1,9 +1,11 @@
 // The booking deposit (Ayesha, 2026-10-16): when the move is a week or more away, Blue Line
-// takes a $100 deposit to lock the booking in. The customer pays it through a secure payment
-// link; the rest is paid on the day of the move. The chat never takes card details itself.
+// takes a $100 deposit to lock the booking in. The customer pays it on a secure Stripe page made
+// for their booking (card, or straight from their bank account with PayTo) -- see
+// src/server/payments. Once Stripe says it's paid, the booking is confirmed automatically if its
+// time is still free. The rest is paid on the day of the move. The chat never takes card details.
 //
-// DEPOSIT_PAYMENT_URL (env) is the payment link. Until it's set, the customer is told the team
-// will send one, and the team email says to send it.
+// Without Stripe set up (STRIPE_SECRET_KEY + STRIPE_WEBHOOK_SECRET), the customer is told the
+// team will send a payment link, and the team email says to send one.
 
 export const DEPOSIT_AUD = 100;
 /** A deposit applies when the move is at least this many days away. */
@@ -15,8 +17,12 @@ export interface DepositInfo {
   required: boolean;
   amountAud: number;
   daysUntilMove: number | null;
-  /** null = no link set up yet: the team sends one. */
+  /** This booking's secure payment page. null = none yet (no booking yet, or the team sends one). */
   paymentLink: string | null;
+  /** How long the payment link stays open. */
+  linkValidHours?: number;
+  /** Already paid (e.g. the customer asks again after paying). */
+  paid?: boolean;
   finalPayment: string;
 }
 
@@ -35,3 +41,9 @@ export function depositFor(movingDate: string | null, today: string, paymentLink
     finalPayment: FINAL_PAYMENT_TEXT,
   };
 }
+
+/**
+ * Chat: the model writes this where the booking's payment link goes, and the exact link is put
+ * in its place (src/server/chat/agent.ts) -- the model never retypes the long Stripe link.
+ */
+export const DEPOSIT_LINK_MARKER = "[[deposit_link]]";

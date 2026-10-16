@@ -296,6 +296,10 @@ describe("tool and prompt wording", () => {
     // the deposit, and paying the rest
     expect(prompt).toContain("To lock in your booking we take a $100 deposit before the move.");
     expect(prompt).toContain("card, bank transfer or cash");
+    // one Stripe link for the deposit (card or bank via PayTo) -- no bank details, no card/bank buttons
+    expect(prompt).toContain("by card or straight from their bank account");
+    expect(prompt).toContain("never give out bank account details");
+    expect(prompt).not.toContain("Card (secure link)");
     expect(prompt).toContain("4.5 tonne truck, 6-8 tonne truck, 10 tonne truck");
     expect([...prompt.matchAll(/\$(\d+)/g)].every((m) => m[1] === "100")).toBe(true);
   });

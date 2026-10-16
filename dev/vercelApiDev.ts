@@ -40,6 +40,8 @@ async function readBody(req: IncomingMessage): Promise<unknown> {
   const chunks: Buffer[] = [];
   for await (const chunk of req) chunks.push(chunk as Buffer);
   const raw = Buffer.concat(chunks).toString("utf8");
+  // Handlers that check a signature over the exact bytes (api/stripe/webhook.ts) read this.
+  (req as IncomingMessage & { rawBody?: string }).rawBody = raw;
   if (!raw) return undefined;
   if ((req.headers["content-type"] ?? "").includes("application/json")) {
     try {

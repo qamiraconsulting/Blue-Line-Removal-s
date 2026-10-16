@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ESTIMATE_DISCLAIMER } from "../quote/emails.js";
-import { BLOCKED_REPLY, guardReply } from "./guard.js";
+import { BLOCKED_REPLY, guardReply, LINK_BLOCKED_REPLY } from "./guard.js";
 
 describe("guardReply", () => {
   it("lets through a price the engine actually quoted, in any normal format", () => {
@@ -12,6 +12,15 @@ describe("guardReply", () => {
   it("lets through the fixed $100 booking deposit, and nothing else unquoted", () => {
     expect(guardReply("To lock in your booking we take a $100 deposit before the move.", []).ok).toBe(true);
     expect(guardReply("To lock in your booking we take a $150 deposit.", []).ok).toBe(false);
+  });
+
+  it("only lets through links to Blue Line's site and Stripe's payment pages", () => {
+    expect(guardReply("Pay here:\nhttps://checkout.stripe.com/c/pay/cs_test_a1B2#fid", []).ok).toBe(true);
+    expect(guardReply("See https://www.bluelineremovals.com.au/quote", []).ok).toBe(true);
+    expect(guardReply("Pay here: https://checkout-stripe.com.evil.io/pay", [])).toMatchObject({ ok: false, reason: "unknown_link", text: LINK_BLOCKED_REPLY });
+    expect(guardReply("Pay here: https://buy.stripe.com/abc", []).ok).toBe(false);
+    expect(guardReply("http://checkout.stripe.com/c/pay/x", []).ok).toBe(false);
+    expect(guardReply("https://bluelineremovals.com.au.evil.io/", []).ok).toBe(false);
   });
 
   it("lets through replies with no dollar figure (percentages and phone numbers are fine)", () => {

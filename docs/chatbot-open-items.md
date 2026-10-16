@@ -32,8 +32,8 @@ the "Meanwhile" column says: it never guesses.
 | `cancellation-policy` | Deposit and cancellation/rescheduling policy for the booking terms | No deposit; cancellations by phone |
 | `typical-hours-driving` | Do the "typical hours" include driving between addresses? (ask with the B1 answer) | No estimates until confirmed |
 | `crew-choice-hours` | If the customer picks a different truck/crew than the guide, do the hours change? | Guide's hours always used |
-| `deposit-terms` | Is the $100 deposit taken off the final bill, and refundable if the customer cancels or moves the date? | Chat only says a $100 deposit locks the booking in |
-| `bank-transfer-details` | Bank details for paying the deposit by transfer | Team emails them |
+| `deposit-terms` | Is the $100 deposit taken off the final bill, and refundable if the customer cancels or moves the date? | Chat only says a $100 deposit locks the booking in; refunds by hand in Stripe |
+| `stripe-account` | Blue Line opens a Stripe account (ABN, owner ID, payout BSB + account), requests PayTo, switches on receipts, gives Qamira Developer access. Plain bank transfer dropped (16 Oct) | Testing on Qamira's Stripe test account; no keys = team sends a link |
 | `junk-removal-pricing` | Junk removal: always a personal quote, or a price list? | Goes to the team |
 | `commercial-moves` | Office moves: always a personal quote? | Goes to the team |
 | `sign-off` | Blue Line signs off the complete rate card (then status → confirmed) | Test figures only, never emailed |
@@ -53,9 +53,8 @@ the "Meanwhile" column says: it never guesses.
 | `estimate-vs-final` | Email makes every figure an estimate that "may vary"; the 6 Oct decision and the website say final/flat price, no call-out, "not an hourly meter". Confirm and update the website copy | Chat and emails say "estimate" |
 | `quote-form-fields` | Form: home size + optional truck (4.5T/6-8T/10T) + 2-4 movers + inspect + access notes; new Property Size options (awaited from Ayesha) | Form sends home size + optional notes; result says "estimate" |
 | `hourly-rate-disclosure` | The PDF quote shows rate x hours (15 Oct). Should the chat also answer hourly-rate questions? | PDF shows the breakdown; the chat never states a rate |
-| `deposit-payment-link` | Set up a secure payment link for the $100 deposit; Vercel DEPOSIT_PAYMENT_URL | Team sends a link (flagged in the team email) |
+| `stripe-setup` | Vercel STRIPE_SECRET_KEY + STRIPE_WEBHOOK_SECRET, Stripe webhook to /api/stripe/webhook, Vercel protection bypass on previews; test keys now, live at go-live | No payment page; team sends a link |
 | `driver-details` | Enter each driver's name, mobile and email (Bookings & capacity > Drivers) and set every truck's usual driver | Nobody is told about a job on a truck with no driver or a driver with no email; the dashboard flags it |
-| `deposit-paid-detection` | Payment provider tells the system when the $100 deposit is paid, so the chat can confirm 7+ day bookings end to end | Chat bookings with a deposit stay requests; Matt confirms once it's paid |
 | `driver-sms` | Optional: SMS / WhatsApp for driver and customer notices | Email only |
 | `past-customers` | Matt's 9 real customers imported 16 Oct, all 'Not Confirmed' in his sheet: did any actually move with Blue Line? (Those get marked completed.) | Stored as past quotes; still get the 10% first-customer discount |
 | `gtm-chat-events` | Add GTM triggers / GA4 events for chat_opened, chat_started, chat_estimate_shown, chat_handoff | Events pushed to the dataLayer, not yet recorded |

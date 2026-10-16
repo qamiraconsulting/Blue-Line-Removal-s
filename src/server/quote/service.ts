@@ -23,6 +23,7 @@ import { moverCounts, truckIds, type RateCard } from "./rateCard.js";
 import type { NewQuoteRow, QuoteStore } from "./store.js";
 import type { PdfSender } from "../jobs/pdfQuote.js";
 import type { DriverNoticeResult, NoticeTarget } from "../notify/driverNotice.js";
+import type { DepositPaymentDeps } from "../payments/depositPayment.js";
 
 export type DriverNotifier = (target: NoticeTarget) => Promise<DriverNoticeResult>;
 
@@ -104,8 +105,11 @@ export interface QuoteServiceDeps {
   testEmailTo?: string | null;
   /** Makes and emails the branded PDF quote (Apps Script). Unset = plain email instead. */
   pdf?: PdfSender;
-  /** The secure payment link for the booking deposit (src/server/quote/deposit.ts). Unset = the team sends one. */
-  depositPaymentUrl?: string | null;
+  /**
+   * Stripe, for the booking deposit (src/server/payments): each booking gets its own payment
+   * page. Unset = the customer is told the team will send a payment link.
+   */
+  deposits?: DepositPaymentDeps;
   /**
    * Emails the driver of a booking's truck after the calendar changes (a confirmed booking, a
    * move, a cancellation). Never throws. Unset = nobody is told (tests, no database).

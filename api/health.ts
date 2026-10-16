@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { sql } from "drizzle-orm";
 import { getDb } from "../src/server/db/client.js";
 import { getActiveRateCard } from "../src/server/quote/rateCard.js";
+import { isTestKey } from "../src/server/payments/stripe.js";
 
 // Setup check for Qamira: open /api/health on a deployment to see which pieces are
 // configured. Reports yes/no only -- never a key, address or connection string.
@@ -39,6 +40,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     pdfQuotes: Boolean(env.APPS_SCRIPT_URL && env.APPS_SCRIPT_SECRET),
     googleFormIntake: Boolean(env.APPS_SCRIPT_SECRET),
     testInbox: Boolean(env.TEST_EMAIL_REDIRECT) && env.VERCEL_ENV !== "production",
+    // The $100 booking deposit via Stripe: "test" / "live" keys, or false when not set up.
+    deposits: env.STRIPE_SECRET_KEY && env.STRIPE_WEBHOOK_SECRET ? (isTestKey(env.STRIPE_SECRET_KEY.trim()) ? "test" : "live") : false,
     rateCard: { version: rateCard.version, status: rateCard.status },
     testPrices: env.QUOTE_ALLOW_PLACEHOLDER === "true" && env.VERCEL_ENV !== "production",
   });

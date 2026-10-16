@@ -1,4 +1,5 @@
 import type Anthropic from "@anthropic-ai/sdk";
+import { DEPOSIT_LINK_MARKER } from "../quote/deposit.js";
 import { guardReply } from "./guard.js";
 import { chatTools, type ToolRecord, type ToolRun } from "./tools.js";
 
@@ -59,6 +60,17 @@ export function toModelMessages(history: StoredTurn[]): Anthropic.Beta.Messages.
     else out.push({ role, content });
   }
   return out;
+}
+
+/**
+ * The model never types the long Stripe link itself: it writes DEPOSIT_LINK_MARKER and the
+ * exact link request_booking returned this turn is put in its place. No link this turn = the
+ * customer is pointed to their email instead.
+ */
+export function withDepositLink(text: string, records: readonly ToolRecord[]): string {
+  if (!text.includes(DEPOSIT_LINK_MARKER)) return text;
+  const link = [...records].reverse().find((r) => r.paymentLink)?.paymentLink;
+  return text.split(DEPOSIT_LINK_MARKER).join(link ?? "(the secure payment link is in the email we sent you)");
 }
 
 export async function runAgentTurn(params: {
@@ -129,6 +141,6 @@ export async function runAgentTurn(params: {
   if (!text) return { reply: FALLBACK_REPLY, toolRecords, blocked: null, declined: false, usage };
 
   const quoted = [...params.previouslyQuoted, ...toolRecords.flatMap((r) => (r.quotedAmountAud === undefined ? [] : [r.quotedAmountAud]))];
-  const guarded = guardReply(text, quoted);
+  const guarded = guardReply(withDepositLink(text, toolRecords), quoted);
   return { reply: guarded.text, toolRecords, blocked: guarded.ok ? null : guarded.reason, declined: false, usage };
 }

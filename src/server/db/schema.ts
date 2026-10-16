@@ -133,6 +133,19 @@ export const quotes = pgTable(
     bookingNotes: text("booking_notes"), // anything the customer asked for
     bookingArrivalTime: text("booking_arrival_time"), // "HH:MM" the customer chose, when arrival times are set up
 
+    // ---- The $100 booking deposit, paid on a Stripe page made for this booking
+    // (src/server/payments). Stripe tells /api/stripe/webhook when it's paid, and the booking
+    // is then confirmed automatically if its time is still free.
+    depositStatus: text("deposit_status"), // null | "awaiting_payment" | "processing" | "paid" | "failed" | "expired"
+    depositCheckoutId: text("deposit_checkout_id"), // Stripe Checkout Session id (cs_...)
+    depositCheckoutUrl: text("deposit_checkout_url"),
+    depositCheckoutExpiresAt: timestamp("deposit_checkout_expires_at", { withTimezone: true }),
+    depositPaidAt: timestamp("deposit_paid_at", { withTimezone: true }),
+    depositAmountCents: integer("deposit_amount_cents"),
+    depositPaymentMethod: text("deposit_payment_method"), // "card" | "payto" | ... as Stripe reports it
+    depositPaymentIntentId: text("deposit_payment_intent_id"), // pi_... -- find it in Stripe to refund
+    depositTestMode: boolean("deposit_test_mode"), // paid with Stripe test keys (not real money)
+
     // ---- One status for every request, whatever channel it came from (src/server/jobs/status.ts).
     jobStatus: text("job_status").notNull().default("waiting_for_quote"),
     statusUpdatedAt: timestamp("status_updated_at", { withTimezone: true }).notNull().defaultNow(),

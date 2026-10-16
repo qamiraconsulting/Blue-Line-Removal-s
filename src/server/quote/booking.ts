@@ -16,6 +16,7 @@ import {
 import type { InternalBreakdown, PropertySizeId } from "./calculateQuote.js";
 import { formatDateLabel, type QuoteDetails } from "./emails.js";
 import { depositFor, type DepositInfo } from "./deposit.js";
+import { DEPOSIT_LINK_HOURS, depositCheckoutFor, type DepositPaymentDeps } from "../payments/depositPayment.js";
 import type { RateCard } from "./rateCard.js";
 import { customerRecipient, melbourneToday, SIZE_LABEL, type DriverNotifier, type OutgoingEmail } from "./service.js";
 
@@ -54,6 +55,10 @@ export type StoredQuote = Pick<
   | "bookingStatus"
   | "bookingNotes"
   | "bookingArrivalTime"
+  | "depositStatus"
+  | "depositCheckoutUrl"
+  | "depositCheckoutExpiresAt"
+  | "depositPaymentMethod"
 >;
 
 export interface BookingTerms {
@@ -88,8 +93,8 @@ export interface BookingDeps {
   customerReplyTo: string;
   testEmailTo?: string | null;
   pdf?: PdfSender;
-  /** Secure payment link for the booking deposit; unset = the team sends one. */
-  depositPaymentUrl?: string | null;
+  /** Stripe payment pages for the booking deposit; unset = the team sends a link. */
+  deposits?: DepositPaymentDeps;
   /** Emails the truck's driver once the booking is on the calendar. */
   notifyDriver?: DriverNotifier;
   now?: () => Date;
@@ -237,7 +242,7 @@ export async function availabilityForQuote(input: { reference: string } & Bookin
     availableTimes: result.slots.filter((s) => s.available).map((s) => s.time),
     // A booking with a deposit is never confirmed on the spot: the team confirms once it's paid.
     instantTimes: result.dayOpen && result.instantConfirm && !depositFor(job.date, nowLocal.slice(0, 10), null).required ? result.slots.filter((s) => s.available && !s.substituteTruckType).map((s) => s.time) : [],
-    deposit: depositFor(job.date, nowLocal.slice(0, 10), deps.depositPaymentUrl),
+    deposit: depositFor(job.date, nowLocal.slice(0, 10), null),
   };
 }
 
@@ -250,14 +255,16 @@ export async function requestBooking(
   if (!checked.ok) return checked;
   const { q, nowLocal } = checked;
   if (q.bookingStatus === "confirmed") return { ok: true, status: "already_confirmed", reference: q.reference, emailed: false, arrivalTime: q.bookingArrivalTime };
-  if (q.bookingStatus) return { ok: true, status: "already_requested", reference: q.reference, emailed: false, arrivalTime: q.bookingArrivalTime };
+  if (q.bookingStatus) {
+    return { ok: true, status: "already_requested", reference: q.reference, emailed: false, arrivalTime: q.bookingArrivalTime, deposit: await depositWithLink(q, nowLocal, deps) };
+  }
 
   const notes = (input.notes ?? "").trim().slice(0, 500);
   const arrivalTime = input.arrivalTime && /^\d{2}:\d{2}$/.test(input.arrivalTime) ? input.arrivalTime : null;
   const terms: BookingTerms = { termsVersion: BOOKING_TERMS_VERSION, termsText: BOOKING_TERMS, notes: notes || null, arrivalTime };
   const testMode = q.rateCardStatus !== "confirmed";
   const job = jobFromQuote(q);
-  const deposit = depositFor(q.movingDate, nowLocal.slice(0, 10), deps.depositPaymentUrl);
+  const deposit = depositFor(q.movingDate, nowLocal.slice(0, 10), null);
 
   // Told to the team when the job would go on a different truck than estimated.
   let capacityNote: string | null = null;
@@ -292,36 +299,8 @@ export async function requestBooking(
           terms,
         );
         if (booked) {
-          const details = { ...emailInput(q, notes, arrivalTime), deposit };
-          const card = q.rateCardSnapshot as Pick<RateCard, "gst" | "trucks">;
-          const lines = linesFromEstimate(q.internalBreakdown as InternalBreakdown, q.amountAud!, card);
-          const [, customer] = await Promise.all([
-            deps.sendEmail({ ...renderBookingTeamEmail({ ...details, phone: q.phone, email: q.email, testMode, autoConfirmed: true, via: q.source }), to: deps.teamEmail, replyTo: `${q.customerName} <${q.email}>`, kind: "team" }).catch(() => false),
-            // The branded PDF quote, marked Confirmed (plain email if the PDF can't be made).
-            sendCustomerQuote(
-              {
-                kind: "booked",
-                to: q.email,
-                reference: q.reference,
-                customerName: q.customerName,
-                email: q.email,
-                phone: q.phone,
-                movingDate: job.date,
-                arrivalTime,
-                from: q.fromText ?? "",
-                toAddress: q.toText ?? "",
-                lines,
-                truckLabel: lines.truck ? (card.trucks?.[lines.truck]?.label ?? lines.truck) : null,
-                note: null,
-                validUntil: null,
-                testMode,
-              },
-              deps,
-            ),
-          ]);
-          // The truck's driver gets the job's details (never throws, never undoes the booking).
-          await deps.notifyDriver?.({ quoteReference: q.reference }).catch(() => undefined);
-          return { ok: true, status: "confirmed", reference: q.reference, emailed: customer.emailed, arrivalTime, deposit };
+          const emailed = await sendBookedNotices(q, job.date, arrivalTime, notes, deposit, testMode, deps);
+          return { ok: true, status: "confirmed", reference: q.reference, emailed, arrivalTime, deposit };
         }
         // Someone took that time a moment ago.
         const fresh = checkAvailability(job, { ...(await deps.bookings.loadCapacity(job.date)), nowLocal });
@@ -339,7 +318,10 @@ export async function requestBooking(
   if (!(await deps.bookings.markRequested(q.reference, terms))) {
     return { ok: true, status: "already_requested", reference: q.reference, emailed: false };
   }
-  const details = { ...emailInput(q, notes, arrivalTime), deposit };
+  // A deposit booking gets its own Stripe payment page; paying it confirms the booking
+  // automatically if the time is still free (confirmPaidBooking).
+  const depositNow = deposit.required ? await depositWithLink(q, nowLocal, deps) : deposit;
+  const details = { ...emailInput(q, notes, arrivalTime), deposit: depositNow };
   // Test-mode (placeholder rate card) estimates are never emailed to a customer -- only to the
   // preview's test inbox, if one is set.
   const customerTo = customerRecipient(q.email, testMode, deps.testEmailTo);
@@ -350,7 +332,129 @@ export async function requestBooking(
       ? deps.sendEmail({ ...request, subject: testMode ? `[TEST] ${request.subject}` : request.subject, to: customerTo, replyTo: deps.customerReplyTo, kind: "customer" }).catch(() => false)
       : Promise.resolve(false),
   ]);
-  return { ok: true, status: "requested", reference: q.reference, emailed: customerSent, arrivalTime, deposit };
+  return { ok: true, status: "requested", reference: q.reference, emailed: customerSent, arrivalTime, deposit: depositNow };
+}
+
+/**
+ * A booking just went on the calendar automatically: tell the team, send the customer the
+ * branded PDF marked Confirmed (plain email if the PDF can't be made), and email the truck's
+ * driver. Returns whether the customer was emailed.
+ */
+async function sendBookedNotices(q: StoredQuote, date: string, arrivalTime: string, notes: string, deposit: DepositInfo, testMode: boolean, deps: BookingDeps): Promise<boolean> {
+  const details = { ...emailInput(q, notes, arrivalTime), deposit };
+  const card = q.rateCardSnapshot as Pick<RateCard, "gst" | "trucks">;
+  const lines = linesFromEstimate(q.internalBreakdown as InternalBreakdown, q.amountAud!, card);
+  const [, customer] = await Promise.all([
+    deps.sendEmail({ ...renderBookingTeamEmail({ ...details, phone: q.phone, email: q.email, testMode, autoConfirmed: true, via: q.source }), to: deps.teamEmail, replyTo: `${q.customerName} <${q.email}>`, kind: "team" }).catch(() => false),
+    sendCustomerQuote(
+      {
+        kind: "booked",
+        to: q.email,
+        reference: q.reference,
+        customerName: q.customerName,
+        email: q.email,
+        phone: q.phone,
+        movingDate: date,
+        arrivalTime,
+        from: q.fromText ?? "",
+        toAddress: q.toText ?? "",
+        lines,
+        truckLabel: lines.truck ? (card.trucks?.[lines.truck]?.label ?? lines.truck) : null,
+        note: null,
+        validUntil: null,
+        testMode,
+      },
+      deps,
+    ),
+  ]);
+  // The truck's driver gets the job's details (never throws, never undoes the booking).
+  await deps.notifyDriver?.({ quoteReference: q.reference }).catch(() => undefined);
+  return customer.emailed;
+}
+
+export type PaidBookingOutcome =
+  | { outcome: "confirmed"; emailed: boolean; arrivalTime: string; date: string }
+  | { outcome: "already_confirmed" }
+  /** Paid, but the team has to confirm: `problem` says why (told to the team). */
+  | { outcome: "needs_team"; problem: string };
+
+const SLOT_PROBLEM: Record<string, string> = {
+  not_set_up: "online arrival times aren't set up on the Bookings & capacity page",
+  not_a_working_day: "that day isn't a working day on the Bookings & capacity page",
+  closed: "that date is closed on the Bookings & capacity page",
+  too_far_ahead: "that date is further ahead than online bookings allow",
+  in_the_past: "the moving date has passed",
+  outside_working_hours: "the arrival time is outside working hours",
+  too_soon: "the arrival time is too soon",
+  no_truck: "no truck of the right size is free at that time any more",
+  no_movers: "not enough movers are free at that time any more",
+};
+
+/**
+ * Stripe says the deposit is paid: confirm the booking automatically if its arrival time still
+ * has the truck and crew free (checked under the date's lock, like an instant booking). The
+ * team's "confirm instantly" switch doesn't matter here -- the payment is the go-ahead. If it
+ * can't be confirmed, the booking stays a request for the team, with the reason.
+ * `stripeTestMode`: paid with Stripe test keys -- only then may a test-price estimate be booked.
+ */
+export async function confirmPaidBooking(reference: string, stripeTestMode: boolean, deps: BookingDeps): Promise<PaidBookingOutcome> {
+  const q = await deps.bookings.findQuote(reference);
+  if (!q) return { outcome: "needs_team", problem: "the booking wasn't found" };
+  if (q.bookingStatus === "confirmed") return { outcome: "already_confirmed" };
+  if (q.bookingStatus !== "requested") return { outcome: "needs_team", problem: "there's no open booking request for it (it may have been cancelled)" };
+
+  const testMode = q.rateCardStatus !== "confirmed";
+  if (testMode && !stripeTestMode) return { outcome: "needs_team", problem: "the estimate is a test price but the payment was real" };
+  const job = jobFromQuote(q);
+  const arrivalTime = q.bookingArrivalTime;
+  if (!job) return { outcome: "needs_team", problem: "the estimate doesn't have the truck, crew and hours the calendar needs" };
+  if (!arrivalTime) return { outcome: "needs_team", problem: "the customer didn't pick an arrival time (online times weren't offered)" };
+
+  const nowLocal = melbourneNowLocal((deps.now ?? (() => new Date()))());
+  const slotProblem = (capacity: Omit<CapacitySnapshot, "nowLocal">): string | null => {
+    const check = checkAvailability(job, { ...capacity, nowLocal });
+    if (!check.dayOpen) return SLOT_PROBLEM[check.dayReason ?? "not_set_up"] ?? "the day isn't open for online bookings";
+    const slot = check.slots.find((s) => s.time === arrivalTime);
+    if (!slot) return "that arrival time is no longer one of the online arrival times";
+    if (!slot.available) return SLOT_PROBLEM[slot.reason ?? ""] ?? "that time is no longer free";
+    if (slot.substituteTruckType) return `no ${job.truckType} is free at that time -- only a ${slot.substituteTruckType} (the team decides those)`;
+    return null;
+  };
+
+  // Set inside the date lock when the slot can't be booked.
+  const seen: { problem: string | null } = { problem: null };
+  const booked = await deps.bookings.confirm(
+    q.reference,
+    job.date,
+    (capacity) => {
+      seen.problem = slotProblem(capacity);
+      if (seen.problem) return null;
+      const check = checkAvailability(job, { ...capacity, nowLocal });
+      const slot = check.slots.find((s) => s.time === arrivalTime);
+      return { booking: calendarRow(q, job, arrivalTime, slot?.truckId ?? null, "deposit paid (confirmed automatically)", q.bookingNotes), result: true };
+    },
+    {},
+  );
+  if (!booked) {
+    // null with no problem = the team confirmed it a moment ago.
+    if (seen.problem) return { outcome: "needs_team", problem: seen.problem };
+    const now = await deps.bookings.findQuote(reference);
+    return now?.bookingStatus === "confirmed" ? { outcome: "already_confirmed" } : { outcome: "needs_team", problem: "it couldn't be added to the calendar" };
+  }
+
+  const deposit = { ...depositFor(q.movingDate, nowLocal.slice(0, 10), null), required: true, paid: true };
+  const emailed = await sendBookedNotices({ ...q, depositStatus: "paid" }, job.date, arrivalTime, q.bookingNotes ?? "", deposit, testMode, deps);
+  return { outcome: "confirmed", emailed, arrivalTime, date: job.date };
+}
+
+/** The deposit for a requested booking, with its payment link (made now if needed). */
+async function depositWithLink(q: StoredQuote, nowLocal: string, deps: BookingDeps): Promise<DepositInfo> {
+  const deposit = depositFor(q.movingDate, nowLocal.slice(0, 10), null);
+  if (q.depositStatus === "paid" || q.depositStatus === "processing") return { ...deposit, paid: q.depositStatus === "paid" };
+  if (!deposit.required) return deposit;
+  const now = (deps.now ?? (() => new Date()))();
+  const link = await depositCheckoutFor(q, deps.deposits, now);
+  return link ? { ...deposit, paymentLink: link, linkValidHours: DEPOSIT_LINK_HOURS } : deposit;
 }
 
 class AlreadyConfirmed extends Error {}

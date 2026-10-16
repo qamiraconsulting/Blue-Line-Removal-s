@@ -156,6 +156,8 @@ export interface ToolRecord {
   name: string;
   quoteReference?: string;
   quotedAmountAud?: number;
+  /** request_booking: the booking's deposit payment page, swapped in for [[deposit_link]]. */
+  paymentLink?: string;
   outcome: string;
 }
 
@@ -307,7 +309,12 @@ export function createToolRunner(deps: ChatToolDeps) {
       return {
         result: booking,
         isError: false,
-        record: { name, quoteReference: parsed.data.quoteReference, outcome: booking.ok ? `booking_${booking.status}` : `booking_${booking.reason}` },
+        record: {
+          name,
+          quoteReference: parsed.data.quoteReference,
+          ...(booking.ok && booking.deposit?.paymentLink ? { paymentLink: booking.deposit.paymentLink } : {}),
+          outcome: booking.ok ? `booking_${booking.status}` : `booking_${booking.reason}`,
+        },
       };
     }
 

@@ -26,11 +26,83 @@ export interface BookingEmailInput {
 /** What the customer is told about the deposit and paying the rest. Empty when no deposit applies. */
 export function depositLines(deposit: DepositInfo | undefined): string[] {
   if (!deposit?.required) return [];
+  if (deposit.paid) return [`Thanks -- we've received your ${formatAud(deposit.amountAud)} deposit.`, deposit.finalPayment];
   return [
     `To lock in your booking we take a ${formatAud(deposit.amountAud)} deposit before the move.`,
-    deposit.paymentLink ? `Pay it securely here: ${deposit.paymentLink}` : "We will send you a secure payment link for it shortly.",
+    deposit.paymentLink
+      ? `Pay it securely here, by card or straight from your bank account: ${deposit.paymentLink}`
+      : "We will send you a secure payment link for it shortly.",
+    ...(deposit.paymentLink
+      ? [`The link works for ${deposit.linkValidHours ?? 24} hours. As soon as it's paid we confirm your booking (if your arrival time is still free) and email you.`]
+      : []),
     deposit.finalPayment,
   ];
+}
+
+/** The team's one-line view of the deposit. */
+function teamDepositLine(deposit: DepositInfo): string {
+  const amount = formatAud(deposit.amountAud);
+  if (deposit.paid) return `DEPOSIT: ${amount} PAID (Stripe).`;
+  if (deposit.paymentLink) {
+    return `DEPOSIT: ${amount} required (move is ${deposit.daysUntilMove} days away) -- the customer was given a secure Stripe payment link. When it's paid the booking is confirmed automatically if the time is still free; you'll get an email either way.`;
+  }
+  return `DEPOSIT: ${amount} required (move is ${deposit.daysUntilMove} days away) -- NO PAYMENT LINK SET UP: please send the customer one. Check it is paid before confirming.`;
+}
+
+export interface DepositAlertInput {
+  name: string;
+  phone: string;
+  email: string;
+  reference: string;
+  dateLabel: string;
+  arrivalTime: string | null;
+  /** "card" / "payto" etc. */
+  method?: string | null;
+  testMode: boolean;
+}
+
+const alertBody = (input: DepositAlertInput, lines: string[]) =>
+  [
+    ...lines,
+    "",
+    `Name: ${input.name}`,
+    `Phone: ${input.phone}`,
+    `Email: ${input.email}`,
+    `Date: ${input.dateLabel || "not set"}`,
+    `Arrival time: ${input.arrivalTime ? formatArrivalTime(input.arrivalTime) : "not chosen"}`,
+    `Reference: ${input.reference}`,
+    ...(input.testMode ? ["", "(Stripe TEST payment -- no real money.)"] : []),
+  ].join("\n");
+
+const plain = (subject: string, text: string): EmailContent => ({
+  subject,
+  text,
+  html: `<pre style="font-family:Consolas,monospace;font-size:13px;white-space:pre-wrap">${esc(text)}</pre>`,
+});
+
+/** Internal: the deposit is paid but the booking couldn't be confirmed automatically. */
+export function renderDepositPaidTeamEmail(input: DepositAlertInput & { problem: string }): EmailContent {
+  return plain(
+    `${input.testMode ? "[TEST] " : ""}ACTION NEEDED -- deposit paid, booking not confirmed: ${input.name} (${input.reference})`,
+    alertBody(input, [
+      `The customer has PAID the ${formatAud(100)} deposit${input.method ? ` (${input.method})` : ""}, but the booking could not be confirmed automatically: ${input.problem}.`,
+      "",
+      "Please call the customer to agree a time and confirm it on the dashboard (Booking requests), or refund the deposit in Stripe (Payments -> find the reference -> Refund).",
+    ]),
+  );
+}
+
+/** Internal: the payment page expired unpaid, or the bank payment failed. */
+export function renderDepositNotPaidTeamEmail(input: DepositAlertInput & { why: "expired" | "failed" }): EmailContent {
+  const what = input.why === "expired" ? "the 24-hour payment link expired without payment" : "the bank (PayTo) payment didn't go through";
+  return plain(
+    `${input.testMode ? "[TEST] " : ""}Deposit not paid: ${input.name} (${input.reference})`,
+    alertBody(input, [
+      `Booking request ${input.reference}: ${what}. The booking is NOT confirmed.`,
+      "",
+      "Follow up with the customer. If they still want the date, they can ask for a new link in the chat (or you can confirm the booking yourself on the dashboard).",
+    ]),
+  );
 }
 
 /** "07:30" -> "7:30am". */
@@ -151,14 +223,11 @@ export function renderManualBookingEmail(input: {
 export function renderBookingTeamEmail(input: BookingEmailInput & { phone: string; email: string; testMode: boolean; autoConfirmed: boolean; capacityNote?: string | null; via?: string }): EmailContent {
   const where = input.via === "quote_form" ? "on the website form" : "in the chat";
   const text = [
-    `${input.testMode ? "[TEST MODE -- placeholder rate card] " : ""}${input.autoConfirmed ? `BOOKED -- confirmed instantly ${where} and added to the calendar` : `BOOKING REQUEST (${where}) -- please confirm with the customer`}`,
+    `${input.testMode ? "[TEST MODE -- placeholder rate card] " : ""}${input.autoConfirmed ? (input.deposit?.paid ? `BOOKED -- the deposit was paid, so it was confirmed automatically and added to the calendar` : `BOOKED -- confirmed instantly ${where} and added to the calendar`) : `BOOKING REQUEST (${where}) -- please confirm with the customer`}`,
     "",
     ...(input.capacityNote ? [`TRUCK: ${input.capacityNote}`, ""] : []),
     ...(input.deposit?.required
-      ? [
-          `DEPOSIT: ${formatAud(input.deposit.amountAud)} required (move is ${input.deposit.daysUntilMove} days away) -- ${input.deposit.paymentLink ? "the customer was given the payment link" : "NO PAYMENT LINK SET UP: please send the customer one"}. Check it is paid before confirming.`,
-          "",
-        ]
+      ? [teamDepositLine(input.deposit), ""]
       : []),
     `Name: ${input.name}`,
     `Phone: ${input.phone}`,
@@ -173,7 +242,7 @@ export function renderBookingTeamEmail(input: BookingEmailInput & { phone: strin
       : "Check it on the dashboard under Booking requests -- you can change the details or the amount (with a note to the customer) before confirming. The customer gets the PDF quote when you confirm.",
   ].join("\n");
   return {
-    subject: `${input.autoConfirmed ? "Booked" : "Booking request"}: ${input.name} -- ${input.details.dateLabel || "date tbc"} (${input.reference})`,
+    subject: `${input.autoConfirmed ? (input.deposit?.paid ? "Booked + deposit paid" : "Booked") : "Booking request"}: ${input.name} -- ${input.details.dateLabel || "date tbc"} (${input.reference})`,
     text,
     html: `<pre style="font-family:Consolas,monospace;font-size:13px;white-space:pre-wrap">${esc(text)}</pre>`,
   };

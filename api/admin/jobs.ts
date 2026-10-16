@@ -119,6 +119,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             r.source !== "team_form" &&
             (status === "booking_requested" || status === "booked") &&
             depositFor(r.movingDate, melbourne(r.bookingRequestedAt ?? r.createdAt), null).required,
+          // Stripe: awaiting_payment | processing | paid | failed | expired (null = no payment page yet)
+          depositStatus: r.depositStatus,
+          depositPaidAt: r.depositPaidAt,
+          depositPaymentMethod: r.depositPaymentMethod,
+          depositTestMode: r.depositTestMode,
         }));
 
       res.setHeader("Cache-Control", "no-store");
