@@ -284,6 +284,27 @@ export const openItems: OpenItem[] = [
     status: "internal",
   },
   {
+    id: "driver-details",
+    topic: "operations",
+    question: "Enter each driver's name, mobile and email under Bookings & capacity > Drivers, and give every truck its usual driver. Drivers are emailed the job (date, time, pick-up, drop-off, customer details) when a booking is confirmed.",
+    meanwhile: "A truck with no usual driver, or a driver with no email, means nobody is told; the dashboard says so next to the trip.",
+    status: "internal",
+  },
+  {
+    id: "deposit-paid-detection",
+    topic: "operations",
+    question: "Bookings 7+ days ahead are confirmed by the team once the $100 deposit is paid. To let the chat confirm them end to end, the payment provider (Stripe/Square) must tell the system when the deposit is paid (a webhook), which needs the account from deposit-payment-link.",
+    meanwhile: "Chat bookings with a deposit are always requests; Matt confirms them on the dashboard once the deposit has arrived.",
+    status: "internal",
+  },
+  {
+    id: "driver-sms",
+    topic: "operations",
+    question: "Driver and customer notices go by email. If SMS or WhatsApp is wanted as well, pick a provider (an Australian SMS service, or the WhatsApp Business Platform / Cloud API tier) and add drivers' mobile consent.",
+    meanwhile: "Email only.",
+    status: "internal",
+  },
+  {
     id: "past-customers",
     topic: "pricing",
     question:

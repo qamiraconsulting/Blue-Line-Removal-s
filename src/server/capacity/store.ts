@@ -1,7 +1,8 @@
 import { and, asc, eq, gte, lte, sql } from "drizzle-orm";
 import { getDb } from "../db/client.js";
+import { resolveDriver } from "../../lib/drivers.js";
 import { tripProblem, toMinutes, type TripProblem } from "../../lib/truckTrips.js";
-import { bookingSettings, bookings, dayOverrides, quotes, trucks } from "../db/schema.js";
+import { bookingSettings, bookings, dayOverrides, drivers, quotes, trucks } from "../db/schema.js";
 import type { CalendarBooking, CapacitySettings, CapacitySnapshot, CapacityTruck, DayOverride } from "./availability.js";
 
 // Database access for bookings & capacity (dashboard + chat). The chat only ever reads
@@ -106,13 +107,56 @@ export async function saveSettings(settings: CapacitySettings, updatedBy: string
 
 export const listTrucks = () => getDb().select().from(trucks).orderBy(asc(trucks.truckType), asc(trucks.label));
 
-export async function saveTruck(truck: { id?: string; label: string; truckType: string; active: boolean; notes?: string | null }) {
+export type SaveTruckResult = { ok: true; id: string; usualDriverChanged: boolean } | { ok: false; error: string };
+
+export async function saveTruck(truck: { id?: string; label: string; truckType: string; active: boolean; notes?: string | null; driverId?: string | null }): Promise<SaveTruckResult> {
   const db = getDb();
-  if (truck.id) {
-    await db.update(trucks).set({ label: truck.label, truckType: truck.truckType, active: truck.active, notes: truck.notes ?? null }).where(eq(trucks.id, truck.id));
-  } else {
-    await db.insert(trucks).values({ label: truck.label, truckType: truck.truckType, active: truck.active, notes: truck.notes ?? null });
+  const driverId = truck.driverId ?? null;
+  if (driverId) {
+    const [d] = await db.select().from(drivers).where(eq(drivers.id, driverId)).limit(1);
+    if (!d) return { ok: false, error: "That driver wasn't found." };
+    if (!d.active) return { ok: false, error: `${d.name} is marked inactive -- make them active first, or pick another driver.` };
   }
+  const fields = { label: truck.label, truckType: truck.truckType, active: truck.active, notes: truck.notes ?? null, driverId };
+  if (truck.id) {
+    const [before] = await db.select({ driverId: trucks.driverId }).from(trucks).where(eq(trucks.id, truck.id)).limit(1);
+    await db.update(trucks).set(fields).where(eq(trucks.id, truck.id));
+    return { ok: true, id: truck.id, usualDriverChanged: (before?.driverId ?? null) !== driverId };
+  }
+  const [row] = await db.insert(trucks).values(fields).returning({ id: trucks.id });
+  return { ok: true, id: row!.id, usualDriverChanged: driverId !== null };
+}
+
+/** Today's and later confirmed bookings on a truck -- they follow the truck's usual driver. */
+export async function upcomingBookingIdsForTruck(truckId: string, today: string): Promise<string[]> {
+  const rows = await getDb()
+    .select({ id: bookings.id })
+    .from(bookings)
+    .where(and(eq(bookings.truckId, truckId), gte(bookings.date, today), eq(bookings.status, "confirmed")));
+  return rows.map((r) => r.id);
+}
+
+export const listDrivers = () => getDb().select().from(drivers).orderBy(asc(drivers.name));
+
+export type SaveDriverResult = { ok: true; id: string } | { ok: false; error: string };
+
+export async function saveDriver(driver: { id?: string; name: string; phone: string | null; email: string | null; active: boolean; notes?: string | null }): Promise<SaveDriverResult> {
+  const db = getDb();
+  const fields = { name: driver.name, phone: driver.phone, email: driver.email, active: driver.active, notes: driver.notes ?? null };
+  // Two drivers with the same name would make "who is on this trip" ambiguous.
+  const all = await db.select({ id: drivers.id, name: drivers.name }).from(drivers);
+  const key = (n: string) => n.trim().toLowerCase().replace(/\s+/g, " ");
+  if (all.some((d) => d.id !== driver.id && key(d.name) === key(driver.name))) return { ok: false, error: `There's already a driver called ${driver.name}.` };
+  if (driver.id) {
+    if (!driver.active) {
+      const [onTruck] = await db.select({ label: trucks.label }).from(trucks).where(and(eq(trucks.driverId, driver.id), eq(trucks.active, true))).limit(1);
+      if (onTruck) return { ok: false, error: `${driver.name} is the usual driver of ${onTruck.label}. Give that truck another driver first, then make ${driver.name} inactive.` };
+    }
+    await db.update(drivers).set(fields).where(eq(drivers.id, driver.id));
+    return { ok: true, id: driver.id };
+  }
+  const [row] = await db.insert(drivers).values(fields).returning({ id: drivers.id });
+  return { ok: true, id: row!.id };
 }
 
 export const listOverrides = (from: string, to: string) =>
@@ -127,14 +171,33 @@ export async function saveOverride(o: { date: string; closed: boolean; moversAva
 
 export const deleteOverride = (date: string) => getDb().delete(dayOverrides).where(eq(dayOverrides.date, date));
 
-export const listBookings = (from: string, to: string) =>
-  getDb()
-    .select()
-    .from(bookings)
-    .where(and(gte(bookings.date, from), lte(bookings.date, to)))
-    .orderBy(asc(bookings.date), asc(bookings.arrivalTime));
+/**
+ * Bookings in a date range. driverName is whoever actually drives the trip (a cover driver, or
+ * else the truck's usual driver); driverId is only set when someone is covering that trip.
+ */
+export async function listBookings(from: string, to: string) {
+  const db = getDb();
+  const [rows, truckRows, driverRows] = await Promise.all([
+    db.select().from(bookings).where(and(gte(bookings.date, from), lte(bookings.date, to))).orderBy(asc(bookings.date), asc(bookings.arrivalTime)),
+    db.select({ id: trucks.id, driverId: trucks.driverId }).from(trucks),
+    db.select().from(drivers),
+  ]);
+  return rows.map(({ driverNotice, ...b }) => {
+    const who = resolveDriver(b, truckRows, driverRows);
+    return {
+      ...b,
+      driverName: who?.name ?? null,
+      driverCover: who?.isCover ?? false,
+      driverHasEmail: Boolean(who?.driver?.email),
+      driverNotifiedAt: driverNotice?.sentAt ?? null,
+    };
+  });
+}
 
-export const addBooking = (b: NewCalendarBooking) => getDb().insert(bookings).values(b);
+export const addBooking = async (b: NewCalendarBooking) => {
+  const [row] = await getDb().insert(bookings).values(b).returning({ id: bookings.id });
+  return row!.id;
+};
 
 export interface TripInput {
   id?: string;
@@ -143,7 +206,8 @@ export interface TripInput {
   start: string;
   end: string;
   movers: number;
-  driverName: string | null;
+  /** Someone covering this one trip. null = the truck's usual driver. */
+  driverId: string | null;
   customerName: string | null;
   phone: string | null;
   customerEmail: string | null;
@@ -152,7 +216,9 @@ export interface TripInput {
   notes: string | null;
 }
 
-export type SaveTripResult = { ok: true; id: string } | { ok: false; problem: TripProblem; truckName: string };
+export type SaveTripResult =
+  | { ok: true; id: string; created: boolean; rescheduled: boolean }
+  | { ok: false; problem: TripProblem; truckName: string };
 
 /**
  * Adds or edits a truck trip. Holds the same date lock as the chat's bookings, so the chat
@@ -170,12 +236,19 @@ export async function saveTrip(trip: TripInput, by: string): Promise<SaveTripRes
 
     const [truck] = await tx.select().from(trucks).where(eq(trucks.id, trip.truckId)).limit(1);
     if (!truck) throw new Error("Truck not found");
+    const [truckRows, driverRows] = await Promise.all([tx.select({ id: trucks.id, driverId: trucks.driverId }).from(trucks), tx.select().from(drivers)]);
+    // A cover driver is only stored when it isn't the truck's usual driver.
+    const coverId = trip.driverId && trip.driverId !== truck.driverId ? trip.driverId : null;
+    if (coverId && !driverRows.some((d) => d.id === coverId && d.active)) throw new Error("Driver not found");
+    const driverName = resolveDriver({ truckId: truck.id, driverId: coverId }, truckRows, driverRows)?.name ?? null;
     const [override] = await tx.select().from(dayOverrides).where(eq(dayOverrides.date, trip.date)).limit(1);
     const sameDay = await tx
-      .select({ id: bookings.id, truckId: bookings.truckId, date: bookings.date, arrivalTime: bookings.arrivalTime, estimatedMinutes: bookings.estimatedMinutes, status: bookings.status, driverName: bookings.driverName, customerName: bookings.customerName, quoteReference: bookings.quoteReference, notes: bookings.notes })
+      .select({ id: bookings.id, truckId: bookings.truckId, date: bookings.date, arrivalTime: bookings.arrivalTime, estimatedMinutes: bookings.estimatedMinutes, status: bookings.status, driverName: bookings.driverName, driverId: bookings.driverId, customerName: bookings.customerName, quoteReference: bookings.quoteReference, notes: bookings.notes })
       .from(bookings)
       .where(and(eq(bookings.date, trip.date), eq(bookings.status, "confirmed")));
-    const problem = tripProblem({ id: trip.id, truckId: trip.truckId, date: trip.date, start: trip.start, end: trip.end, driverName: trip.driverName }, sameDay, override?.trucksUnavailable ?? []);
+    // The same driver can't be on two overlapping trips, whether picked or the truck's usual driver.
+    const withDrivers = sameDay.map((b) => ({ ...b, driverName: resolveDriver(b, truckRows, driverRows)?.name ?? null }));
+    const problem = tripProblem({ id: trip.id, truckId: trip.truckId, date: trip.date, start: trip.start, end: trip.end, driverName }, withDrivers, override?.trucksUnavailable ?? []);
     if (problem) return { ok: false, problem, truckName: truck.label };
 
     const fields = {
@@ -185,7 +258,8 @@ export async function saveTrip(trip: TripInput, by: string): Promise<SaveTripRes
       truckId: truck.id,
       truckType: truck.truckType,
       movers: trip.movers,
-      driverName: trip.driverName,
+      driverId: coverId,
+      driverName: null, // an older typed name is replaced by the chosen driver
       customerName: trip.customerName,
       phone: trip.phone,
       customerEmail: trip.customerEmail,
@@ -198,13 +272,13 @@ export async function saveTrip(trip: TripInput, by: string): Promise<SaveTripRes
       if (before.quoteReference && (before.date !== trip.date || before.arrivalTime !== trip.start)) {
         await tx.update(quotes).set({ movingDate: trip.date, bookingArrivalTime: trip.start }).where(eq(quotes.reference, before.quoteReference));
       }
-      return { ok: true, id: before.id };
+      return { ok: true, id: before.id, created: false, rescheduled: before.date !== trip.date || before.arrivalTime !== trip.start };
     }
     const [row] = await tx
       .insert(bookings)
       .values({ ...fields, source: "other", status: "confirmed", createdBy: by })
       .returning({ id: bookings.id });
-    return { ok: true, id: row!.id };
+    return { ok: true, id: row!.id, created: true, rescheduled: false };
   });
 }
 

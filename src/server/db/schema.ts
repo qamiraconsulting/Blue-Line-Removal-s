@@ -4,6 +4,24 @@ import { pgTable, uuid, text, integer, boolean, timestamp, jsonb, date, index, u
 // project, which are never touched). Prices come only from src/server/quote -- nothing in
 // this schema stores a rate, a range or a call-out figure for a customer.
 
+/** What a driver was last told about a trip -- see src/server/notify/driverNotice.ts. */
+export interface DriverNoticeSnapshot {
+  driverId: string;
+  driverName: string;
+  driverEmail: string;
+  date: string;
+  arrivalTime: string;
+  estimatedMinutes: number;
+  truckLabel: string;
+  customerName: string | null;
+  phone: string | null;
+  customerEmail: string | null;
+  fromText: string | null;
+  toText: string | null;
+  notes: string | null;
+  sentAt: string;
+}
+
 export const conversations = pgTable("conversations", {
   id: uuid("id").primaryKey().defaultRandom(),
   startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
@@ -189,12 +207,25 @@ export const bookingSettings = pgTable("booking_settings", {
   updatedBy: text("updated_by"),
 });
 
+// The people who drive the trucks. Each truck has one usual driver (trucks.driver_id); the
+// driver is emailed the job's details whenever a booking on that truck is confirmed.
+export const drivers = pgTable("drivers", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
+  phone: text("phone"),
+  email: text("email"),
+  active: boolean("active").notNull().default(true),
+  notes: text("notes"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const trucks = pgTable("trucks", {
   id: uuid("id").primaryKey().defaultRandom(),
   label: text("label").notNull(), // e.g. "Truck 2 (ABC123)"
   truckType: text("truck_type").notNull(), // "4.5T" | "6-8T" | "10T"
   active: boolean("active").notNull().default(true),
   notes: text("notes"),
+  driverId: uuid("driver_id").references(() => drivers.id), // the truck's usual driver
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -223,7 +254,12 @@ export const bookings = pgTable(
     truckType: text("truck_type").notNull(),
     truckId: uuid("truck_id").references(() => trucks.id),
     movers: integer("movers").notNull(),
-    driverName: text("driver_name"), // who drives this trip (Truck trips tab)
+    // Who drives this trip. Both null = the truck's usual driver (the normal case). driver_id =
+    // someone else covering this one trip (sick/leave); driver_name alone = an older typed name.
+    driverName: text("driver_name"),
+    driverId: uuid("driver_id").references(() => drivers.id),
+    // What the driver was last emailed (so a change sends an update, not a duplicate).
+    driverNotice: jsonb("driver_notice").$type<DriverNoticeSnapshot>(),
     customerName: text("customer_name"),
     phone: text("phone"),
     customerEmail: text("customer_email"),

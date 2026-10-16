@@ -8,8 +8,9 @@ import { calendarSource } from "../quote/booking.js";
 import type { InternalBreakdown } from "../quote/calculateQuote.js";
 import { esc, firstName, shell } from "../quote/emails.js";
 import { truckIds, type RateCard } from "../quote/rateCard.js";
-import { customerRecipient, melbourneToday } from "../quote/service.js";
+import { customerRecipient, melbourneToday, type DriverNotifier } from "../quote/service.js";
 import { site } from "../../data/site.js";
+import type { DriverNoticeResult } from "../notify/driverNotice.js";
 import { linesFromEstimate, teamQuote, type QuoteLines } from "./lines.js";
 import { sendCustomerQuote, type SendQuoteDeps } from "./sendQuote.js";
 import { TEAM_ACTIONS, type JobStatus } from "./status.js";
@@ -49,6 +50,8 @@ export interface JobStore {
 export interface JobDeps extends SendQuoteDeps {
   jobs: JobStore;
   rateCard: RateCard;
+  /** Emails the truck's driver after the calendar changes (confirm, cancel). */
+  notifyDriver?: DriverNotifier;
   now?: () => Date;
 }
 
@@ -75,7 +78,7 @@ export const teamEditsSchema = z.object({
 export type TeamEdits = z.infer<typeof teamEditsSchema>;
 
 export type ActionResult =
-  | { ok: true; status: JobStatus; emailed: boolean; via: "pdf" | "email" | null; total?: number; capacityWarning?: string | null }
+  | { ok: true; status: JobStatus; emailed: boolean; via: "pdf" | "email" | null; total?: number; capacityWarning?: string | null; driverNotice?: DriverNoticeResult }
   | { ok: false; error: string; code: "not_found" | "not_allowed" | "invalid" | "details_needed" };
 
 const notFound: ActionResult = { ok: false, code: "not_found", error: "That job wasn't found." };
@@ -250,6 +253,7 @@ export async function confirmAction(
           movers: job.movers,
           customerName: q.customerName,
           phone: q.phone,
+          customerEmail: q.email,
           fromText: (patch.fromText !== undefined ? patch.fromText : q.fromText) ?? null,
           toText: (patch.toText !== undefined ? patch.toText : q.toText) ?? null,
           notes: q.bookingNotes,
@@ -277,7 +281,9 @@ export async function confirmAction(
   const sent = input.notifyCustomer
     ? await sendCustomerQuote(quoteJob(q, lines, { ...patch, movingDate: date }, "booked", deps.rateCard, { arrivalTime, validUntil: null }), deps)
     : { emailed: false, via: null };
-  return { ok: true, status: "booked", emailed: sent.emailed, via: sent.via, total: lines.total, capacityWarning: booked.capacityWarning };
+  // The truck's driver gets the job's details (never throws, never undoes the booking).
+  const driver = await deps.notifyDriver?.({ quoteReference: q.reference }).catch(() => undefined);
+  return { ok: true, status: "booked", emailed: sent.emailed, via: sent.via, total: lines.total, capacityWarning: booked.capacityWarning, driverNotice: driver };
 }
 
 /** Blue Line can't do it. Optionally tells the customer (a short, polite email). */
@@ -327,7 +333,9 @@ export async function cancelAction(input: { reference: string; reason: string; b
   });
   if (!ok) return notAllowed(q.jobStatus);
   await deps.jobs.cancelCalendar(q.reference);
-  return { ok: true, status: "cancelled", emailed: false, via: null };
+  // A driver who was told about the job is told it's off.
+  const driver = await deps.notifyDriver?.({ quoteReference: q.reference }).catch(() => undefined);
+  return { ok: true, status: "cancelled", emailed: false, via: null, driverNotice: driver };
 }
 
 /** The move is done: record what was actually charged on the day. */

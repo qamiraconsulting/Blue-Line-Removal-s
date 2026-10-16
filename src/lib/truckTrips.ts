@@ -47,7 +47,7 @@ export type TripProblem =
   | { kind: "driver_clash"; with: TripLike };
 
 const sameDriver = (a: string | null | undefined, b: string | null | undefined) =>
-  Boolean(a && b && a.trim().toLowerCase().replace(/s+/g, " ") === b.trim().toLowerCase().replace(/s+/g, " "));
+  Boolean(a && b && a.trim().toLowerCase().replace(/\s+/g, " ") === b.trim().toLowerCase().replace(/\s+/g, " "));
 
 /**
  * Why this trip can't be saved, or null. A truck can't be on two trips whose times overlap

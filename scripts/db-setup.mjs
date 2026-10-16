@@ -26,7 +26,7 @@ try {
 const checkOnly = process.argv.includes("--check");
 const expectedDb = process.env.BLR_DB_NAME || "blr_chatbot";
 const url = process.env.DATABASE_URL_UNPOOLED || process.env.DATABASE_URL;
-const ours = new Set(["conversations", "messages", "leads", "quotes", "distance_cache", "booking_settings", "trucks", "day_overrides", "bookings"]);
+const ours = new Set(["conversations", "messages", "leads", "quotes", "distance_cache", "booking_settings", "trucks", "day_overrides", "bookings", "drivers"]);
 
 function fail(message) {
   console.error(`\n  STOPPED: ${message}\n`);

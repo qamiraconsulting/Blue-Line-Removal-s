@@ -223,6 +223,22 @@ describe("the team's other actions", () => {
     expect(r).toMatchObject({ ok: true, lines: { total: 720 }, patch: { movingDate: "2026-10-23", toText: "Carlton", quotedAmountAud: 720 } });
   });
 
+  it("tells the truck's driver when the team confirms a booking, and again if it is cancelled", async () => {
+    const told: unknown[] = [];
+    const notifyDriver = async (target: unknown) => (told.push(target), { status: "unchanged" as const });
+    const { deps } = setup(jobRow());
+    await confirmAction({ reference: "BLR-20261015-ABC123", edits: {}, notifyCustomer: false, by: "x" }, { ...deps, notifyDriver });
+    await cancelAction({ reference: "BLR-20261015-ABC123", reason: "Customer changed plans", by: "x" }, { ...deps, notifyDriver });
+    expect(told).toEqual([{ quoteReference: "BLR-20261015-ABC123" }, { quoteReference: "BLR-20261015-ABC123" }]);
+  });
+
+  it("a driver email that fails never stops the team confirming", async () => {
+    const { deps, row } = setup(jobRow());
+    const out = await confirmAction({ reference: "BLR-20261015-ABC123", edits: {}, notifyCustomer: false, by: "x" }, { ...deps, notifyDriver: async () => Promise.reject(new Error("down")) });
+    expect(out).toMatchObject({ ok: true, status: "booked" });
+    expect(row()!.jobStatus).toBe("booked");
+  });
+
   it("reject (with an optional note to the customer), cancel, complete", async () => {
     const r = setup(jobRow());
     expect(await rejectAction({ reference: "BLR-20261015-ABC123", reason: "Outside our area", messageToCustomer: "Sorry, that's outside the area we cover.", by: "x" }, r.deps)).toMatchObject({ ok: true, status: "rejected", emailed: true });

@@ -18,6 +18,7 @@ import {
   type JobDeps,
 } from "../../src/server/jobs/actions.js";
 import { summarise } from "../../src/server/jobs/overview.js";
+import { driverNoticeLine } from "../../src/server/notify/driverNotice.js";
 import { channelOf, effectiveStatus, OPEN_STATUSES, TEAM_ACTIONS } from "../../src/server/jobs/status.js";
 import { buildQuoteDeps } from "../../src/server/quote/deps.js";
 import { depositFor } from "../../src/server/quote/deposit.js";
@@ -170,7 +171,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       res.status(result.code === "not_found" ? 404 : result.code === "not_allowed" ? 409 : 400).json({ error: result.error });
       return;
     }
-    res.status(200).json(result);
+    res.status(200).json({ ...result, driverMessage: driverNoticeLine(result.driverNotice) });
   } catch (err) {
     console.error("Admin jobs failed:", err instanceof Error ? err.message : "unknown error");
     res.status(502).json({ error: "Couldn't do that just now. Please try again." });

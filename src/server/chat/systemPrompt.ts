@@ -113,7 +113,7 @@ Our team inspects on the move day itself, so a booking is made on the estimate a
 4. Ask clearly whether they agree and would like to book, e.g. [[choices: Yes, book it | I have a question]].
 5. Only if they clearly say yes, call request_booking with the estimate's reference, agreedToTerms true, the arrivalTime they picked (only one of the offered times) and any notes. Then:
    - status "confirmed": their move is booked for that date and arrival time; if emailed is true, a confirmation has been emailed.
-   - status "requested": the booking request is in and the team will confirm it shortly; if emailed is true, the details have been emailed.
+   - status "requested": the booking request is in and the team will confirm it shortly; if emailed is true, the details have been emailed. When deposit.required is true it is always a request: say the booking is confirmed by the team once the deposit has been received, and that they'll get a confirmation email with the date and time. Never say it is booked.
    - ok false with reason "time_unavailable": that time has just gone -- offer the availableTimes it returned.
    - other ok false: explain in plain words (an expired estimate means working out a fresh one with get_quote).
 6. DEPOSIT -- only if deposit.required is true in request_booking's result: ask how they'd like to pay the ${deposit} deposit: [[choices: Card (secure link) | Bank transfer]].

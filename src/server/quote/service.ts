@@ -22,6 +22,9 @@ import type { QuoteApiResult } from "../../lib/quoteContract.js";
 import { moverCounts, truckIds, type RateCard } from "./rateCard.js";
 import type { NewQuoteRow, QuoteStore } from "./store.js";
 import type { PdfSender } from "../jobs/pdfQuote.js";
+import type { DriverNoticeResult, NoticeTarget } from "../notify/driverNotice.js";
+
+export type DriverNotifier = (target: NoticeTarget) => Promise<DriverNoticeResult>;
 
 // Ties the quote form to the engine: validate -> distances -> price -> store -> email.
 // Everything external (Google, the database, email, the clock) is injected, so the whole
@@ -80,7 +83,7 @@ export type QuoteRequest = z.infer<typeof quoteRequestSchema>;
 export interface OutgoingEmail extends EmailContent {
   to: string;
   replyTo?: string;
-  kind: "customer" | "team";
+  kind: "customer" | "team" | "driver";
 }
 
 export interface QuoteServiceDeps {
@@ -103,6 +106,11 @@ export interface QuoteServiceDeps {
   pdf?: PdfSender;
   /** The secure payment link for the booking deposit (src/server/quote/deposit.ts). Unset = the team sends one. */
   depositPaymentUrl?: string | null;
+  /**
+   * Emails the driver of a booking's truck after the calendar changes (a confirmed booking, a
+   * move, a cancellation). Never throws. Unset = nobody is told (tests, no database).
+   */
+  notifyDriver?: DriverNotifier;
   now?: () => Date;
   makeReference?: (now: Date) => string;
   log?: (message: string, meta?: Record<string, unknown>) => void;

@@ -7,7 +7,8 @@ import { box, button, Field, input, SectionHeader, useCapacity, type Booking, ty
 // "Truck trips": which truck goes out when, who drives it and who the customer is. A trip is
 // a booking in the same calendar the chat reads (Bookings & capacity), so assigning, editing
 // or cancelling one changes what the chat offers straight away. The same truck -- or the
-// same driver -- can't be on two trips at overlapping times.
+// same driver -- can't be on two trips at overlapping times. Each truck's usual driver is set
+// on Bookings & capacity; they are emailed the job when it is confirmed, and again if it changes.
 
 const DAY_START = "06:00";
 const DAY_END = "20:00";
@@ -20,7 +21,8 @@ interface TripForm {
   start: string;
   end: string;
   movers: string;
-  driverName: string;
+  /** "" = the truck's usual driver; otherwise someone covering this one trip. */
+  driverId: string;
   customerName: string;
   phone: string;
   customerEmail: string;
@@ -53,12 +55,12 @@ export default function TruckTrips() {
         data={data}
         busy={busy}
         onDay={(tripDay) => changeRange({ tripDay })}
-        onSave={(trip) => post({ action: "saveTrip", trip }, trip.id ? "Trip updated." : "Trip added.")}
+        onSave={(trip, notifyCustomer) => post({ action: "saveTrip", trip, notifyCustomer }, trip.id ? "Trip updated." : "Trip added.")}
         onCancel={(b) =>
           window.confirm(
             b.quoteReference
-              ? `This trip is the booking for ${b.customerName ?? b.quoteReference}. Cancelling it cancels their booking too (the customer isn't emailed -- let them know yourself). To only change the truck, driver or times, use Edit instead.`
-              : "Cancel this trip? The truck shows as Available again.",
+              ? `This trip is the booking for ${b.customerName ?? b.quoteReference}. Cancelling it cancels their booking too and tells the driver it's off (the customer isn't emailed -- let them know yourself). To only change the truck, driver or times, use Edit instead.`
+              : "Cancel this trip? The truck shows as Available again and its driver is told the job is off.",
           )
             ? post({ action: "cancelBooking", id: b.id }, b.quoteReference ? "Booking cancelled." : "Trip cancelled.")
             : Promise.resolve(null)
@@ -72,7 +74,7 @@ function TripsDay(props: {
   data: CapacityData;
   busy: boolean;
   onDay: (date: string) => void;
-  onSave: (trip: Record<string, unknown> & { id?: string }) => Promise<string | null>;
+  onSave: (trip: Record<string, unknown> & { id?: string }, notifyCustomer: boolean) => Promise<string | null>;
   onCancel: (b: Booking) => Promise<string | null>;
 }) {
   const { data } = props;
@@ -83,7 +85,7 @@ function TripsDay(props: {
     start: "",
     end: "",
     movers: "2",
-    driverName: "",
+    driverId: "",
     customerName: "",
     phone: "",
     customerEmail: "",
@@ -93,6 +95,7 @@ function TripsDay(props: {
   });
   const [f, setF] = useState<TripForm>(blank());
   const [serverError, setServerError] = useState<string | null>(null);
+  const [notifyCustomer, setNotifyCustomer] = useState(true);
   // A new trip goes on the day being shown.
   useEffect(() => setF((x) => (x.id ? x : { ...x, date: day })), [day]);
 
@@ -102,8 +105,11 @@ function TripsDay(props: {
   const isToday = day === data.today;
   const confirmed = data.dayTrips.filter((b) => b.status === "confirmed");
   const needTruck = confirmed.filter((b) => !b.truckId);
-  const drivers = [...new Set([...data.bookings, ...data.dayTrips].map((b) => b.driverName?.trim()).filter((d): d is string => Boolean(d)))].sort();
-  const byDriver = drivers
+  const driverNames = [...new Set([...data.bookings, ...data.dayTrips].map((b) => b.driverName?.trim()).filter((d): d is string => Boolean(d)))].sort();
+  // Who drives the chosen truck unless someone covers: its usual driver.
+  const usualDriver = data.drivers.find((d) => d.id === data.trucks.find((t) => t.id === f.truckId)?.driverId);
+  const chosenDriver = data.drivers.find((d) => d.id === f.driverId) ?? usualDriver;
+  const byDriver = driverNames
     .map((d) => ({ driver: d, trips: confirmed.filter((b) => b.driverName?.trim() === d).sort((a, b) => a.arrivalTime.localeCompare(b.arrivalTime)) }))
     .filter((x) => x.trips.length > 0);
   const noDriver = confirmed.filter((b) => b.truckId && !b.driverName?.trim());
@@ -112,7 +118,7 @@ function TripsDay(props: {
   const timesTyped = /^\d{2}:\d{2}$/.test(f.start) && /^\d{2}:\d{2}$/.test(f.end);
   const problem =
     f.truckId && timesTyped && f.date === day
-      ? tripProblem({ id: f.id, truckId: f.truckId, date: f.date, start: f.start, end: f.end, driverName: f.driverName }, data.dayTrips, off)
+      ? tripProblem({ id: f.id, truckId: f.truckId, date: f.date, start: f.start, end: f.end, driverName: chosenDriver?.name ?? null }, data.dayTrips, off)
       : null;
   const emailOk = looksLikeEmail(f.customerEmail);
   const ready = Boolean(f.truckId && f.date && timesTyped && Number(f.movers) > 0 && !problem && emailOk);
@@ -132,7 +138,7 @@ function TripsDay(props: {
       start: b.arrivalTime,
       end: tripEnd(b),
       movers: String(b.movers),
-      driverName: b.driverName ?? "",
+      driverId: b.driverId ?? "",
       customerName: b.customerName ?? "",
       phone: b.phone ?? "",
       customerEmail: b.customerEmail ?? "",
@@ -145,21 +151,24 @@ function TripsDay(props: {
 
   async function save() {
     const text = (v: string) => v.trim() || null;
-    const error = await props.onSave({
+    const error = await props.onSave(
+      {
       ...(f.id ? { id: f.id } : {}),
       truckId: f.truckId,
       date: f.date,
       start: f.start,
       end: f.end,
       movers: Number(f.movers),
-      driverName: text(f.driverName),
+      driverId: f.driverId || null,
       customerName: text(f.customerName),
       phone: text(f.phone),
       customerEmail: text(f.customerEmail),
       fromText: text(f.fromText),
       toText: text(f.toText),
       notes: text(f.notes),
-    });
+      },
+      notifyCustomer && Boolean(text(f.customerEmail)),
+    );
     setServerError(error);
     if (!error) setF(blank(f.date));
   }
@@ -283,7 +292,7 @@ function TripsDay(props: {
             ))}
             {noDriver.length > 0 && (
               <li className="text-amber-700">
-                <strong>No driver yet</strong>: {noDriver.map((b) => `${time12(b.arrivalTime)} ${truckName(b.truckId)}`).join(" · ")} -- use Edit to add one.
+                <strong>No driver yet</strong>: {noDriver.map((b) => `${time12(b.arrivalTime)} ${truckName(b.truckId)}`).join(" · ")} -- give the truck a usual driver on Bookings &amp; capacity, or use Edit to pick one for the trip.
               </li>
             )}
           </ul>
@@ -312,13 +321,18 @@ function TripsDay(props: {
               ))}
             </select>
           </Field>
-          <Field label="Driver" hint="Who drives this trip. Pick a name or type a new one.">
-            <input className={input} list="trip-drivers" value={f.driverName} onChange={set("driverName")} placeholder="e.g. Sam" />
-            <datalist id="trip-drivers">
-              {drivers.map((d) => (
-                <option key={d} value={d} />
-              ))}
-            </datalist>
+          <Field label="Driver" hint="The truck's usual driver, unless someone is covering this trip.">
+            <select className={input} value={f.driverId} onChange={set("driverId")}>
+              <option value="">{!f.truckId ? "usual driver of the truck" : usualDriver ? `${usualDriver.name} (usual driver)` : "no usual driver set"}</option>
+              {data.drivers
+                .filter((d) => d.active && d.id !== usualDriver?.id)
+                .map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name} (covering)
+                  </option>
+                ))}
+            </select>
+            {f.truckId && chosenDriver && !chosenDriver.email && <span className="mt-1 block text-xs font-bold text-amber-700">{chosenDriver.name} has no email -- add one on Bookings &amp; capacity so they get the job.</span>}
           </Field>
           <Field label="Movers" hint="Crew on this trip, driver included.">
             <input type="number" min={1} className={clsx(input, "w-20")} value={f.movers} onChange={set("movers")} />
@@ -365,7 +379,7 @@ function TripsDay(props: {
           <button type="button" disabled={props.busy || !ready} className={button} onClick={() => void save()}>
             {f.id ? "Save changes" : "Assign truck"}
           </button>
-          {(f.id || f.truckId || f.start || f.end || f.driverName || f.customerName) && (
+          {(f.id || f.truckId || f.start || f.end || f.driverId || f.customerName) && (
             <button
               type="button"
               className="text-xs font-bold text-slate-600 underline"
@@ -378,7 +392,13 @@ function TripsDay(props: {
             </button>
           )}
         </div>
-        <p className="mt-2 text-xs text-slate-500">Truck, date, start and end time are required. The same truck or driver can&apos;t be on two trips at overlapping times.</p>
+        <label className="mt-3 flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={notifyCustomer} onChange={(e) => setNotifyCustomer(e.target.checked)} />
+          {f.id ? "Email the customer if the date or time changed" : "Email the customer a booking confirmation"} (when their email is entered)
+        </label>
+        <p className="mt-2 text-xs text-slate-500">
+          Truck, date, start and end time are required. The same truck or driver can&apos;t be on two trips at overlapping times. The driver is emailed the job when you save, and again if you change it.
+        </p>
       </section>
     </>
   );
@@ -394,7 +414,15 @@ function TripRow({ trip, busy, onEdit, onCancel }: { trip: Booking; busy: boolea
         <span>
           {time12(trip.arrivalTime)} - {time12(tripEnd(trip))}
         </span>
-        <span className={clsx(trip.driverName ? "text-slate-700" : "text-amber-700")}>· driver: {trip.driverName || "not set"}</span>
+        <span className={clsx(trip.driverName ? "text-slate-700" : "text-amber-700")}>
+          · driver: {trip.driverName || "not set"}
+          {trip.driverCover && " (covering)"}
+        </span>
+        {trip.driverName && (
+          <span className={clsx("text-xs", trip.driverNotifiedAt ? "text-green-700" : "text-amber-700")}>
+            {trip.driverNotifiedAt ? "emailed" : trip.driverHasEmail ? "not emailed yet" : "no email on file -- not told"}
+          </span>
+        )}
         <button type="button" disabled={busy} className="text-xs font-bold text-navy underline" onClick={() => onEdit(trip)}>
           Edit
         </button>

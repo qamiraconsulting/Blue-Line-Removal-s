@@ -74,7 +74,7 @@ export function JobCard({ job, onChanged }: { job: Job; onChanged: (message: str
       const out = await res.json();
       if (!res.ok) throw new Error(out.error ?? "That didn't work");
       setOpen(null);
-      onChanged(done + (out.emailed ? " The customer was emailed." : ""));
+      onChanged(done + (out.emailed ? " The customer was emailed." : "") + (out.driverMessage ? ` ${out.driverMessage}` : ""));
     } catch (err) {
       setError(err instanceof Error ? err.message : "That didn't work");
     } finally {

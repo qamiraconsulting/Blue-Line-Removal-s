@@ -17,7 +17,7 @@ import type { InternalBreakdown, PropertySizeId } from "./calculateQuote.js";
 import { formatDateLabel, type QuoteDetails } from "./emails.js";
 import { depositFor, type DepositInfo } from "./deposit.js";
 import type { RateCard } from "./rateCard.js";
-import { customerRecipient, melbourneToday, SIZE_LABEL, type OutgoingEmail } from "./service.js";
+import { customerRecipient, melbourneToday, SIZE_LABEL, type DriverNotifier, type OutgoingEmail } from "./service.js";
 
 // Booking on an estimate -- from the chat or the website form. The team inspects on the move
 // day itself, so the customer books on the estimate and the final charges are confirmed on the
@@ -90,6 +90,8 @@ export interface BookingDeps {
   pdf?: PdfSender;
   /** Secure payment link for the booking deposit; unset = the team sends one. */
   depositPaymentUrl?: string | null;
+  /** Emails the truck's driver once the booking is on the calendar. */
+  notifyDriver?: DriverNotifier;
   now?: () => Date;
 }
 
@@ -188,6 +190,7 @@ function calendarRow(q: StoredQuote, job: JobRequest, arrivalTime: string, truck
     movers: job.movers,
     customerName: q.customerName,
     phone: q.phone,
+    customerEmail: q.email,
     fromText: q.fromText,
     toText: q.toText,
     notes,
@@ -232,7 +235,8 @@ export async function availabilityForQuote(input: { reference: string } & Bookin
     onlineBookingOpen: result.dayOpen,
     why: result.dayOpen ? undefined : DAY_CLOSED_WORDS[result.dayReason ?? "not_set_up"],
     availableTimes: result.slots.filter((s) => s.available).map((s) => s.time),
-    instantTimes: result.dayOpen && result.instantConfirm ? result.slots.filter((s) => s.available && !s.substituteTruckType).map((s) => s.time) : [],
+    // A booking with a deposit is never confirmed on the spot: the team confirms once it's paid.
+    instantTimes: result.dayOpen && result.instantConfirm && !depositFor(job.date, nowLocal.slice(0, 10), null).required ? result.slots.filter((s) => s.available && !s.substituteTruckType).map((s) => s.time) : [],
     deposit: depositFor(job.date, nowLocal.slice(0, 10), deps.depositPaymentUrl),
   };
 }
@@ -274,7 +278,8 @@ export async function requestBooking(
 
       // Instant confirmation: re-checked under the date lock so the last truck can't go twice.
       // Never when it would go on a different truck -- the team decides those.
-      if (check.instantConfirm && !testMode && !slot.substituteTruckType) {
+      // Not when a deposit is due (a move 7+ days away): the team confirms once it's paid.
+      if (check.instantConfirm && !testMode && !slot.substituteTruckType && !deposit.required) {
         const booked = await deps.bookings.confirm(
           q.reference,
           job.date,
@@ -314,6 +319,8 @@ export async function requestBooking(
               deps,
             ),
           ]);
+          // The truck's driver gets the job's details (never throws, never undoes the booking).
+          await deps.notifyDriver?.({ quoteReference: q.reference }).catch(() => undefined);
           return { ok: true, status: "confirmed", reference: q.reference, emailed: customer.emailed, arrivalTime, deposit };
         }
         // Someone took that time a moment ago.

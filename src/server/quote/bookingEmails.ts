@@ -1,6 +1,6 @@
 import { site } from "../../data/site.js";
 import type { DepositInfo } from "./deposit.js";
-import { esc, firstName, formatAud, NAVY, ORANGE, shell, type EmailContent, type QuoteDetails } from "./emails.js";
+import { esc, firstName, formatAud, formatDateLabel, NAVY, ORANGE, shell, type EmailContent, type QuoteDetails } from "./emails.js";
 
 // Booking emails. The inspection happens on the move day itself, so a booking is made on the
 // estimate and the final charges are confirmed on the day (Ayesha, 2026-10-12). The customer
@@ -104,6 +104,47 @@ export function renderBookingRequestEmail(input: BookingEmailInput): EmailConten
 /** To the customer, when the team confirms the booking from the dashboard. */
 export function renderBookingConfirmedEmail(input: BookingEmailInput): EmailContent {
   return customerEmail(input, `Your move is booked (ref ${input.reference})`, "Good news -- your move is booked.", "See you on the day!");
+}
+
+/**
+ * To the customer, when the team books (or moves) a job from the calendar -- a phone booking,
+ * or a trip set up on Truck trips. Just the date, time and addresses: no price (the team gave
+ * it on the phone), no terms.
+ */
+export function renderManualBookingEmail(input: {
+  name: string | null;
+  kind: "confirmed" | "rescheduled";
+  date: string;
+  arrivalTime: string;
+  from?: string | null;
+  to?: string | null;
+  reference?: string | null;
+}): EmailContent {
+  const rows = ([
+    ["Date", formatDateLabel(input.date)],
+    ["Arrival time", formatArrivalTime(input.arrivalTime)],
+    ["From", input.from ?? ""],
+    ["To", input.to ?? ""],
+    ["Reference", input.reference ?? ""],
+  ] as [string, string][]).filter(([, v]) => Boolean(v));
+  const greeting = input.name ? `Hi ${firstName(input.name)},` : "Hi,";
+  const opening = input.kind === "confirmed" ? "Your move with us is booked. Here are the details:" : "Your booking has been updated. Here are the new details:";
+  const closing = "Our team will confirm the final charges with you on the day, before we start. If anything needs to change, just call us.";
+  const text = [greeting, "", opening, "", ...rows.map(([k, v]) => `${k}: ${v}`), "", closing, `Call us on ${site.phone.display}.`, "", site.name].join("\n");
+  const table = rows
+    .map(([k, v]) => `<tr><td style="padding:3px 14px 3px 0;color:#5b6b7c">${esc(k)}</td><td style="padding:3px 0"><strong>${esc(v)}</strong></td></tr>`)
+    .join("");
+  const html = shell(`
+<p style="margin:0 0 14px">${esc(greeting)}</p>
+<p style="margin:0 0 14px;color:${NAVY}">${esc(opening)}</p>
+<table style="border-collapse:collapse;margin:0 0 14px;font-size:14px">${table}</table>
+<p style="margin:0 0 14px">${esc(closing)}</p>
+<p style="margin:0">Call us on <a href="${esc(site.phone.href)}" style="color:${ORANGE};font-weight:bold">${esc(site.phone.display)}</a>.</p>`);
+  return {
+    subject: input.kind === "confirmed" ? `Your move is booked: ${formatDateLabel(input.date)}, ${formatArrivalTime(input.arrivalTime)}` : `Your booking has been updated: ${formatDateLabel(input.date)}, ${formatArrivalTime(input.arrivalTime)}`,
+    text,
+    html,
+  };
 }
 
 /** Internal: a customer agreed to the terms (chat or website form) and asked to book. */

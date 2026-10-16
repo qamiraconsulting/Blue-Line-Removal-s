@@ -24,6 +24,16 @@ export interface Truck {
   truckType: string;
   active: boolean;
   notes: string | null;
+  /** The truck's usual driver. */
+  driverId: string | null;
+}
+export interface Driver {
+  id?: string;
+  name: string;
+  phone: string | null;
+  email: string | null;
+  active: boolean;
+  notes: string | null;
 }
 export interface Override {
   date: string;
@@ -43,7 +53,14 @@ export interface Booking {
   truckType: string;
   truckId: string | null;
   movers: number;
+  /** Whoever actually drives it: a cover driver, or else the truck's usual driver. */
   driverName: string | null;
+  /** Only set when someone other than the usual driver is covering this trip. */
+  driverId: string | null;
+  driverCover: boolean;
+  driverHasEmail: boolean;
+  /** When the driver was last emailed about it. */
+  driverNotifiedAt: string | null;
   customerName: string | null;
   phone: string | null;
   customerEmail: string | null;
@@ -59,6 +76,7 @@ export interface CapacityData {
   tripDay: string;
   settings: Settings;
   trucks: Truck[];
+  drivers: Driver[];
   overrides: Override[];
   bookings: Booking[];
   dayTrips: Booking[];
@@ -122,7 +140,10 @@ export function useCapacity() {
       const res = await adminFetch("/api/admin/capacity", { method: "POST", body: JSON.stringify(body) });
       const out = await res.json();
       if (!res.ok) throw new Error(out.error ?? "Couldn't save");
-      setMessage({ text: out.capacityWarning ? `${done} -- note: the calendar didn't show room (${out.capacityWarning.replace(/_/g, " ")}).` : done });
+      const base = out.capacityWarning ? `${done} -- note: the calendar didn't show room (${out.capacityWarning.replace(/_/g, " ")}).` : done;
+      // What was emailed (or couldn't be): "Driver emailed the job. Customer emailed."
+      const notices: string[] = Array.isArray(out.notices) ? out.notices : [];
+      setMessage({ text: [base, ...notices].join(" "), error: notices.some((n) => n.includes("NOT")) });
       await load();
       return null;
     } catch (err) {
