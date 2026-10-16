@@ -17,5 +17,6 @@ export default [
     route("admin/overview", "pages/admin/Overview.tsx"),
     route("admin/conversations/:id", "pages/admin/ConversationDetail.tsx"),
     route("admin/capacity", "pages/admin/Capacity.tsx"),
+    route("admin/trips", "pages/admin/TruckTrips.tsx"),
   ]),
 ] satisfies RouteConfig;

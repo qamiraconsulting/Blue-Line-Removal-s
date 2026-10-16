@@ -143,7 +143,12 @@ export interface TripInput {
   start: string;
   end: string;
   movers: number;
+  driverName: string | null;
   customerName: string | null;
+  phone: string | null;
+  customerEmail: string | null;
+  fromText: string | null;
+  toText: string | null;
   notes: string | null;
 }
 
@@ -167,10 +172,10 @@ export async function saveTrip(trip: TripInput, by: string): Promise<SaveTripRes
     if (!truck) throw new Error("Truck not found");
     const [override] = await tx.select().from(dayOverrides).where(eq(dayOverrides.date, trip.date)).limit(1);
     const sameDay = await tx
-      .select({ id: bookings.id, truckId: bookings.truckId, date: bookings.date, arrivalTime: bookings.arrivalTime, estimatedMinutes: bookings.estimatedMinutes, status: bookings.status, customerName: bookings.customerName, quoteReference: bookings.quoteReference, notes: bookings.notes })
+      .select({ id: bookings.id, truckId: bookings.truckId, date: bookings.date, arrivalTime: bookings.arrivalTime, estimatedMinutes: bookings.estimatedMinutes, status: bookings.status, driverName: bookings.driverName, customerName: bookings.customerName, quoteReference: bookings.quoteReference, notes: bookings.notes })
       .from(bookings)
       .where(and(eq(bookings.date, trip.date), eq(bookings.status, "confirmed")));
-    const problem = tripProblem({ id: trip.id, truckId: trip.truckId, date: trip.date, start: trip.start, end: trip.end }, sameDay, override?.trucksUnavailable ?? []);
+    const problem = tripProblem({ id: trip.id, truckId: trip.truckId, date: trip.date, start: trip.start, end: trip.end, driverName: trip.driverName }, sameDay, override?.trucksUnavailable ?? []);
     if (problem) return { ok: false, problem, truckName: truck.label };
 
     const fields = {
@@ -180,7 +185,12 @@ export async function saveTrip(trip: TripInput, by: string): Promise<SaveTripRes
       truckId: truck.id,
       truckType: truck.truckType,
       movers: trip.movers,
+      driverName: trip.driverName,
       customerName: trip.customerName,
+      phone: trip.phone,
+      customerEmail: trip.customerEmail,
+      fromText: trip.fromText,
+      toText: trip.toText,
       notes: trip.notes,
     };
     if (before) {

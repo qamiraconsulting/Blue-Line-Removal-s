@@ -223,8 +223,10 @@ export const bookings = pgTable(
     truckType: text("truck_type").notNull(),
     truckId: uuid("truck_id").references(() => trucks.id),
     movers: integer("movers").notNull(),
+    driverName: text("driver_name"), // who drives this trip (Truck trips tab)
     customerName: text("customer_name"),
     phone: text("phone"),
+    customerEmail: text("customer_email"),
     fromText: text("from_text"),
     toText: text("to_text"),
     notes: text("notes"),

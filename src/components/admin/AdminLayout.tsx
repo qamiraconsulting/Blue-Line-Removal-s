@@ -57,6 +57,7 @@ export default function AdminLayout() {
                   ["/admin/overview", "Overview"],
                   ["/admin", "Lead review"],
                   ["/admin/capacity", "Bookings & capacity"],
+                  ["/admin/trips", "Truck trips"],
                 ].map(([to, label]) => (
                   <NavLink key={to} to={to!} end className={({ isActive }) => (isActive ? "font-bold text-action" : "text-slate-600 hover:text-navy")}>
                     {label}

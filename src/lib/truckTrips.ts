@@ -9,6 +9,7 @@ export interface TripLike {
   arrivalTime: string; // "HH:MM"
   estimatedMinutes: number;
   status: string; // "confirmed" | "cancelled"
+  driverName?: string | null;
   customerName?: string | null;
   quoteReference?: string | null;
   notes?: string | null;
@@ -20,6 +21,7 @@ export interface TripDraft {
   date: string;
   start: string; // "HH:MM"
   end: string; // "HH:MM"
+  driverName?: string | null;
 }
 
 export const toMinutes = (hhmm: string) => {
@@ -41,12 +43,16 @@ export const tripEnd = (t: Pick<TripLike, "arrivalTime" | "estimatedMinutes">) =
 export type TripProblem =
   | { kind: "bad_times" }
   | { kind: "truck_off" }
-  | { kind: "clash"; with: TripLike };
+  | { kind: "clash"; with: TripLike }
+  | { kind: "driver_clash"; with: TripLike };
+
+const sameDriver = (a: string | null | undefined, b: string | null | undefined) =>
+  Boolean(a && b && a.trim().toLowerCase().replace(/s+/g, " ") === b.trim().toLowerCase().replace(/s+/g, " "));
 
 /**
  * Why this trip can't be saved, or null. A truck can't be on two trips whose times overlap
  * on the same day (back-to-back is fine: 8-11 then 11-2), and can't go out on a day it's
- * marked off.
+ * marked off. Nor can the same driver (matched by name) drive two overlapping trips.
  */
 export function tripProblem(draft: TripDraft, existing: TripLike[], trucksOffThatDay: string[] = []): TripProblem | null {
   if (!/^\d{2}:\d{2}$/.test(draft.start) || !/^\d{2}:\d{2}$/.test(draft.end) || toMinutes(draft.end) <= toMinutes(draft.start)) {
@@ -55,19 +61,24 @@ export function tripProblem(draft: TripDraft, existing: TripLike[], trucksOffTha
   if (trucksOffThatDay.includes(draft.truckId)) return { kind: "truck_off" };
   const start = toMinutes(draft.start);
   const end = toMinutes(draft.end);
-  const clash = existing.find((t) => {
-    if (t.status !== "confirmed" || t.truckId !== draft.truckId || t.date !== draft.date || (draft.id && t.id === draft.id)) return false;
+  const overlapping = existing.filter((t) => {
+    if (t.status !== "confirmed" || t.date !== draft.date || (draft.id && t.id === draft.id)) return false;
     const s = toMinutes(t.arrivalTime);
     return s < end && start < s + t.estimatedMinutes;
   });
-  return clash ? { kind: "clash", with: clash } : null;
+  const clash = overlapping.find((t) => t.truckId === draft.truckId);
+  if (clash) return { kind: "clash", with: clash };
+  const driverClash = overlapping.find((t) => sameDriver(t.driverName, draft.driverName));
+  return driverClash ? { kind: "driver_clash", with: driverClash } : null;
 }
 
 export function describeProblem(p: TripProblem, truckName: string): string {
   if (p.kind === "bad_times") return "The end time must be after the start time, on the same day.";
   if (p.kind === "truck_off") return `${truckName} is marked off that day (Days off & changes).`;
   const who = p.with.customerName || p.with.quoteReference || p.with.notes || "another trip";
-  return `${truckName} is already Assigned / Engaged ${time12(p.with.arrivalTime)} - ${time12(tripEnd(p.with))} (${who}). Pick another truck or time.`;
+  const when = `${time12(p.with.arrivalTime)} - ${time12(tripEnd(p.with))}`;
+  if (p.kind === "driver_clash") return `${p.with.driverName!.trim()} is already driving a trip ${when} (${who}). Pick another driver or time.`;
+  return `${truckName} is already Assigned / Engaged ${when} (${who}). Pick another truck or time.`;
 }
 
 export interface Segment {

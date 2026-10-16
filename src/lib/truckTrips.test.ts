@@ -54,6 +54,26 @@ describe("tripProblem -- no double-booking", () => {
   });
 });
 
+describe("tripProblem -- one driver, one trip at a time", () => {
+  const sam = trip({ driverName: "Sam" });
+  it("refuses the same driver on two overlapping trips, even on another truck (name match ignores case and spaces)", () => {
+    const p = tripProblem({ ...draft("09:00", "10:00", { truckId: "big-red" }), driverName: "  sam " }, [sam]);
+    expect(p).toMatchObject({ kind: "driver_clash", with: { id: "t1" } });
+    expect(describeProblem(p!, "Big Red")).toBe("Sam is already driving a trip 8:00 AM - 11:00 AM (Jasmine). Pick another driver or time.");
+  });
+
+  it("allows the same driver back-to-back, a different driver, or no driver", () => {
+    expect(tripProblem({ ...draft("11:00", "13:00", { truckId: "big-red" }), driverName: "Sam" }, [sam])).toBeNull();
+    expect(tripProblem({ ...draft("09:00", "10:00", { truckId: "big-red" }), driverName: "Alex" }, [sam])).toBeNull();
+    expect(tripProblem({ ...draft("09:00", "10:00", { truckId: "big-red" }), driverName: null }, [sam])).toBeNull();
+    expect(tripProblem({ ...draft("09:00", "10:00", { truckId: "big-red" }), driverName: "" }, [trip({ driverName: "" })])).toBeNull();
+  });
+
+  it("a truck clash is reported first", () => {
+    expect(tripProblem({ ...draft("09:00", "10:00"), driverName: "Sam" }, [sam])).toMatchObject({ kind: "clash" });
+  });
+});
+
 describe("truckDay -- Assigned / Engaged vs Available", () => {
   it("shows the trip as engaged and the rest of the day as available", () => {
     const segs = truckDay("baby-blue", [trip(), trip({ id: "t2", arrivalTime: "13:00", estimatedMinutes: 120 })], "2026-10-20");
