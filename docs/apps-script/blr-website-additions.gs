@@ -212,3 +212,44 @@ function testWebsiteQuote() {
   var res = doPost({ postData: { contents: JSON.stringify(sample) } });
   Logger.log(res.getContent());
 }
+
+/** Run once from the editor to approve 'Connect to an external service' (needed by sendRowToWebsite_). */
+function authorizeWebsiteCalls() {
+  var res = UrlFetchApp.fetch(PropertiesService.getScriptProperties().getProperty('BLR_INTAKE_URL'), { method: 'get', muteHttpExceptions: true });
+  Logger.log('Website reachable: HTTP %s', res.getResponseCode());
+}
+
+/** One-off: re-send the latest Google Form row to the website (no quote email). Run from the editor. */
+function resendLastRowToWebsite() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var responsesSheet = ss.getSheetByName(CONFIG.RESPONSES_SHEET);
+  var calcSheet = ss.getSheetByName(CONFIG.CALC_SHEET);
+  var row = responsesSheet.getLastRow();
+  var data = readRowByHeader_(responsesSheet, row);
+  var calc = readRowByHeader_(calcSheet, row);
+  var tz = ss.getSpreadsheetTimeZone();
+  var money = function (v) { return Number(v || 0).toFixed(2); };
+  var values = {
+    CustomerName: getVal_(data, 'Customer Name') || '',
+    Email: getVal_(data, 'Email') || '',
+    Contact: getVal_(data, 'Contact No') || '',
+    Pickup: getVal_(data, 'Pick-up') || '',
+    Delivery: getVal_(data, 'Delivery Address') || '',
+    Services: getVal_(data, 'Services Requested') || 'Standard Move',
+    Crew: getVal_(data, 'Crew') || '',
+    BookingStatus: getVal_(data, 'Booking Status') || 'Not Confirmed',
+    BookingNo: getVal_(calc, 'Booking No') || '\u2014',
+    StairFlights: getVal_(data, 'Stair Flights') || '0',
+    Hours: getVal_(data, 'Est. hours') || '',
+    RateHr: money(getVal_(data, 'Rate')),
+    Labour: money(getVal_(calc, 'Labour Amount')),
+    CallOut: money(getVal_(calc, 'Call-Out Fee')),
+    Packing: money(getVal_(calc, 'Packing Materials')),
+    Stair: money(getVal_(calc, 'Stair Carry')),
+    Subtotal: money(getVal_(calc, 'Subtotal')),
+    GST: money(getVal_(calc, 'GST')),
+    Total: money(getVal_(calc, 'Estimated Total'))
+  };
+  Logger.log('Re-sending row %s (%s) to the website', row, values.BookingNo);
+  sendRowToWebsite_(data, values, getVal_(data, 'Requested date'), tz);
+}
