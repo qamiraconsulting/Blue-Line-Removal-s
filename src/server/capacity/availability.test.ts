@@ -123,3 +123,32 @@ describe("checkAvailability", () => {
     expect(checkAvailability(job, snap({ settings: { ...settings, autoConfirmMaxAud: null } })).instantConfirm).toBe(true);
   });
 });
+
+describe("truck trips (Bookings & capacity > Truck trips) as the chat sees them", () => {
+  // Two 6-8T trucks: "Baby Blue" (bb) and "Big Red" (br). A trip is a calendar booking with a named truck.
+  const two = (bookings: CapacitySnapshot["bookings"]) =>
+    snap({
+      trucks: [
+        { id: "bb", truckType: "6-8T", active: true },
+        { id: "br", truckType: "6-8T", active: true },
+      ],
+      bookings,
+    });
+  const tripOn = (truckId: string, arrivalTime: string, estimatedMinutes: number) => ({ arrivalTime, estimatedMinutes, truckType: "6-8T", truckId, movers: 2 });
+
+  it("a trip on one truck sends the chat's job to the other truck", () => {
+    const out = checkAvailability(job, two([tripOn("bb", "08:00", 180)]));
+    expect(out.slots.find((s) => s.time === "07:30")).toEqual({ time: "07:30", available: true, truckId: "br" });
+  });
+
+  it("with both trucks on trips, the chat doesn't offer that time", () => {
+    const out = checkAvailability(job, two([tripOn("bb", "08:00", 180), tripOn("br", "07:00", 240)]));
+    expect(out.slots.find((s) => s.time === "07:30")).toMatchObject({ available: false, reason: "no_truck" });
+  });
+
+  it("once a trip is cancelled (no longer in the calendar), the time is offered again", () => {
+    // loadCapacity only reads confirmed bookings, so a cancelled trip simply isn't in the snapshot
+    const out = checkAvailability(job, two([tripOn("br", "07:00", 240)]));
+    expect(out.slots.find((s) => s.time === "07:30")).toEqual({ time: "07:30", available: true, truckId: "bb" });
+  });
+});

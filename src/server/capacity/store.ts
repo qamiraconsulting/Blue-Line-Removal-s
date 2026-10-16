@@ -1,6 +1,7 @@
 import { and, asc, eq, gte, lte, sql } from "drizzle-orm";
 import { getDb } from "../db/client.js";
-import { bookingSettings, bookings, dayOverrides, trucks } from "../db/schema.js";
+import { tripProblem, toMinutes, type TripProblem } from "../../lib/truckTrips.js";
+import { bookingSettings, bookings, dayOverrides, quotes, trucks } from "../db/schema.js";
 import type { CalendarBooking, CapacitySettings, CapacitySnapshot, CapacityTruck, DayOverride } from "./availability.js";
 
 // Database access for bookings & capacity (dashboard + chat). The chat only ever reads
@@ -134,6 +135,68 @@ export const listBookings = (from: string, to: string) =>
     .orderBy(asc(bookings.date), asc(bookings.arrivalTime));
 
 export const addBooking = (b: NewCalendarBooking) => getDb().insert(bookings).values(b);
+
+export interface TripInput {
+  id?: string;
+  truckId: string;
+  date: string;
+  start: string;
+  end: string;
+  movers: number;
+  customerName: string | null;
+  notes: string | null;
+}
+
+export type SaveTripResult = { ok: true; id: string } | { ok: false; problem: TripProblem; truckName: string };
+
+/**
+ * Adds or edits a truck trip. Holds the same date lock as the chat's bookings, so the chat
+ * and the team can't put the same truck out twice at the same moment. Editing a trip that
+ * belongs to a customer's job also moves the job's date and arrival time.
+ */
+export async function saveTrip(trip: TripInput, by: string): Promise<SaveTripResult> {
+  return getDb().transaction(async (tx) => {
+    const [before] = trip.id ? await tx.select().from(bookings).where(eq(bookings.id, trip.id)).limit(1) : [];
+    if (trip.id && !before) throw new Error("Trip not found");
+    // Lock the new date, and the old one when the trip moves day.
+    for (const d of [...new Set([trip.date, before?.date].filter(Boolean) as string[])].sort()) {
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`blr-booking-${d}`}))`);
+    }
+
+    const [truck] = await tx.select().from(trucks).where(eq(trucks.id, trip.truckId)).limit(1);
+    if (!truck) throw new Error("Truck not found");
+    const [override] = await tx.select().from(dayOverrides).where(eq(dayOverrides.date, trip.date)).limit(1);
+    const sameDay = await tx
+      .select({ id: bookings.id, truckId: bookings.truckId, date: bookings.date, arrivalTime: bookings.arrivalTime, estimatedMinutes: bookings.estimatedMinutes, status: bookings.status, customerName: bookings.customerName, quoteReference: bookings.quoteReference, notes: bookings.notes })
+      .from(bookings)
+      .where(and(eq(bookings.date, trip.date), eq(bookings.status, "confirmed")));
+    const problem = tripProblem({ id: trip.id, truckId: trip.truckId, date: trip.date, start: trip.start, end: trip.end }, sameDay, override?.trucksUnavailable ?? []);
+    if (problem) return { ok: false, problem, truckName: truck.label };
+
+    const fields = {
+      date: trip.date,
+      arrivalTime: trip.start,
+      estimatedMinutes: toMinutes(trip.end) - toMinutes(trip.start),
+      truckId: truck.id,
+      truckType: truck.truckType,
+      movers: trip.movers,
+      customerName: trip.customerName,
+      notes: trip.notes,
+    };
+    if (before) {
+      await tx.update(bookings).set(fields).where(eq(bookings.id, before.id));
+      if (before.quoteReference && (before.date !== trip.date || before.arrivalTime !== trip.start)) {
+        await tx.update(quotes).set({ movingDate: trip.date, bookingArrivalTime: trip.start }).where(eq(quotes.reference, before.quoteReference));
+      }
+      return { ok: true, id: before.id };
+    }
+    const [row] = await tx
+      .insert(bookings)
+      .values({ ...fields, source: "other", status: "confirmed", createdBy: by })
+      .returning({ id: bookings.id });
+    return { ok: true, id: row!.id };
+  });
+}
 
 export const cancelBooking = (id: string) =>
   getDb().update(bookings).set({ status: "cancelled", cancelledAt: new Date() }).where(eq(bookings.id, id));

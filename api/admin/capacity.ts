@@ -14,10 +14,12 @@ import {
   melbourneNowLocal,
   saveOverride,
   saveSettings,
+  saveTrip,
   saveTruck,
 } from "../../src/server/capacity/store.js";
 import { getDb } from "../../src/server/db/client.js";
 import { bookings, quotes } from "../../src/server/db/schema.js";
+import { describeProblem } from "../../src/lib/truckTrips.js";
 import { truckIds } from "../../src/server/quote/rateCard.js";
 import { guardAdmin } from "../../src/server/services/adminAuth.js";
 
@@ -25,6 +27,7 @@ import { guardAdmin } from "../../src/server/services/adminAuth.js";
 // offer free arrival times and (only when switched on) confirm bookings instantly. One
 // function for every action (Vercel's Hobby plan allows 12 per deployment).
 //   GET  ?from=YYYY-MM-DD&to=YYYY-MM-DD  -> settings, trucks, day changes, bookings
+//        &tripDay=YYYY-MM-DD             -> plus that day's calendar (the Truck trips view)
 //   POST { action, ... }                 -> save / add / cancel
 
 const time = z.string().regex(/^\d{2}:\d{2}$/);
@@ -85,6 +88,19 @@ const actionSchema = z.discriminatedUnion("action", [
     }),
   }),
   z.object({ action: z.literal("cancelBooking"), id: z.string().uuid() }),
+  z.object({
+    action: z.literal("saveTrip"),
+    trip: z.object({
+      id: z.string().uuid().optional(),
+      truckId: z.string().uuid(),
+      date: day,
+      start: time,
+      end: time,
+      movers: z.number().int().min(1).max(20),
+      customerName: z.string().trim().max(200).nullable(),
+      notes: z.string().trim().max(500).nullable(),
+    }),
+  }),
 ]);
 
 const addDays = (iso: string, n: number) => {
@@ -106,13 +122,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const today = melbourneNowLocal(new Date()).slice(0, 10);
       const from = typeof req.query.from === "string" && day.safeParse(req.query.from).success ? req.query.from : today;
       const to = typeof req.query.to === "string" && day.safeParse(req.query.to).success ? req.query.to : addDays(from, 30);
-      const [settings, truckRows, overrides, calendar] = await Promise.all([
+      const tripDay = typeof req.query.tripDay === "string" && day.safeParse(req.query.tripDay).success ? req.query.tripDay : today;
+      const [settings, truckRows, overrides, calendar, dayTrips] = await Promise.all([
         loadSettings(),
         listTrucks(),
         listOverrides(today, addDays(today, 366)),
         listBookings(from, to),
+        listBookings(tripDay, tripDay),
       ]);
-      res.status(200).json({ today, from, to, settings, trucks: truckRows, overrides, bookings: calendar });
+      res.status(200).json({ today, nowTime: melbourneNowLocal(new Date()).slice(11), from, to, settings, trucks: truckRows, overrides, bookings: calendar, tripDay, dayTrips });
       return;
     }
 
@@ -151,6 +169,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const slot = check.slots[0];
         await addBooking({ ...b, truckId: b.truckId ?? slot?.truckId ?? null, status: "confirmed", createdBy: admin.userId });
         res.status(200).json({ ok: true, capacityWarning: !check.dayOpen ? check.dayReason : slot?.available ? null : (slot?.reason ?? null) });
+        return;
+      }
+      case "saveTrip": {
+        const saved = await saveTrip(body.trip, admin.userId);
+        if (!saved.ok) {
+          res.status(409).json({ error: describeProblem(saved.problem, saved.truckName) });
+          return;
+        }
+        res.status(200).json({ ok: true, id: saved.id });
         return;
       }
       case "cancelBooking": {
