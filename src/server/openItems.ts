@@ -286,9 +286,10 @@ export const openItems: OpenItem[] = [
   {
     id: "past-customers",
     topic: "pricing",
-    question: "The 10% first-customer discount is automatic: anyone without a booked or completed job in the database gets it. Import Matt's past jobs (Google Sheet) so returning customers from before 16 Oct are recognised.",
-    meanwhile: "Customers who only booked before the Google Form was connected (16 Oct) are treated as new.",
-    status: "internal",
+    question:
+      "Matt's 9 real customers (sheet rows 27 Sep - 7 Oct) were imported on 16 Oct. The sheet has all 9 as 'Not Confirmed', so they're stored as quotes and still count as first-time customers. Did any of them actually move with Blue Line? Those get marked completed.",
+    meanwhile: "The 9 show as past quotes (lost); none blocks the 10% first-customer discount.",
+    status: "to_ask",
   },
   {
     id: "gtm-chat-events",

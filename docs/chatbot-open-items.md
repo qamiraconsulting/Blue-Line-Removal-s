@@ -54,7 +54,7 @@ the "Meanwhile" column says: it never guesses.
 | `quote-form-fields` | Form: home size + optional truck (4.5T/6-8T/10T) + 2-4 movers + inspect + access notes; new Property Size options (awaited from Ayesha) | Form sends home size + optional notes; result says "estimate" |
 | `hourly-rate-disclosure` | The PDF quote shows rate x hours (15 Oct). Should the chat also answer hourly-rate questions? | PDF shows the breakdown; the chat never states a rate |
 | `deposit-payment-link` | Set up a secure payment link for the $100 deposit; Vercel DEPOSIT_PAYMENT_URL | Team sends a link (flagged in the team email) |
-| `past-customers` | Import Matt's past jobs so returning customers from before 16 Oct don't get the 10% first-customer discount | Pre-16 Oct customers treated as new |
+| `past-customers` | Matt's 9 real customers imported 16 Oct, all 'Not Confirmed' in his sheet: did any actually move with Blue Line? (Those get marked completed.) | Stored as past quotes; still get the 10% first-customer discount |
 | `gtm-chat-events` | Add GTM triggers / GA4 events for chat_opened, chat_started, chat_estimate_shown, chat_handoff | Events pushed to the dataLayer, not yet recorded |
 | `sending-domain` | Verify bluelineremovals.com.au in Resend (DNS via Namecheap) | Sends from the verified address |
 | `truck-gps` | Idea, parked: use truck GPS (e.g. for travel or same-day slots) | Not used |

@@ -128,6 +128,8 @@ function addDays(isoDate: string, days: number): string {
 export function normalisePhone(phone: string): string {
   let digits = phone.replace(/\D/g, "");
   if (digits.startsWith("61")) digits = `0${digits.slice(2)}`;
+  // Google Sheets stores a mobile as a number and drops its leading 0 (412 345 678).
+  if (/^4\d{8}$/.test(digits)) digits = `0${digits}`;
   return digits;
 }
 

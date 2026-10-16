@@ -313,4 +313,9 @@ describe("normalisePhone", () => {
     expect(normalisePhone("0412 345 678")).toBe("0412345678");
     expect(normalisePhone("(03) 9494 1070")).toBe("0394941070");
   });
+
+  it("puts back the leading 0 a spreadsheet drops from a mobile", () => {
+    expect(normalisePhone("412789775")).toBe("0412789775");
+    expect(normalisePhone("61477325794")).toBe("0477325794");
+  });
 });
