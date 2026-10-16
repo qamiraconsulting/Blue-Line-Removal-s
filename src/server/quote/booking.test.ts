@@ -141,7 +141,7 @@ describe("booking request (team confirms) -- the default until capacity is set u
 describe("instant confirmation (switched on by the team, everything set up)", () => {
   it("offers the free arrival times and says they'd be confirmed on the spot", async () => {
     const out = await availabilityForQuote({ reference: "BLR-20261012-ABC123", conversationId: "conv-1" }, setup(quote(), READY).deps);
-    expect(out).toEqual({ ok: true, date: "2026-10-21", onlineBookingOpen: true, availableTimes: ["07:30", "12:00"], instantTimes: ["07:30", "12:00"] });
+    expect(out).toMatchObject({ ok: true, date: "2026-10-21", onlineBookingOpen: true, availableTimes: ["07:30", "12:00"], instantTimes: ["07:30", "12:00"] });
   });
 
   it("books it, adds it to the calendar with the truck, and emails 'your move is booked'", async () => {
@@ -219,5 +219,38 @@ describe("the website form books with the token that came back with its estimate
     const customer = sent.find((e) => e.kind === "customer")!;
     expect(customer.to).toBe("tester@example.com");
     expect(customer.subject.startsWith("[TEST] ")).toBe(true);
+  });
+});
+
+describe("the $100 deposit (a week or more ahead)", () => {
+  // NOW is Mon 12 Oct; the quote's move is Wed 21 Oct -- 9 days away.
+  it("a booking 7+ days ahead needs the deposit: told in the result, the customer email and the team email", async () => {
+    const { deps, sent } = setup(quote());
+    const out = await ask({ ...deps, depositPaymentUrl: "https://pay.example.com/blr-deposit" } as typeof deps);
+    expect(out).toMatchObject({ ok: true, status: "requested", deposit: { required: true, amountAud: 100, daysUntilMove: 9, paymentLink: "https://pay.example.com/blr-deposit" } });
+    const customer = sent.find((e) => e.kind === "customer")!;
+    expect(customer.text).toContain("To lock in your booking we take a $100 deposit before the move.");
+    expect(customer.text).toContain("Pay it securely here: https://pay.example.com/blr-deposit");
+    expect(customer.text).toContain("card, bank transfer or cash");
+    expect(sent.find((e) => e.kind === "team")!.text).toContain("DEPOSIT: $100 required (move is 9 days away)");
+  });
+
+  it("without a payment link set up, the customer is told one is coming and the team is told to send it", async () => {
+    const { deps, sent } = setup(quote());
+    await ask(deps);
+    expect(sent.find((e) => e.kind === "customer")!.text).toContain("We will send you a secure payment link");
+    expect(sent.find((e) => e.kind === "team")!.text).toContain("NO PAYMENT LINK SET UP");
+  });
+
+  it("a move less than a week away takes no deposit", async () => {
+    const { deps, sent } = setup(quote({ movingDate: "2026-10-16" })); // 4 days away
+    expect(await ask(deps)).toMatchObject({ ok: true, deposit: { required: false, daysUntilMove: 4 } });
+    expect(sent.find((e) => e.kind === "customer")!.text).not.toContain("deposit");
+    expect(sent.find((e) => e.kind === "team")!.text).not.toContain("DEPOSIT");
+  });
+
+  it("check_availability says up front whether the deposit applies", async () => {
+    const out = await availabilityForQuote({ reference: "BLR-20261012-ABC123", conversationId: "conv-1" }, setup(quote()).deps);
+    expect(out).toMatchObject({ ok: true, deposit: { required: true, amountAud: 100 } });
   });
 });

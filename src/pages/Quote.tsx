@@ -48,7 +48,6 @@ export function Quote() {
       date: data.get("date"),
       propertySize: data.get("propertySize"),
       notes: data.get("notes"),
-      firstMove: data.get("firstMove") === "on",
     };
 
     try {
@@ -153,13 +152,6 @@ export function Quote() {
                       />
                     </div>
                   </div>
-
-                  <label className="flex cursor-pointer items-start gap-3 rounded-md border border-ink/15 bg-white px-3.5 py-3 text-sm text-ink">
-                    <input type="checkbox" name="firstMove" className="mt-0.5 h-4 w-4 shrink-0 accent-action" />
-                    <span>
-                      <span className="font-bold text-navy">First time with Blue Line?</span> Tick to apply your 10% first-move offer.
-                    </span>
-                  </label>
 
                   <Button type="submit" arrow disabled={submitting} className="mt-1 w-full justify-center">
                     {submitting ? "Sending…" : "Get My Free Quote"}

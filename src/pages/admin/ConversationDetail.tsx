@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { splitChoices } from "@/lib/chatChoices";
 import { useParams } from "react-router";
 import clsx from "clsx";
 import { useAdminApi } from "./useAdminApi";
@@ -117,7 +118,7 @@ export default function ConversationDetail() {
             <p className="mb-0.5 text-[10px] uppercase tracking-wide opacity-60">
               {m.role === "human_agent" ? "You" : m.role}
             </p>
-            {m.content}
+            {splitChoices(m.content).text}{splitChoices(m.content).choices.length > 0 && <span className="mt-1 block text-xs text-slate-400">Buttons shown: {splitChoices(m.content).choices.join(" · ")}</span>}
           </div>
         ))}
       </div>

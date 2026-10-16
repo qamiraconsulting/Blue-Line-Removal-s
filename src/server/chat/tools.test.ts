@@ -18,7 +18,7 @@ function setup(quoteDepsOverride?: Partial<QuoteServiceDeps> | null) {
   const sent: OutgoingEmail[] = [];
   const leadCalls: Array<[string, LeadPatch]> = [];
   const store: QuoteStore = {
-    hasDiscountedQuote: async () => false,
+    isReturningCustomer: async () => true, // standard price in these tests
     recentQuoteCount: async () => 0,
     saveQuote: async (row) => void rows.push(row),
     markCustomerEmailSent: async () => {},
@@ -61,7 +61,10 @@ const quoteInput = {
   to: "Brunswick",
   date: "2026-10-14",
   propertySize: "2_bed",
-  firstMove: false,
+  moveType: "home",
+  pickupStairFlights: 0,
+  dropoffStairFlights: 0,
+  longCarry: false,
   specialItems: false,
   accessNotes: "",
 };
@@ -269,17 +272,26 @@ describe("tool and prompt wording", () => {
     expect(chatTools.map((t) => t.name)).toEqual(["get_quote", "request_personal_quote", "check_availability", "request_booking", "request_human_followup"]);
   });
 
-  it("the prompt states today's Melbourne date and the flat-price rules, and quotes no dollar figures itself", () => {
+  it("the prompt states today's Melbourne date and the flat-price rules, and quotes no figure but the deposit", () => {
     const prompt = buildSystemPrompt(new Date("2026-10-06T15:30:00Z"), fixtureRateCard); // already 7 Oct in Melbourne
     expect(prompt).toContain("2026-10-07");
     expect(prompt).toContain("Always call it an estimate");
-    // pick the path first; personal-quote jobs never get the estimate questionnaire
-    expect(prompt).toContain("FIRST, PICK THE PATH");
-    expect(prompt).toContain("Never ask path A questions (home size, truck, crew, specialist items, access, first order) on path B");
+    // the move type comes first, from buttons, and each type gets only its own questions
+    expect(prompt).toContain("FIRST, THE MOVE TYPE");
+    expect(prompt).toContain("Home, Apartment, Office, Storage, Warehouse, Junk Removal, Other");
+    expect(prompt).toContain("[[choices:");
     expect(prompt).toContain("Never ask for something the customer has already told you");
     expect(prompt).toContain(ESTIMATE_DISCLAIMER);
-    expect(prompt).toContain("10% off");
+    // the first-customer discount is worked out, never asked
+    expect(prompt).toContain("Never ask whether this is their first move with us");
+    expect(prompt).toContain("10% first-move discount has been applied");
+    // apartments and parking over 100 m
+    expect(prompt).toContain("within 100 metres");
+    expect(prompt).toContain("extra apartment charges may apply");
+    // the deposit, and paying the rest
+    expect(prompt).toContain("To lock in your booking we take a $100 deposit before the move.");
+    expect(prompt).toContain("card, bank transfer or cash");
     expect(prompt).toContain("4.5 tonne truck, 6-8 tonne truck, 10 tonne truck");
-    expect(prompt).not.toMatch(/\$\d/);
+    expect([...prompt.matchAll(/\$(\d+)/g)].every((m) => m[1] === "100")).toBe(true);
   });
 });

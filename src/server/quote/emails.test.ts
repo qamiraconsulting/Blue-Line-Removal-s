@@ -92,7 +92,7 @@ describe("acknowledgement and team emails", () => {
       outcomeLine: "PRICED $780",
       internalBreakdown: { crewRateAudPerHour: 145 },
     });
-    expect(team.text).toContain("requested, NOT applied");
+    expect(team.text).toContain("not applied (booked with us before)");
     expect(team.text).toContain("crewRateAudPerHour");
     expect(team.subject).toContain("Jane Smith");
   });

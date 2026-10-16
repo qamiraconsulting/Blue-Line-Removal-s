@@ -63,8 +63,14 @@ export const quoteRequestSchema = z.object({
   propertySize: z.string().trim().max(100).optional().default(""),
   // Stairs, parking distance, heavy items -- free text, passed to the team with the quote.
   accessNotes: z.string().trim().max(1000).optional().default(""),
+  // Priced access (chat, 2026-10-16): flights of stairs carried (no lift) at each end, and a
+  // long carry when the truck can't park within 100 m of the door.
+  pickupStairFlights: z.coerce.number().int().min(0).max(30).optional().default(0),
+  dropoffStairFlights: z.coerce.number().int().min(0).max(30).optional().default(0),
+  longCarry: z.boolean().optional().default(false),
   // The website form's optional "Additional notes" box.
   notes: z.string().trim().max(1000).optional().default(""),
+  // Ignored: the first-customer discount is now worked out from the database (see below).
   firstMove: z.boolean().optional().default(false),
   specialItems: z.boolean().optional().default(false),
 });
@@ -95,6 +101,8 @@ export interface QuoteServiceDeps {
   testEmailTo?: string | null;
   /** Makes and emails the branded PDF quote (Apps Script). Unset = plain email instead. */
   pdf?: PdfSender;
+  /** The secure payment link for the booking deposit (src/server/quote/deposit.ts). Unset = the team sends one. */
+  depositPaymentUrl?: string | null;
   now?: () => Date;
   makeReference?: (now: Date) => string;
   log?: (message: string, meta?: Record<string, unknown>) => void;
@@ -160,6 +168,8 @@ export const personalQuoteReasons = [
   "specialist_item",
   "junk_removal",
   "office_move",
+  "storage",
+  "warehouse",
   "outside_melbourne",
   "urgent_or_timed",
   "packing",
@@ -204,13 +214,17 @@ export async function handleQuoteRequest(
   const movingDate = usableDate(req.date, today);
   const propertySize: PropertySizeId | null = req.propertySize ? (SIZE_BY_TEXT[req.propertySize.toLowerCase()] ?? "unsure") : null;
 
-  // First-move offer: once per email/phone. If we can't check, we can't honour it.
+  // First-customer offer (Ayesha, 2026-10-16): nobody is asked any more -- anyone whose email
+  // and phone have no earlier booked or completed job with Blue Line gets it automatically.
+  // Estimates alone don't count, so asking twice doesn't lose it. If we can't check, we can't
+  // honour it.
   let firstMoveEligible = false;
-  if (req.firstMove && deps.store) {
+  const canCheckCustomer = Boolean(deps.store);
+  if (deps.store) {
     try {
-      firstMoveEligible = !(await deps.store.hasDiscountedQuote(emailNormalised, phoneNormalised));
+      firstMoveEligible = !(await deps.store.isReturningCustomer(emailNormalised, phoneNormalised));
     } catch (err) {
-      log("first-move check failed", { err: String(err) });
+      log("first-customer check failed", { err: String(err) });
     }
   }
 
@@ -231,10 +245,11 @@ export async function handleQuoteRequest(
     truck: req.truck ?? null,
     movers: req.movers ?? null,
     movingDate,
-    firstMoveRequested: req.firstMove,
+    firstMoveRequested: canCheckCustomer,
     firstMoveEligible,
-    // Access is free text for now (req.accessNotes) -- read by the team, not auto-priced.
-    access: { pickupStairFlights: 0, dropoffStairFlights: 0, longCarry: false, heavyItems: 0 },
+    // Stairs and a long carry are priced from the rate card; heavy items stay in the free-text
+    // access notes for the team.
+    access: { pickupStairFlights: req.pickupStairFlights, dropoffStairFlights: req.dropoffStairFlights, longCarry: req.longCarry, heavyItems: 0 },
     specialItems: req.specialItems,
     depotToPickup,
     pickupToDropoff,
@@ -274,7 +289,7 @@ export async function handleQuoteRequest(
     movingDate,
     fromText: req.from || null,
     toText: req.to || null,
-    firstMoveRequested: req.firstMove,
+    firstMoveRequested: canCheckCustomer,
     firstMoveApplied: o.kind === "price" ? o.customer.firstMoveApplied : false,
     amountAud: o.kind === "price" ? o.amountAud : null,
     validUntil: o.kind === "price" ? addDays(today, o.customer.validDays) : null,
@@ -336,7 +351,7 @@ export async function handleQuoteRequest(
     email: req.email,
     need: req.need,
     details,
-    firstMoveRequested: req.firstMove,
+    firstMoveRequested: canCheckCustomer,
     firstMoveApplied: priced?.customer.firstMoveApplied ?? false,
     outcomeLine: testMode ? `[TEST MODE -- placeholder rate card] ${outcomeLine}` : outcomeLine,
     internalBreakdown: priced ? { ...priced.internal } : null,
@@ -397,7 +412,7 @@ export async function handleQuoteRequest(
         amountAud: priced.amountAud,
         includes: priced.customer.includes,
         firstMoveApplied: priced.customer.firstMoveApplied,
-        firstMoveDenied: req.firstMove && !priced.customer.firstMoveApplied,
+        firstMoveDenied: false, // returning customers simply get the standard price
         validUntil,
         emailed: customerSent,
         testMode,

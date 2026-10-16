@@ -15,7 +15,6 @@ the "Meanwhile" column says: it never guesses.
 | `home-size-guide` | B1 | Usual truck, movers and typical hours for studio/1 bed, 2 bed, 3 bed, 4+ bed | No instant estimates — every request goes to the team |
 | `weekend-holiday-surcharge` | B2 | Weekend / public-holiday surcharge, and how much | Weekend and holiday moves go to the team |
 | `heavy-items` | B3 | Which items count as heavy ($80); items not moved | Captured in access notes, not priced |
-| `long-carry-distance` | B4 | Distance from parking that triggers the $40 long carry | Captured in access notes, not priced |
 | `service-area` | B5 | Furthest pickup from Tarneit, longest move (km); suburbs/regions covered | No instant estimates |
 | `furniture-wrapping` | B6 | Free furniture wrapping on request stays free? | Not mentioned |
 | `first-order-offer` | B7 | First-order offer 30% → 10% everywhere | 10% in engine, chat and emails; website still says 30% (home page ×2, FAQ, quote form) |
@@ -33,7 +32,9 @@ the "Meanwhile" column says: it never guesses.
 | `cancellation-policy` | Deposit and cancellation/rescheduling policy for the booking terms | No deposit; cancellations by phone |
 | `typical-hours-driving` | Do the "typical hours" include driving between addresses? (ask with the B1 answer) | No estimates until confirmed |
 | `crew-choice-hours` | If the customer picks a different truck/crew than the guide, do the hours change? | Guide's hours always used |
-| `access-pricing` | Should the form ask for counts of stairs/heavy items so they're priced in? | Notes shown, not priced |
+| `apartment-charges` | What are 'extra apartment charges' beyond stairs and the long carry (lift bookings, high floors)? | Only stairs and long carry priced; chat says others may apply |
+| `deposit-terms` | Is the $100 deposit taken off the final bill, and refundable if the customer cancels or moves the date? | Chat only says a $100 deposit locks the booking in |
+| `bank-transfer-details` | Bank details for paying the deposit by transfer | Team emails them |
 | `junk-removal-pricing` | Junk removal: always a personal quote, or a price list? | Goes to the team |
 | `commercial-moves` | Office moves: always a personal quote? | Goes to the team |
 | `sign-off` | Blue Line signs off the complete rate card (then status → confirmed) | Test figures only, never emailed |
@@ -53,6 +54,8 @@ the "Meanwhile" column says: it never guesses.
 | `estimate-vs-final` | Email makes every figure an estimate that "may vary"; the 6 Oct decision and the website say final/flat price, no call-out, "not an hourly meter". Confirm and update the website copy | Chat and emails say "estimate" |
 | `quote-form-fields` | Form: home size + optional truck (4.5T/6-8T/10T) + 2-4 movers + inspect + access notes; new Property Size options (awaited from Ayesha) | Form sends home size + optional notes; result says "estimate" |
 | `hourly-rate-disclosure` | The PDF quote shows rate x hours (15 Oct). Should the chat also answer hourly-rate questions? | PDF shows the breakdown; the chat never states a rate |
+| `deposit-payment-link` | Set up a secure payment link for the $100 deposit; Vercel DEPOSIT_PAYMENT_URL | Team sends a link (flagged in the team email) |
+| `past-customers` | Import Matt's past jobs so returning customers from before 16 Oct don't get the 10% first-customer discount | Pre-16 Oct customers treated as new |
 | `gtm-chat-events` | Add GTM triggers / GA4 events for chat_opened, chat_started, chat_estimate_shown, chat_handoff | Events pushed to the dataLayer, not yet recorded |
 | `sending-domain` | Verify bluelineremovals.com.au in Resend (DNS via Namecheap) | Sends from the verified address |
 | `truck-gps` | Idea, parked: use truck GPS (e.g. for travel or same-day slots) | Not used |
@@ -62,4 +65,6 @@ the "Meanwhile" column says: it never guesses.
 
 | Item | Answer | Handling |
 |---|---|---|
+| `long-carry-distance` | Long carry applies over 100 m from the door (Ayesha, 16 Oct) | Asked in the chat and priced ($40) |
+| `access-pricing` | Stairs (no lift) and the long carry are priced (Ayesha, 16 Oct) | Asked in the chat and priced from the rate card |
 | `piano-packing` | Piano from $200 (type/access); packing = materials at cost + hourly labour | Personal quote from the team |

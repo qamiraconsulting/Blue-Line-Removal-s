@@ -20,6 +20,7 @@ import {
 import { summarise } from "../../src/server/jobs/overview.js";
 import { channelOf, effectiveStatus, OPEN_STATUSES, TEAM_ACTIONS } from "../../src/server/jobs/status.js";
 import { buildQuoteDeps } from "../../src/server/quote/deps.js";
+import { depositFor } from "../../src/server/quote/deposit.js";
 import { melbourneToday } from "../../src/server/quote/service.js";
 import { guardAdmin } from "../../src/server/services/adminAuth.js";
 
@@ -112,6 +113,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           closedReason: r.closedReason,
           statusUpdatedAt: r.statusUpdatedAt,
           testMode: r.source !== "team_form" && r.rateCardStatus !== "confirmed",
+          // Website/chat bookings made a week or more ahead take the $100 deposit (Matt handles his own).
+          depositRequired:
+            r.source !== "team_form" &&
+            (status === "booking_requested" || status === "booked") &&
+            depositFor(r.movingDate, melbourne(r.bookingRequestedAt ?? r.createdAt), null).required,
         }));
 
       res.setHeader("Cache-Control", "no-store");

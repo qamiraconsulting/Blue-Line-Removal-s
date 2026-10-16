@@ -30,11 +30,24 @@ export const getQuoteInput = z.object({
     .union([z.literal(2), z.literal(3), z.literal(4)])
     .optional()
     .describe("Only if the customer chose a crew size: 2, 3 or 4 movers. Leave out if they want Blue Line's suggestion or chose 'inspect'."),
+  moveType: z.enum(["home", "apartment"]).describe("'apartment' if the pickup OR the drop-off is an apartment/unit/flat, else 'home'."),
+  pickupStairFlights: z
+    .number()
+    .int()
+    .min(0)
+    .max(30)
+    .describe("Flights of stairs the movers must carry things up/down at the PICKUP (0 if there's a lift they can use, or no stairs)."),
+  dropoffStairFlights: z
+    .number()
+    .int()
+    .min(0)
+    .max(30)
+    .describe("Flights of stairs at the DROP-OFF (0 if there's a lift they can use, or no stairs)."),
+  longCarry: z.boolean().describe("True if the truck can't park within 100 metres of the door at either end."),
   accessNotes: z
     .string()
     .max(1000)
-    .describe("What the customer said about stairs, parking distance from the door and heavy items, in their words. Empty if nothing."),
-  firstMove: z.boolean().describe("True only if the customer said this is their first move with Blue Line."),
+    .describe("Everything the customer said about access in their words: apartment floor, lift or stairs, parking distance, heavy items. Empty if nothing."),
   specialItems: z.boolean().describe("True if there's a piano, pool table, safe, spa or similar specialist item."),
 });
 
@@ -54,7 +67,7 @@ export const requestPersonalQuoteInput = z.object({
   reason: z
     .enum(personalQuoteReasons)
     .describe(
-      "Why this needs the team: small_load (a few boxes/single items, not a home move), specialist_item, junk_removal, office_move, outside_melbourne, urgent_or_timed (today, or a fixed deadline), packing, other.",
+      "Why this needs the team: small_load (a few boxes/single items, not a home move), specialist_item, junk_removal, office_move, storage (moving into or out of a storage unit), warehouse (warehouse or commercial goods, pallets), outside_melbourne, urgent_or_timed (today, or a fixed deadline), packing, other.",
     ),
 });
 

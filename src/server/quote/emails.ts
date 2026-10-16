@@ -190,7 +190,7 @@ export function renderTeamEmail(input: {
     `Truck & crew: ${input.details.capacity || "-"}`,
     `Access notes: ${input.details.accessNotes || "-"}`,
     ...(input.customerNotes ? [`Customer notes: ${input.customerNotes}`] : []),
-    `First-move offer: ${input.firstMoveRequested ? (input.firstMoveApplied ? "requested and applied" : "requested, NOT applied (already used)") : "not requested"}`,
+    `First-customer 10% offer: ${input.firstMoveRequested ? (input.firstMoveApplied ? "applied (no earlier booking with this email or phone)" : "not applied (booked with us before)") : "not checked (database unavailable)"}`,
     ...(input.internalBreakdown ? ["", "Internal breakdown (not shown to the customer):", JSON.stringify(input.internalBreakdown, null, 2)] : []),
   ];
   const text = lines.join("\n");

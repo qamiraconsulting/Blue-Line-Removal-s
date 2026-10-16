@@ -9,6 +9,11 @@ describe("guardReply", () => {
     expect(guardReply("$ 850.00 total", [850]).ok).toBe(true);
   });
 
+  it("lets through the fixed $100 booking deposit, and nothing else unquoted", () => {
+    expect(guardReply("To lock in your booking we take a $100 deposit before the move.", []).ok).toBe(true);
+    expect(guardReply("To lock in your booking we take a $150 deposit.", []).ok).toBe(false);
+  });
+
   it("lets through replies with no dollar figure (percentages and phone numbers are fine)", () => {
     expect(guardReply("First-time customers get 10% off! Call 03 9494 1070.", []).ok).toBe(true);
   });

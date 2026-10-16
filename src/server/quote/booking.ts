@@ -15,6 +15,7 @@ import {
 } from "./bookingEmails.js";
 import type { InternalBreakdown, PropertySizeId } from "./calculateQuote.js";
 import { formatDateLabel, type QuoteDetails } from "./emails.js";
+import { depositFor, type DepositInfo } from "./deposit.js";
 import type { RateCard } from "./rateCard.js";
 import { customerRecipient, melbourneToday, SIZE_LABEL, type OutgoingEmail } from "./service.js";
 
@@ -87,6 +88,8 @@ export interface BookingDeps {
   customerReplyTo: string;
   testEmailTo?: string | null;
   pdf?: PdfSender;
+  /** Secure payment link for the booking deposit; unset = the team sends one. */
+  depositPaymentUrl?: string | null;
   now?: () => Date;
 }
 
@@ -104,6 +107,8 @@ export type BookingResult =
       arrivalTime?: string | null;
       /** Dashboard only: capacity didn't look free, but the team chose to confirm anyway. */
       capacityWarning?: string | null;
+      /** The $100 deposit (move a week or more away) and how to pay it. */
+      deposit?: DepositInfo;
     }
   | { ok: false; reason: Problem; error: string; availableTimes?: string[] };
 
@@ -117,6 +122,8 @@ export type AvailabilityToolResult =
       availableTimes: string[];
       /** The available times that would be confirmed on the spot (the rest: the team confirms). */
       instantTimes: string[];
+      /** Whether booking this date needs the $100 deposit. */
+      deposit: DepositInfo;
     }
   | { ok: false; reason: Problem; error: string };
 
@@ -226,6 +233,7 @@ export async function availabilityForQuote(input: { reference: string } & Bookin
     why: result.dayOpen ? undefined : DAY_CLOSED_WORDS[result.dayReason ?? "not_set_up"],
     availableTimes: result.slots.filter((s) => s.available).map((s) => s.time),
     instantTimes: result.dayOpen && result.instantConfirm ? result.slots.filter((s) => s.available && !s.substituteTruckType).map((s) => s.time) : [],
+    deposit: depositFor(job.date, nowLocal.slice(0, 10), deps.depositPaymentUrl),
   };
 }
 
@@ -245,6 +253,7 @@ export async function requestBooking(
   const terms: BookingTerms = { termsVersion: BOOKING_TERMS_VERSION, termsText: BOOKING_TERMS, notes: notes || null, arrivalTime };
   const testMode = q.rateCardStatus !== "confirmed";
   const job = jobFromQuote(q);
+  const deposit = depositFor(q.movingDate, nowLocal.slice(0, 10), deps.depositPaymentUrl);
 
   // Told to the team when the job would go on a different truck than estimated.
   let capacityNote: string | null = null;
@@ -278,7 +287,7 @@ export async function requestBooking(
           terms,
         );
         if (booked) {
-          const details = emailInput(q, notes, arrivalTime);
+          const details = { ...emailInput(q, notes, arrivalTime), deposit };
           const card = q.rateCardSnapshot as Pick<RateCard, "gst" | "trucks">;
           const lines = linesFromEstimate(q.internalBreakdown as InternalBreakdown, q.amountAud!, card);
           const [, customer] = await Promise.all([
@@ -305,7 +314,7 @@ export async function requestBooking(
               deps,
             ),
           ]);
-          return { ok: true, status: "confirmed", reference: q.reference, emailed: customer.emailed, arrivalTime };
+          return { ok: true, status: "confirmed", reference: q.reference, emailed: customer.emailed, arrivalTime, deposit };
         }
         // Someone took that time a moment ago.
         const fresh = checkAvailability(job, { ...(await deps.bookings.loadCapacity(job.date)), nowLocal });
@@ -323,7 +332,7 @@ export async function requestBooking(
   if (!(await deps.bookings.markRequested(q.reference, terms))) {
     return { ok: true, status: "already_requested", reference: q.reference, emailed: false };
   }
-  const details = emailInput(q, notes, arrivalTime);
+  const details = { ...emailInput(q, notes, arrivalTime), deposit };
   // Test-mode (placeholder rate card) estimates are never emailed to a customer -- only to the
   // preview's test inbox, if one is set.
   const customerTo = customerRecipient(q.email, testMode, deps.testEmailTo);
@@ -334,7 +343,7 @@ export async function requestBooking(
       ? deps.sendEmail({ ...request, subject: testMode ? `[TEST] ${request.subject}` : request.subject, to: customerTo, replyTo: deps.customerReplyTo, kind: "customer" }).catch(() => false)
       : Promise.resolve(false),
   ]);
-  return { ok: true, status: "requested", reference: q.reference, emailed: customerSent, arrivalTime };
+  return { ok: true, status: "requested", reference: q.reference, emailed: customerSent, arrivalTime, deposit };
 }
 
 class AlreadyConfirmed extends Error {}

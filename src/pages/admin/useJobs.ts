@@ -60,6 +60,7 @@ export interface Job {
   closedReason: string | null;
   statusUpdatedAt: string;
   testMode: boolean;
+  depositRequired: boolean;
 }
 
 export interface Summary {

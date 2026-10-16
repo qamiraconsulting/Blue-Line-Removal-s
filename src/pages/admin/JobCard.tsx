@@ -23,6 +23,8 @@ const REASONS: Record<string, string> = {
   small_load: "A few boxes / single items",
   specialist_item: "Specialist item (piano, safe...)",
   office_move: "Office move",
+  storage: "Storage unit move",
+  warehouse: "Warehouse / commercial goods",
   outside_melbourne: "Outside metro Melbourne",
   urgent_or_timed: "Today or a fixed deadline",
   packing: "Packing",
@@ -121,6 +123,7 @@ export function JobCard({ job, onChanged }: { job: Job; onChanged: (message: str
       {job.changeNote && <p className="mt-1 text-sm text-slate-600">Note sent to customer: {job.changeNote}</p>}
       {job.platformJobNumber && <p className="mt-1 text-sm text-slate-600">Platform job: {job.platformJobNumber}</p>}
       {job.calendarIssue && <p className="mt-1 text-sm font-bold text-red-600">{job.calendarIssue}</p>}
+      {job.depositRequired && <p className="mt-1 text-sm font-bold text-action">Deposit $100 required (move a week or more ahead) -- check it&apos;s paid before the move.</p>}
       {job.closedReason && <p className="mt-1 text-sm text-slate-500">Reason: {job.closedReason}</p>}
 
       <div className="mt-3 flex flex-wrap items-center gap-2">

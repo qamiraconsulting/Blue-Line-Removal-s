@@ -1,4 +1,5 @@
 import { site } from "../../data/site.js";
+import { DEPOSIT_AUD } from "../quote/deposit.js";
 
 // Last line of defence after the model writes a reply. The prompt already forbids this;
 // the guard makes it impossible for a customer to SEE a price that the engine didn't
@@ -13,13 +14,17 @@ export const BLOCKED_REPLY =
 
 export type GuardResult = { ok: true; text: string } | { ok: false; text: string; reason: "unquoted_amount" | "rate_talk" };
 
-/** `quotedAmounts` = every amountAud get_quote returned in this conversation. */
+/**
+ * `quotedAmounts` = every amountAud get_quote returned in this conversation. The fixed booking
+ * deposit (DEPOSIT_AUD) is the only other figure the chat may state.
+ */
 export function guardReply(text: string, quotedAmounts: readonly number[]): GuardResult {
   if (RATE_TALK.test(text)) return { ok: false, text: BLOCKED_REPLY, reason: "rate_talk" };
   for (const match of text.matchAll(DOLLARS)) {
     const amount = Number(match[1]!.replace(/,/g, ""));
     const cents = /\.\d/.test(match[0]) && !/\.0+$/.test(match[0]);
-    if (cents || !quotedAmounts.includes(amount)) return { ok: false, text: BLOCKED_REPLY, reason: "unquoted_amount" };
+    const allowed = quotedAmounts.includes(amount) || amount === DEPOSIT_AUD;
+    if (cents || !allowed) return { ok: false, text: BLOCKED_REPLY, reason: "unquoted_amount" };
   }
   return { ok: true, text };
 }

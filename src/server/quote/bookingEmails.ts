@@ -1,4 +1,5 @@
 import { site } from "../../data/site.js";
+import type { DepositInfo } from "./deposit.js";
 import { esc, firstName, formatAud, NAVY, ORANGE, shell, type EmailContent, type QuoteDetails } from "./emails.js";
 
 // Booking emails. The inspection happens on the move day itself, so a booking is made on the
@@ -18,6 +19,18 @@ export interface BookingEmailInput {
   notes: string;
   /** "HH:MM" when the customer picked an arrival time. */
   arrivalTime?: string | null;
+  /** The booking deposit (move a week or more away). */
+  deposit?: DepositInfo;
+}
+
+/** What the customer is told about the deposit and paying the rest. Empty when no deposit applies. */
+export function depositLines(deposit: DepositInfo | undefined): string[] {
+  if (!deposit?.required) return [];
+  return [
+    `To lock in your booking we take a ${formatAud(deposit.amountAud)} deposit before the move.`,
+    deposit.paymentLink ? `Pay it securely here: ${deposit.paymentLink}` : "We will send you a secure payment link for it shortly.",
+    deposit.finalPayment,
+  ];
 }
 
 /** "07:30" -> "7:30am". */
@@ -52,6 +65,7 @@ function customerEmail(input: BookingEmailInput, subject: string, opening: strin
     "",
     ...rows.map(([k, v]) => `${k}: ${v}`),
     "",
+    ...depositLines(input.deposit).flatMap((l) => [l, ""]),
     BOOKING_TERMS,
     "",
     closing,
@@ -67,6 +81,9 @@ function customerEmail(input: BookingEmailInput, subject: string, opening: strin
 <p style="margin:0 0 14px">Hi ${esc(firstName(input.name))},</p>
 <p style="margin:0 0 14px;color:${NAVY}">${esc(opening)}</p>
 <table style="border-collapse:collapse;margin:0 0 14px;font-size:14px">${table}</table>
+${depositLines(input.deposit)
+    .map((l) => `<p style="margin:0 0 10px">${esc(l)}</p>`)
+    .join("")}
 <p style="margin:0 0 14px;font-size:13px;color:#5b6b7c">${esc(BOOKING_TERMS)}</p>
 <p style="margin:0 0 14px">${esc(closing)}</p>
 <p style="margin:0">Questions? Call us on <a href="${esc(site.phone.href)}" style="color:${ORANGE};font-weight:bold">${esc(site.phone.display)}</a>.</p>`);
@@ -96,6 +113,12 @@ export function renderBookingTeamEmail(input: BookingEmailInput & { phone: strin
     `${input.testMode ? "[TEST MODE -- placeholder rate card] " : ""}${input.autoConfirmed ? `BOOKED -- confirmed instantly ${where} and added to the calendar` : `BOOKING REQUEST (${where}) -- please confirm with the customer`}`,
     "",
     ...(input.capacityNote ? [`TRUCK: ${input.capacityNote}`, ""] : []),
+    ...(input.deposit?.required
+      ? [
+          `DEPOSIT: ${formatAud(input.deposit.amountAud)} required (move is ${input.deposit.daysUntilMove} days away) -- ${input.deposit.paymentLink ? "the customer was given the payment link" : "NO PAYMENT LINK SET UP: please send the customer one"}. Check it is paid before confirming.`,
+          "",
+        ]
+      : []),
     `Name: ${input.name}`,
     `Phone: ${input.phone}`,
     `Email: ${input.email}`,

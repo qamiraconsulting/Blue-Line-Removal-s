@@ -55,14 +55,6 @@ export const openItems: OpenItem[] = [
     ref: "Email 12 Oct, B3",
   },
   {
-    id: "long-carry-distance",
-    topic: "pricing",
-    question: "What distance from the parking spot triggers the $40 long-carry charge?",
-    meanwhile: "Parking distance is only captured in the access notes; not priced.",
-    status: "asked",
-    ref: "Email 12 Oct, B4",
-  },
-  {
     id: "service-area",
     topic: "pricing",
     question: "Furthest pickup from Tarneit and longest move (km) to estimate automatically; a rough list of suburbs/regions covered.",
@@ -167,10 +159,25 @@ export const openItems: OpenItem[] = [
     status: "to_ask",
   },
   {
-    id: "access-pricing",
+    id: "apartment-charges",
     topic: "pricing",
-    question: "Stairs/heavy items/long carry come in as free text and aren't added to the estimate. Should the form ask for counts so they're priced in?",
-    meanwhile: "Notes are stored and shown to the team and on the estimate; covered by the estimate wording.",
+    question:
+      "Ayesha (16 Oct): the chat tells apartment customers 'extra apartment charges may apply'. Beyond stairs ($40/flight) and the long carry over 100 m ($40), what are they -- e.g. lift bookings, high floors?",
+    meanwhile: "Only stairs and the long carry are priced; the chat says other apartment charges may apply and are confirmed on the day.",
+    status: "to_ask",
+  },
+  {
+    id: "deposit-terms",
+    topic: "legal",
+    question: "The $100 deposit (bookings 7+ days ahead): is it taken off the final bill, and is it refundable if the customer cancels or moves the date? (Goes into the booking terms.)",
+    meanwhile: "The chat and emails only say a $100 deposit locks the booking in; nothing about refunds or deducting it.",
+    status: "to_ask",
+  },
+  {
+    id: "bank-transfer-details",
+    topic: "operations",
+    question: "Bank details customers can use to pay the deposit by transfer.",
+    meanwhile: "Customers who choose bank transfer are told the team will email the bank details.",
     status: "to_ask",
   },
   {
@@ -275,6 +282,20 @@ export const openItems: OpenItem[] = [
     topic: "content",
     question: "Add a 'Discount / adjustment' row ({{Adjustment}}) to the estimate table in BLR_Quote_Template.html, for discounts, rounding and team-set totals.",
     meanwhile: "Without it the PDF's lines may not add up to the total when there's a discount or a team-set total; the email note explains it.",
+    status: "internal",
+  },
+  {
+    id: "deposit-payment-link",
+    topic: "operations",
+    question: "Set up a secure payment link for the $100 deposit (e.g. Stripe or Square payment link) and put it in Vercel as DEPOSIT_PAYMENT_URL.",
+    meanwhile: "The chat and emails say the team will send a secure payment link; the team email flags it.",
+    status: "internal",
+  },
+  {
+    id: "past-customers",
+    topic: "pricing",
+    question: "The 10% first-customer discount is automatic: anyone without a booked or completed job in the database gets it. Import Matt's past jobs (Google Sheet) so returning customers from before 16 Oct are recognised.",
+    meanwhile: "Customers who only booked before the Google Form was connected (16 Oct) are treated as new.",
     status: "internal",
   },
   {

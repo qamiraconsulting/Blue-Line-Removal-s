@@ -34,7 +34,8 @@ function fakeStore(overrides: Partial<QuoteStore> = {}) {
   const store: QuoteStore & { rows: NewQuoteRow[]; emailed: string[] } = {
     rows,
     emailed: [],
-    hasDiscountedQuote: async (email, phone) => rows.some((r) => r.firstMoveApplied && (r.emailNormalised === email || r.phoneNormalised === phone)),
+    // Most tests price a returning customer (standard price); the first-customer tests override this.
+    isReturningCustomer: async () => true,
     recentQuoteCount: async (email) => rows.filter((r) => r.emailNormalised === email).length,
     saveQuote: async (row) => void rows.push(row),
     markCustomerEmailSent: async (ref) => void store.emailed.push(ref),
@@ -151,23 +152,43 @@ describe("a normal quote", () => {
   });
 });
 
-describe("the first-move offer", () => {
-  it("takes the first-order discount once, then the same email or phone gets the standard price", async () => {
-    const { run } = setup();
-    const first = result(await run({ ...goodBody, firstMove: true }));
-    expect(first).toMatchObject({ kind: "price", amountAud: 650, firstMoveApplied: true, firstMoveDenied: false });
+describe("the first-customer offer -- worked out from the database, never asked", () => {
+  // A customer is "returning" once a job with their email or phone has been booked or completed.
+  const withBookedJobs = (booked: { email?: string; phone?: string }[]) =>
+    fakeStore({
+      isReturningCustomer: async (email, phone) => booked.some((b) => b.email === email || b.phone === phone),
+    });
 
-    const again = result(await run({ ...goodBody, name: "Jane S", firstMove: true }));
-    expect(again).toMatchObject({ kind: "price", amountAud: 720, firstMoveApplied: false, firstMoveDenied: true });
-
-    // same phone, different email, still no second discount
-    const samePhone = result(await run({ ...goodBody, email: "other@example.com", firstMove: true }));
-    expect(samePhone).toMatchObject({ amountAud: 720, firstMoveDenied: true });
+  it("a new email and phone get 10% off automatically, without ticking or saying anything", async () => {
+    const { run, store } = setup({ store: withBookedJobs([]) });
+    expect(result(await run(goodBody))).toMatchObject({ kind: "price", amountAud: 650, firstMoveApplied: true, firstMoveDenied: false });
+    expect(store!.rows[0]).toMatchObject({ firstMoveRequested: true, firstMoveApplied: true });
   });
 
-  it("isn't applied unless the customer asked for it", async () => {
-    const { run } = setup();
-    expect(result(await run(goodBody))).toMatchObject({ amountAud: 720, firstMoveDenied: false });
+  it("asking for a second estimate before booking keeps the discount (estimates don't count)", async () => {
+    const { run } = setup({ store: withBookedJobs([]) });
+    await run(goodBody);
+    expect(result(await run({ ...goodBody, name: "Jane S" }))).toMatchObject({ amountAud: 650, firstMoveApplied: true });
+  });
+
+  it("anyone who has booked with us before -- same email OR same phone -- gets the standard price", async () => {
+    expect(result(await setup({ store: withBookedJobs([{ email: "jane@example.com" }]) }).run(goodBody))).toMatchObject({ amountAud: 720, firstMoveApplied: false, firstMoveDenied: false });
+    expect(result(await setup({ store: withBookedJobs([{ phone: "0412345678" }]) }).run({ ...goodBody, email: "other@example.com" }))).toMatchObject({ amountAud: 720, firstMoveApplied: false });
+  });
+
+  it("the old 'first move' tick-box is ignored either way", async () => {
+    expect(result(await setup().run({ ...goodBody, firstMove: true }))).toMatchObject({ amountAud: 720, firstMoveApplied: false });
+    expect(result(await setup({ store: withBookedJobs([]) }).run({ ...goodBody, firstMove: false }))).toMatchObject({ amountAud: 650 });
+  });
+});
+
+describe("priced access", () => {
+  it("stairs (no lift) and a long carry over 100 m are added to the estimate", async () => {
+    const { run, store } = setup();
+    // fixture: $40 per flight, $60 long carry; 2 flights + long carry on the $720 job = (652.5 + 80 + 60) * 1.1 = 871.75 -> $870
+    const res = result(await run({ ...goodBody, pickupStairFlights: 1, dropoffStairFlights: 1, longCarry: true }));
+    expect(res).toMatchObject({ kind: "price", amountAud: 870 });
+    expect(store!.rows[0]!.inputs).toMatchObject({ access: { pickupStairFlights: 1, dropoffStairFlights: 1, longCarry: true } });
   });
 });
 

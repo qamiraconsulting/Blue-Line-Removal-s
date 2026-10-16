@@ -3,10 +3,8 @@ import { Link } from "react-router";
 import { RotateCcw, Send } from "lucide-react";
 import clsx from "clsx";
 import { site } from "@/data/site";
+import { splitChoices } from "@/lib/chatChoices";
 import { useChatSession } from "./useChatSession";
-
-// One tap to get going -- sent as the customer's first message.
-const STARTERS = ["Get an estimate for my move", "I'd like to talk to a person"];
 
 export function ChatPanel() {
   const { messages, sendMessage, retry, startNewChat, status, error, awaitingTeam } = useChatSession();
@@ -14,6 +12,9 @@ export function ChatPanel() {
   const listRef = useRef<HTMLDivElement>(null);
   const busy = status === "sending" || status === "starting";
   const hasCustomerMessage = messages.some((m) => m.role === "user");
+  // Tap-to-reply buttons: only for the newest message, and only when it's the assistant's.
+  const last = messages[messages.length - 1];
+  const choices = last && last.role === "assistant" && !last.failed ? splitChoices(last.content).choices : [];
 
   useEffect(() => {
     // Jump straight to the newest message (smooth scrolling can stall mid-animation on re-render).
@@ -76,7 +77,7 @@ export function ChatPanel() {
                     m.failed && "opacity-60",
                   )}
                 >
-                  {m.content}
+                  <LinkedText text={splitChoices(m.content).text} />
                 </div>
                 {m.failed && (
                   <button type="button" onClick={() => void retry(m)} disabled={busy} className="mt-1 block w-full text-right text-xs font-bold text-red-600 underline">
@@ -86,9 +87,9 @@ export function ChatPanel() {
               </div>
             ))}
 
-            {!hasCustomerMessage && status === "idle" && messages.length > 0 && (
+            {choices.length > 0 && status === "idle" && !awaitingTeam && (
               <div className="flex flex-wrap gap-2 pt-1">
-                {STARTERS.map((s) => (
+                {choices.map((s) => (
                   <button
                     key={s}
                     type="button"
@@ -139,5 +140,23 @@ export function ChatPanel() {
         </>
       )}
     </div>
+  );
+}
+
+// Secure links in a message (e.g. the deposit payment link) open in a new tab. https only.
+function LinkedText({ text }: { text: string }) {
+  const parts = text.split(/(https:\/\/[^\s<>"]+)/g);
+  return (
+    <>
+      {parts.map((part, i) =>
+        /^https:\/\//.test(part) ? (
+          <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="break-all font-bold underline">
+            {part}
+          </a>
+        ) : (
+          part
+        ),
+      )}
+    </>
   );
 }

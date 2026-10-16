@@ -1,4 +1,4 @@
-import { and, eq, gte, or, sql } from "drizzle-orm";
+import { and, eq, gte, inArray, or, sql } from "drizzle-orm";
 import { getDb } from "../db/client.js";
 import { distanceCache, quotes } from "../db/schema.js";
 import type { DistanceCache } from "./distance.js";
@@ -6,8 +6,12 @@ import type { DistanceCache } from "./distance.js";
 export type NewQuoteRow = typeof quotes.$inferInsert;
 
 export interface QuoteStore {
-  /** True if this email or phone has already had a first-move discount applied. */
-  hasDiscountedQuote(emailNormalised: string, phoneNormalised: string): Promise<boolean>;
+  /**
+   * True if this email or phone already has a booked or completed job with Blue Line (any
+   * channel, incl. Matt's Google Form) -- i.e. not a first-time customer. Estimates and quotes
+   * that were never booked don't count.
+   */
+  isReturningCustomer(emailNormalised: string, phoneNormalised: string): Promise<boolean>;
   /** Quotes from this email in the last `sinceMinutes` -- a simple abuse throttle. */
   recentQuoteCount(emailNormalised: string, sinceMinutes: number): Promise<number>;
   saveQuote(row: NewQuoteRow): Promise<void>;
@@ -15,13 +19,13 @@ export interface QuoteStore {
 }
 
 export const dbQuoteStore: QuoteStore = {
-  async hasDiscountedQuote(emailNormalised, phoneNormalised) {
+  async isReturningCustomer(emailNormalised, phoneNormalised) {
     const rows = await getDb()
       .select({ id: quotes.id })
       .from(quotes)
       .where(
         and(
-          eq(quotes.firstMoveApplied, true),
+          inArray(quotes.jobStatus, ["booked", "completed"]),
           or(eq(quotes.emailNormalised, emailNormalised), eq(quotes.phoneNormalised, phoneNormalised)),
         ),
       )
