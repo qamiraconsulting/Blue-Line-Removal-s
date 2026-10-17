@@ -53,6 +53,30 @@ describe("toModelMessages", () => {
   });
 });
 
+describe("toolNote", () => {
+  it("tells the model what its tools really did earlier, without any link or rate", () => {
+    const history = toModelMessages([
+      { role: "user", content: "a" },
+      {
+        role: "assistant",
+        content: "Your estimate is $720.",
+        toolCalls: [
+          { name: "get_quote", quoteReference: "BLR-1", quotedAmountAud: 720, outcome: "priced" },
+          { name: "request_booking", quoteReference: "BLR-1", paymentLink: "https://checkout.stripe.com/c/pay/secret", outcome: "booking_requested" },
+          { name: "request_human_followup", outcome: "flagged" },
+        ],
+      },
+    ]);
+    const note = history[1]!.content as string;
+    expect(note).toContain("Your estimate is $720.");
+    expect(note).toContain("get_quote ran (reference BLR-1, estimate 720 dollars, outcome priced)");
+    expect(note).toContain("request_booking ran (reference BLR-1, outcome booking_requested)");
+    expect(note).not.toContain("stripe");
+    expect(note).not.toContain("request_human_followup");
+    expect(toModelMessages([{ role: "user", content: "a" }, { role: "assistant", content: "b", toolCalls: [] }])[1]!.content).toBe("b");
+  });
+});
+
 describe("runAgentTurn", () => {
   it("runs get_quote through proper tool_result blocks and lets the quoted price through", async () => {
     const { createMessage, calls } = scripted(

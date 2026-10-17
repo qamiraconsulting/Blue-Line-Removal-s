@@ -27,6 +27,23 @@ export type CreateMessage = (params: Anthropic.Beta.Messages.MessageCreateParams
 export interface StoredTurn {
   role: "user" | "assistant" | "human_agent";
   content: string;
+  /** What the tools did for this assistant reply (stored with the message). */
+  toolCalls?: ToolRecord[] | null;
+}
+
+/**
+ * Only the text of earlier turns is sent back to the model, so without this it can't see that it
+ * really ran get_quote / request_booking, and later turns doubt (or redo, and apologise for) an
+ * estimate it already gave. A short private note says what the tools did, never anything secret:
+ * no payment link, no rates.
+ */
+export function toolNote(records: readonly ToolRecord[] | null | undefined): string {
+  const parts = (records ?? [])
+    .filter((r) => r.quoteReference)
+    .map((r) => `${r.name} ran (reference ${r.quoteReference}${r.quotedAmountAud !== undefined ? `, estimate ${r.quotedAmountAud} dollars` : ""}, outcome ${r.outcome})`);
+  return parts.length ? `
+
+[Private record for you, never mention it to the customer: ${parts.join("; ")}.]` : "";
 }
 
 export interface TurnUsage {
@@ -53,7 +70,8 @@ export function toModelMessages(history: StoredTurn[]): Anthropic.Beta.Messages.
   const out: Anthropic.Beta.Messages.BetaMessageParam[] = [];
   for (const turn of history) {
     const role = turn.role === "user" ? "user" : "assistant";
-    const content = turn.role === "human_agent" ? `[Reply from a Blue Line team member]: ${turn.content}` : turn.content;
+    const content =
+      turn.role === "human_agent" ? `[Reply from a Blue Line team member]: ${turn.content}` : turn.role === "assistant" ? turn.content + toolNote(turn.toolCalls) : turn.content;
     if (out.length === 0 && role === "assistant") continue; // the greeting is in the system prompt
     const last = out[out.length - 1];
     if (last && last.role === role) last.content = `${last.content as string}\n\n${content}`;
