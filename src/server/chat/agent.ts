@@ -141,6 +141,9 @@ export async function runAgentTurn(params: {
   if (!text) return { reply: FALLBACK_REPLY, toolRecords, blocked: null, declined: false, usage };
 
   const quoted = [...params.previouslyQuoted, ...toolRecords.flatMap((r) => (r.quotedAmountAud === undefined ? [] : [r.quotedAmountAud]))];
-  const guarded = guardReply(withDepositLink(text, toolRecords), quoted);
-  return { reply: guarded.text, toolRecords, blocked: guarded.ok ? null : guarded.reason, declined: false, usage };
+  // The model's own words are checked first (any link it typed is refused); the booking's
+  // payment link -- from our tool, never the model -- is put in afterwards.
+  const guarded = guardReply(text, quoted);
+  const reply = guarded.ok ? withDepositLink(guarded.text, toolRecords) : guarded.text;
+  return { reply, toolRecords, blocked: guarded.ok ? null : guarded.reason, declined: false, usage };
 }

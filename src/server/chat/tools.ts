@@ -1,5 +1,6 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
+import { hasPostcode, looksLikeFullAddress } from "../../lib/address.js";
 import { handleQuoteRequest, personalQuoteReasons, propertySizeIds, truckChoices, type QuoteServiceDeps } from "../quote/service.js";
 import { availabilityForQuote, requestBooking, type BookingStore } from "../quote/booking.js";
 import { renderHandoffEmail } from "./handoffEmail.js";
@@ -16,8 +17,8 @@ export const getQuoteInput = z.object({
   phone: z.string().min(6).describe("Customer's phone number, as they gave it."),
   email: z.string().min(3).describe("Customer's email address -- the quote is emailed here."),
   need: z.enum(["moving", "junk"]).describe("'moving' for a house/unit/office move, 'junk' for junk removal."),
-  from: z.string().describe("Pickup suburb or address, as the customer gave it (empty for junk removal if not given)."),
-  to: z.string().describe("Drop-off suburb or address, as the customer gave it."),
+  from: z.string().describe("The FULL pickup address as one line: unit/house number, street, suburb, state and postcode, e.g. '4/12 Station St, Preston VIC 3072'."),
+  to: z.string().describe("The FULL drop-off address as one line in the same format (if the customer only has the suburb so far: suburb, state and postcode)."),
   date: z.string().describe("Moving date as YYYY-MM-DD. Work relative dates out from today's date in your instructions."),
   propertySize: z
     .enum(propertySizeIds)
@@ -61,8 +62,8 @@ export const requestPersonalQuoteInput = z.object({
     .min(3)
     .max(1000)
     .describe("What's being moved and anything the team must know (e.g. '3-4 boxes, must arrive before 3pm'), in the customer's words."),
-  from: z.string().describe("Pickup suburb or address (empty if not given)."),
-  to: z.string().describe("Drop-off suburb or address (empty if not given)."),
+  from: z.string().describe("Full pickup address as one line: unit/house number, street, suburb, state and postcode (empty if not given)."),
+  to: z.string().describe("Full drop-off address as one line in the same format (empty if not given)."),
   date: z.string().describe("YYYY-MM-DD if they gave a date, else empty."),
   reason: z
     .enum(personalQuoteReasons)
@@ -202,6 +203,22 @@ export function createToolRunner(deps: ChatToolDeps) {
       }
       const input = parsed.data;
       const contact = { customerName: input.name, phone: input.phone, email: input.email, fromText: input.from, toText: input.to };
+
+      // The driver needs the exact pickup: ask again rather than pass "Preston" on.
+      if (!looksLikeFullAddress(input.from)) {
+        return {
+          result: { ok: false, error: "The pickup address isn't complete. Ask the customer for the full pickup address -- unit or house number, street, suburb, state and postcode -- then call get_quote again." },
+          isError: false,
+          record: { name, outcome: "address_incomplete" },
+        };
+      }
+      if (!looksLikeFullAddress(input.to) && !hasPostcode(input.to)) {
+        return {
+          result: { ok: false, error: "The drop-off address isn't complete. Ask the customer for the full drop-off address -- unit or house number, street, suburb, state and postcode (or at least the suburb and postcode if they don't have the street yet) -- then call get_quote again." },
+          isError: false,
+          record: { name, outcome: "address_incomplete" },
+        };
+      }
 
       if (!deps.quoteDeps) {
         await touchLead({ ...contact, humanFollowupRequired: true, notes: "Chat couldn't quote: quote service not configured" });

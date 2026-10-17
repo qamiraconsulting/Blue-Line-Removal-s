@@ -95,6 +95,8 @@ export interface BookingDeps {
   pdf?: PdfSender;
   /** Stripe payment pages for the booking deposit; unset = the team sends a link. */
   deposits?: DepositPaymentDeps;
+  /** Until Stripe is connected (never on the live site): makes the DEMO payment page's link for a booking. */
+  demoDepositLink?: (reference: string) => string;
   /** Emails the truck's driver once the booking is on the calendar. */
   notifyDriver?: DriverNotifier;
   now?: () => Date;
@@ -454,7 +456,9 @@ async function depositWithLink(q: StoredQuote, nowLocal: string, deps: BookingDe
   if (!deposit.required) return deposit;
   const now = (deps.now ?? (() => new Date()))();
   const link = await depositCheckoutFor(q, deps.deposits, now);
-  return link ? { ...deposit, paymentLink: link, linkValidHours: DEPOSIT_LINK_HOURS } : deposit;
+  if (link) return { ...deposit, paymentLink: link, linkValidHours: DEPOSIT_LINK_HOURS };
+  if (!deps.deposits && deps.demoDepositLink) return { ...deposit, paymentLink: deps.demoDepositLink(q.reference), linkValidHours: DEPOSIT_LINK_HOURS, demo: true };
+  return deposit;
 }
 
 class AlreadyConfirmed extends Error {}

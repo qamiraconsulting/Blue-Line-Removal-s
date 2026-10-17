@@ -11,7 +11,7 @@ export const DEPOSIT_AUD = 100;
 /** A deposit applies when the move is at least this many days away. */
 export const DEPOSIT_MIN_DAYS = 7;
 
-export const FINAL_PAYMENT_TEXT = "The rest is paid on the day of the move, by card, bank transfer or cash.";
+export const FINAL_PAYMENT_TEXT = "The remaining payment can be made by card, bank transfer or cash on the day of the move.";
 
 export interface DepositInfo {
   required: boolean;
@@ -21,6 +21,8 @@ export interface DepositInfo {
   paymentLink: string | null;
   /** How long the payment link stays open. */
   linkValidHours?: number;
+  /** The link is the DEMO page (Stripe not connected yet): no money can be taken. Never set on the live site. */
+  demo?: boolean;
   /** Already paid (e.g. the customer asks again after paying). */
   paid?: boolean;
   finalPayment: string;

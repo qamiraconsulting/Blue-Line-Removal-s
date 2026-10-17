@@ -282,6 +282,35 @@ describe("placeholder rate card in dev/preview", () => {
   });
 });
 
+describe("full street addresses (so the driver can find the pick-up)", () => {
+  const addr = (o: Record<string, string> = {}) => ({ unitNumber: "4/12", street: "Station St", suburb: "Preston", state: "VIC", postcode: "3072", ...o });
+  const { from: _from, to: _to, ...withoutText } = goodBody;
+
+  it("the form's separate boxes become one line used for the quote, the team email and the calendar", async () => {
+    const { run, sent, store } = setup();
+    const res = await run({ ...withoutText, fromAddress: addr(), toAddress: addr({ unitNumber: "5", street: "High St", suburb: "Brunswick", postcode: "3056" }) });
+    expect(res.status).toBe(200);
+    expect(store!.rows[0]).toMatchObject({ fromText: "4/12 Station St, Preston VIC 3072", toText: "5 High St, Brunswick VIC 3056" });
+    expect(sent.find((e) => e.kind === "team")!.text).toContain("4/12 Station St, Preston VIC 3072");
+  });
+
+  it("a half-filled address is sent back with what is missing", async () => {
+    const { run, sent } = setup();
+    expect(await run({ ...withoutText, fromAddress: addr({ unitNumber: "" }), toAddress: addr() })).toMatchObject({
+      status: 400,
+      body: { ok: false, error: "Add the unit or house number for the pick-up address." },
+    });
+    expect(await run({ ...withoutText, fromAddress: addr(), toAddress: addr({ postcode: "30" }) })).toMatchObject({ status: 400, body: { error: expect.stringContaining("4-digit postcode") } });
+    expect(sent).toHaveLength(0);
+  });
+
+  it("a blank address box just means none was given, and the chat's one-line address still works", async () => {
+    const { run, store } = setup();
+    await run({ ...goodBody, from: "12 Station St, Preston VIC 3072", fromAddress: addr({ unitNumber: "", street: "", suburb: "", postcode: "" }) });
+    expect(store!.rows[0]).toMatchObject({ fromText: "12 Station St, Preston VIC 3072" });
+  });
+});
+
 describe("validation and abuse limits", () => {
   it("keeps the form's existing messages", async () => {
     const { run } = setup();

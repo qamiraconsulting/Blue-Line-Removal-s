@@ -2,6 +2,7 @@ import { Resend } from "resend";
 import { site } from "../../data/site.js";
 import { appsScriptSender } from "../jobs/pdfQuote.js";
 import { dbDriverNoticeStore, syncDriverNoticeSafely } from "../notify/driverNotice.js";
+import { demoDepositLinkFor } from "../payments/demoLink.js";
 import { dbDepositStore, siteUrlFrom } from "../payments/depositPayment.js";
 import { stripeConfigFrom } from "../payments/stripe.js";
 import { getActiveRateCard } from "./rateCard.js";
@@ -73,6 +74,8 @@ export function buildQuoteDeps(env: Env = process.env): QuoteServiceDeps | null 
     customerReplyTo: site.email,
     testEmailTo,
     deposits: stripe && databaseConfigured ? { stripe, store: dbDepositStore, siteUrl: siteUrlFrom(env) } : undefined,
+    // No Stripe yet: a dummy payment page (previews and local only) so the whole flow can be tried.
+    demoDepositLink: databaseConfigured ? demoDepositLinkFor(env, siteUrlFrom(env), Boolean(stripe)) : undefined,
     pdf:
       env.APPS_SCRIPT_URL && env.APPS_SCRIPT_SECRET
         ? appsScriptSender({ url: env.APPS_SCRIPT_URL, secret: env.APPS_SCRIPT_SECRET, today: () => melbourneToday(new Date()) })

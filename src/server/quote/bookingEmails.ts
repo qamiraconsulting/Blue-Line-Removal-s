@@ -43,6 +43,9 @@ export function depositLines(deposit: DepositInfo | undefined): string[] {
 function teamDepositLine(deposit: DepositInfo): string {
   const amount = formatAud(deposit.amountAud);
   if (deposit.paid) return `DEPOSIT: ${amount} PAID (Stripe).`;
+  if (deposit.demo) {
+    return `DEPOSIT: ${amount} required (move is ${deposit.daysUntilMove} days away) -- the customer was given the DEMO payment page (Stripe isn't connected yet, so no payment can be taken): send them a real payment link and check it is paid before confirming.`;
+  }
   if (deposit.paymentLink) {
     return `DEPOSIT: ${amount} required (move is ${deposit.daysUntilMove} days away) -- the customer was given a secure Stripe payment link. When it's paid the booking is confirmed automatically if the time is still free; you'll get an email either way.`;
   }

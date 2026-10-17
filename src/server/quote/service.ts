@@ -18,6 +18,7 @@ import {
   type EmailContent,
   type QuoteDetails,
 } from "./emails.js";
+import { addressProblem, formatAddress, isBlankAddress } from "../../lib/address.js";
 import type { QuoteApiResult } from "../../lib/quoteContract.js";
 import { moverCounts, truckIds, type RateCard } from "./rateCard.js";
 import type { NewQuoteRow, QuoteStore } from "./store.js";
@@ -54,6 +55,16 @@ export const truckChoices = [...truckIds, "inspect"] as const;
 const blankToUndefined = (v: unknown) => (v === "" || v === null ? undefined : v);
 const moverSchema = z.union(moverCounts.map((n) => z.literal(n)) as [z.ZodLiteral<2>, z.ZodLiteral<3>, z.ZodLiteral<4>]);
 
+// A full street address from the website form's separate fields; it is joined into the one
+// line of text everything else uses (src/lib/address.ts). The chat sends that line directly.
+const addressSchema = z.object({
+  unitNumber: z.string().trim().max(30),
+  street: z.string().trim().max(100),
+  suburb: z.string().trim().max(60),
+  state: z.string().trim().max(3),
+  postcode: z.string().trim().max(4),
+});
+
 export const quoteRequestSchema = z.object({
   name: z.string().trim().min(1).max(200),
   phone: z.string().trim().min(6).max(50),
@@ -61,6 +72,8 @@ export const quoteRequestSchema = z.object({
   need: z.enum(["moving", "junk"]).optional().default("moving"),
   from: z.string().trim().max(200).optional().default(""),
   to: z.string().trim().max(200).optional().default(""),
+  fromAddress: addressSchema.optional(),
+  toAddress: addressSchema.optional(),
   date: z.string().trim().max(10).optional().default(""),
   truck: z.preprocess(blankToUndefined, z.enum(truckChoices).optional()),
   movers: z.preprocess(blankToUndefined, z.coerce.number().pipe(moverSchema).optional()),
@@ -110,6 +123,8 @@ export interface QuoteServiceDeps {
    * page. Unset = the customer is told the team will send a payment link.
    */
   deposits?: DepositPaymentDeps;
+  /** Until Stripe is connected (never on the live site): the DEMO payment page's link for a booking. */
+  demoDepositLink?: (reference: string) => string;
   /**
    * Emails the driver of a booking's truck after the calendar changes (a confirmed booking, a
    * move, a cancellation). Never throws. Unset = nobody is told (tests, no database).
@@ -165,6 +180,25 @@ function requestError(error: z.ZodError, input: Record<string, unknown>): string
   return "Something in that request wasn't valid. Please check the form and try again.";
 }
 
+/**
+ * The form's separate address fields become the one line of text used everywhere else. A
+ * half-filled address is refused (the driver needs all of it); a blank one is just "not given".
+ */
+export function resolveAddresses(req: QuoteRequest): { ok: true; data: QuoteRequest } | { ok: false; error: string } {
+  const out = { ...req };
+  for (const [key, label, line] of [
+    ["fromAddress", "pick-up address", "from"],
+    ["toAddress", "drop-off address", "to"],
+  ] as const) {
+    const parts = req[key];
+    if (!parts || isBlankAddress(parts)) continue;
+    const problem = addressProblem(parts, label);
+    if (problem) return { ok: false, error: problem };
+    out[line] = formatAddress(parts);
+  }
+  return { ok: true, data: out };
+}
+
 /** Where the request came from -- recorded on the quote row. */
 export interface QuoteRequestContext {
   source: "quote_form" | "chatbot";
@@ -207,7 +241,9 @@ export async function handleQuoteRequest(
       : {};
   const parsed = quoteRequestSchema.safeParse(cleaned);
   if (!parsed.success) return { status: 400, body: { ok: false, error: requestError(parsed.error, cleaned) } };
-  const req = parsed.data;
+  const withAddresses = resolveAddresses(parsed.data);
+  if (!withAddresses.ok) return { status: 400, body: { ok: false, error: withAddresses.error } };
+  const req = withAddresses.data;
 
   const emailNormalised = req.email;
   const phoneNormalised = normalisePhone(req.phone);

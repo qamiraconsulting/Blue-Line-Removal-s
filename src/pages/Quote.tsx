@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/Button";
 import { site } from "@/data/site";
 import { trackEvent } from "@/lib/analytics";
 import type { QuoteApiResult } from "@/lib/quoteContract";
+import { addressProblem, AU_STATES, blankAddress, isBlankAddress, type AddressParts } from "@/lib/address";
 
 const quoteTrust = [
   { icon: DollarSign, label: "No Hidden Fees" },
@@ -38,13 +39,32 @@ export function Quote() {
     setSubmitting(true);
 
     const data = new FormData(e.currentTarget);
+    const address = (prefix: string): AddressParts => ({
+      unitNumber: String(data.get(`${prefix}_unit`) ?? ""),
+      street: String(data.get(`${prefix}_street`) ?? ""),
+      suburb: String(data.get(`${prefix}_suburb`) ?? ""),
+      state: String(data.get(`${prefix}_state`) ?? "VIC"),
+      postcode: String(data.get(`${prefix}_postcode`) ?? ""),
+    });
+    const fromAddress = address("from");
+    const toAddress = address("to");
+    // The driver needs the whole address, so a half-filled one is sent back for fixing here.
+    const problem =
+      (!isBlankAddress(fromAddress) || need === "moving" ? addressProblem(fromAddress, need === "moving" ? "pick-up address" : "address") : null) ??
+      (need === "moving" && !isBlankAddress(toAddress) ? addressProblem(toAddress, "drop-off address") : null) ??
+      (need === "moving" && isBlankAddress(toAddress) ? "Add the drop-off address." : null);
+    if (problem) {
+      setError(problem);
+      setSubmitting(false);
+      return;
+    }
     const payload = {
       name: data.get("name"),
       phone: data.get("phone"),
       email: data.get("email"),
       need,
-      from: data.get("from"),
-      to: data.get("to"),
+      fromAddress: isBlankAddress(fromAddress) ? undefined : fromAddress,
+      toAddress: need === "moving" && !isBlankAddress(toAddress) ? toAddress : undefined,
       date: data.get("date"),
       propertySize: data.get("propertySize"),
       notes: data.get("notes"),
@@ -105,16 +125,10 @@ export function Quote() {
                     </div>
                   </div>
 
-                  <Field label="Moving From" id="from" type="text" placeholder="Suburb or City" icon={MapPin} required={need === "moving"} />
-                  <Field
-                    label="Moving To"
-                    id="to"
-                    type="text"
-                    placeholder="Suburb or City"
-                    icon={MapPin}
-                    defaultValue={prefilledTo}
-                    required={need === "moving"}
-                  />
+                  <AddressFields prefix="from" title={need === "moving" ? "Moving From" : "Address"} hint="The full pick-up address, so our driver can find you." required />
+                  {need === "moving" && (
+                    <AddressFields prefix="to" title="Moving To" hint="The full drop-off address." defaultSuburb={prefilledTo} required />
+                  )}
                   <Field label="Preferred Date" id="date" type="date" icon={Calendar} min={minDate} required={need === "moving"} />
 
                   <div className="grid gap-1.5">
@@ -178,6 +192,84 @@ export function Quote() {
 }
 
 export default Quote;
+
+// A full street address in separate boxes (Ayesha, 2026-10-17): unit/house number, street,
+// suburb, state and postcode, so the driver can reach the pick-up with no guessing.
+function AddressFields({
+  prefix,
+  title,
+  hint,
+  required,
+  defaultSuburb,
+}: {
+  prefix: string;
+  title: string;
+  hint: string;
+  required?: boolean;
+  defaultSuburb?: string;
+}) {
+  const box = "w-full rounded-md border border-ink/15 bg-white py-2.5 px-3.5 text-sm text-ink outline-none focus:border-action";
+  const label = "text-xs font-bold uppercase tracking-[0.06em] text-ink-dim";
+  const blank = blankAddress();
+  return (
+    <fieldset className="grid gap-3">
+      <legend className="mb-1 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.06em] text-ink-dim">
+        <MapPin className="h-4 w-4" aria-hidden="true" />
+        {title}
+      </legend>
+      <p className="-mt-1 text-xs text-ink-dim">{hint}</p>
+      <div className="grid grid-cols-3 gap-3">
+        <div className="grid gap-1.5">
+          <label htmlFor={`${prefix}_unit`} className={label}>
+            Unit / house no.
+          </label>
+          <input id={`${prefix}_unit`} name={`${prefix}_unit`} type="text" required={required} maxLength={30} placeholder="4/12" autoComplete="off" className={box} />
+        </div>
+        <div className="col-span-2 grid gap-1.5">
+          <label htmlFor={`${prefix}_street`} className={label}>
+            Street
+          </label>
+          <input id={`${prefix}_street`} name={`${prefix}_street`} type="text" required={required} maxLength={100} placeholder="Station St" autoComplete="off" className={box} />
+        </div>
+      </div>
+      <div className="grid grid-cols-[minmax(0,1fr)_5.25rem_6rem] gap-3">
+        <div className="grid gap-1.5">
+          <label htmlFor={`${prefix}_suburb`} className={label}>
+            Suburb
+          </label>
+          <input id={`${prefix}_suburb`} name={`${prefix}_suburb`} type="text" required={required} maxLength={60} placeholder="Preston" defaultValue={defaultSuburb} autoComplete="off" className={box} />
+        </div>
+        <div className="grid gap-1.5">
+          <label htmlFor={`${prefix}_state`} className={label}>
+            State
+          </label>
+          <select id={`${prefix}_state`} name={`${prefix}_state`} defaultValue={blank.state} className={box}>
+            {AU_STATES.map((s) => (
+              <option key={s}>{s}</option>
+            ))}
+          </select>
+        </div>
+        <div className="grid gap-1.5">
+          <label htmlFor={`${prefix}_postcode`} className={label}>
+            Postcode
+          </label>
+          <input
+            id={`${prefix}_postcode`}
+            name={`${prefix}_postcode`}
+            type="text"
+            inputMode="numeric"
+            required={required}
+            pattern="[0-9]{4}"
+            maxLength={4}
+            placeholder="3072"
+            autoComplete="off"
+            className={box}
+          />
+        </div>
+      </div>
+    </fieldset>
+  );
+}
 
 function NeedCard({
   label,
@@ -253,6 +345,9 @@ function Field({
     </div>
   );
 }
+
+/** Stripe's payment page, or the demo page used until Stripe is connected. */
+const isPaymentLink = (link: string) => /^https:\/\/checkout\.stripe\.com\//.test(link) || /\/deposit\?status=demo&/.test(link);
 
 function formatAud(amount: number) {
   return `$${amount.toLocaleString("en-AU")}`;
@@ -373,6 +468,8 @@ function BookEstimate({ reference, token }: { reference: string; token: string }
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<{ status: string; emailed: boolean; arrivalTime?: string | null; deposit?: BookingDeposit } | null>(null);
+  // After the deposit message the customer says how they'd like to pay, and then gets the link.
+  const [payHow, setPayHow] = useState<"card" | "bank" | null>(null);
 
   useEffect(() => {
     fetch(`/api/booking?reference=${encodeURIComponent(reference)}&token=${encodeURIComponent(token)}`)
@@ -429,18 +526,45 @@ function BookEstimate({ reference, token }: { reference: string; token: string }
         </p>
         {!booked && deposit?.required && !deposit.paid && (
           <div className="mt-3">
-            {deposit.paymentLink && /^https:\/\/checkout\.stripe\.com\//.test(deposit.paymentLink) ? (
+            {deposit.paymentLink && isPaymentLink(deposit.paymentLink) ? (
               <>
-                <a
-                  href={deposit.paymentLink}
-                  className="inline-flex items-center rounded-full bg-action px-5 py-2.5 font-bold text-white hover:opacity-90"
-                  onClick={() => trackEvent("deposit_link_clicked")}
-                >
-                  Pay $100 deposit securely
-                </a>
-                <p className="mt-2 text-xs text-ink-dim">
-                  Pay by card or straight from your bank account. The link works for {deposit.linkValidHours ?? 24} hours{done.emailed ? " and we've emailed it to you" : ""}. As soon as it's paid we confirm your booking (if your arrival time is still free) and email you.
-                </p>
+                <p className="font-bold text-navy">How would you like to pay the $100 deposit?</p>
+                <div className="mt-2 flex flex-wrap gap-2" role="group" aria-label="How would you like to pay the deposit?">
+                  {(
+                    [
+                      ["card", "Card"],
+                      ["bank", "Bank transfer"],
+                    ] as const
+                  ).map(([how, text]) => (
+                    <button
+                      key={how}
+                      type="button"
+                      aria-pressed={payHow === how}
+                      onClick={() => setPayHow(how)}
+                      className={clsx(
+                        "rounded-full border px-4 py-2 text-sm font-bold",
+                        payHow === how ? "border-action bg-action text-white" : "border-ink/20 bg-white text-navy hover:border-action",
+                      )}
+                    >
+                      {text}
+                    </button>
+                  ))}
+                </div>
+                {payHow && (
+                  <div className="mt-3">
+                    <a
+                      href={deposit.paymentLink}
+                      className="inline-flex items-center rounded-full bg-action px-5 py-2.5 font-bold text-white hover:opacity-90"
+                      onClick={() => trackEvent("deposit_link_clicked", { pay_how: payHow })}
+                    >
+                      Pay $100 deposit securely
+                    </a>
+                    <p className="mt-2 text-xs text-ink-dim">
+                      {payHow === "card" ? "Pay by card on the secure payment page." : "On the secure payment page, choose to pay straight from your bank account."} The link works for{" "}
+                      {deposit.linkValidHours ?? 24} hours{done.emailed ? " and we've emailed it to you" : ""}. As soon as it's paid we confirm your booking (if your arrival time is still free) and email you.
+                    </p>
+                  </div>
+                )}
               </>
             ) : (
               <p className="text-xs text-ink-dim">We'll email you a secure payment link for it shortly.</p>

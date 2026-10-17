@@ -313,6 +313,34 @@ describe("the $100 deposit (a week or more ahead)", () => {
     expect(sent.find((e) => e.kind === "team")!.text).toContain("NO PAYMENT LINK SET UP");
   });
 
+  it("until Stripe is connected, the booking gets the DEMO payment link -- and never once Stripe is set up", async () => {
+    const demoLink = (ref: string) => `https://site.example/deposit?status=demo&ref=${ref}`;
+    const { deps, sent } = setup(quote());
+    const out = await ask({ ...deps, demoDepositLink: demoLink } as typeof deps);
+    expect(out).toMatchObject({
+      ok: true,
+      status: "requested",
+      deposit: { required: true, demo: true, linkValidHours: 24, paymentLink: "https://site.example/deposit?status=demo&ref=BLR-20261012-ABC123" },
+    });
+    expect(sent.find((e) => e.kind === "customer")!.text).toContain("deposit?status=demo&ref=BLR-20261012-ABC123");
+    expect(sent.find((e) => e.kind === "team")!.text).toContain("DEMO payment page");
+
+    // with Stripe set up the real page is used, whatever the demo setting says
+    const { deposits } = fakeDeposits();
+    const real = await ask({ ...setup(quote()).deps, deposits, demoDepositLink: demoLink } as never);
+    expect(real).toMatchObject({ deposit: { paymentLink: "https://checkout.stripe.com/c/pay/cs_test_1" } });
+    expect((real as { deposit: { demo?: boolean } }).deposit.demo).toBeUndefined();
+
+    // a move under a week away takes no deposit, so no link at all
+    expect(await ask({ ...setup(quote({ movingDate: "2026-10-16" })).deps, demoDepositLink: demoLink } as never)).toMatchObject({ deposit: { required: false, paymentLink: null } });
+  });
+
+  it("the remaining-payment sentence is the one Ayesha asked for", async () => {
+    const { deps, sent } = setup(quote());
+    await ask(deps);
+    expect(sent.find((e) => e.kind === "customer")!.text).toContain("The remaining payment can be made by card, bank transfer or cash on the day of the move.");
+  });
+
   it("without a payment link set up, the customer is told one is coming and the team is told to send it", async () => {
     const { deps, sent } = setup(quote());
     await ask(deps);

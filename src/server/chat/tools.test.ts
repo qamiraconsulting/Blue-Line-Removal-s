@@ -57,8 +57,8 @@ const quoteInput = {
   phone: "0412 345 678",
   email: "jane@example.com",
   need: "moving",
-  from: "Preston",
-  to: "Brunswick",
+  from: "12 Station St, Preston VIC 3072",
+  to: "5 High St, Brunswick VIC 3056",
   date: "2026-10-14",
   propertySize: "2_bed",
   moveType: "home",
@@ -88,6 +88,23 @@ describe("get_quote uses the same engine and flow as the website form", () => {
     const run = await runTool("get_quote", { ...quoteInput, movers: 4, accessNotes: "2 flights of stairs at pickup" });
     expect(run.result).toMatchObject({ amountAud: 1510 }); // same as the form for a 2 bed with 4 movers
     expect(sent.find((e) => e.kind === "team")!.text).toContain("Access notes: 2 flights of stairs at pickup");
+  });
+
+  it("asks again instead of passing on an incomplete address", async () => {
+    const { runTool, rows } = setup();
+    const noStreet = await runTool("get_quote", { ...quoteInput, from: "Preston" });
+    expect(noStreet.result).toMatchObject({ ok: false });
+    expect(JSON.stringify(noStreet.result)).toContain("full pickup address");
+    expect(noStreet.record.outcome).toBe("address_incomplete");
+    const noPostcode = await runTool("get_quote", { ...quoteInput, from: "12 Station St, Preston" });
+    expect(noPostcode.record.outcome).toBe("address_incomplete");
+    const noDropoff = await runTool("get_quote", { ...quoteInput, to: "Brunswick" });
+    expect(JSON.stringify(noDropoff.result)).toContain("full drop-off address");
+    expect(rows).toHaveLength(0); // nothing was quoted
+
+    // a drop-off with only the suburb and postcode is accepted (the street may not be known yet)
+    const suburbOnly = await runTool("get_quote", { ...quoteInput, to: "Brunswick VIC 3056" });
+    expect(suburbOnly.result).toMatchObject({ ok: true, kind: "price" });
   });
 
   it("an on-the-day inspection request still gets an estimate", async () => {
@@ -297,7 +314,15 @@ describe("tool and prompt wording", () => {
     expect(prompt).toContain("To lock in your booking we take a $100 deposit before the move.");
     expect(prompt).toContain("card, bank transfer or cash");
     // one Stripe link for the deposit (card or bank via PayTo) -- no bank details, no card/bank buttons
-    expect(prompt).toContain("by card or straight from their bank account");
+    expect(prompt).toContain("do NOT show the link yet");
+    expect(prompt).toContain("[[choices: Card | Bank transfer]]");
+    expect(prompt).toContain("choose to pay straight from their bank account");
+    // full street addresses for the driver
+    expect(prompt).toContain("unit or house number, street name, suburb, state and postcode");
+    expect(prompt).toContain("4/12 Station St, Preston VIC 3072");
+    expect(prompt).toContain("the pickup always needs the full address");
+    // the remaining payment wording
+    expect(prompt).toContain("The remaining payment can be made by card, bank transfer or cash on the day of the move.");
     expect(prompt).toContain("never give out bank account details");
     expect(prompt).not.toContain("Card (secure link)");
     expect(prompt).toContain("4.5 tonne truck, 6-8 tonne truck, 10 tonne truck");
