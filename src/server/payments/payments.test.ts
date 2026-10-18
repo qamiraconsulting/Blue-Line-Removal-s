@@ -1,6 +1,7 @@
 import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import type { BookingStore, StoredQuote } from "../quote/booking.js";
+import { fixtureRateCard } from "../quote/rateCard.fixture.js";
 import type { OutgoingEmail } from "../quote/service.js";
 import { depositCheckoutFor, siteUrlFrom, type DepositPaid, type DepositStore } from "./depositPayment.js";
 import { handleStripeEvent } from "./depositWebhook.js";
@@ -102,8 +103,9 @@ const quoteRow = (over: Partial<StoredQuote> = {}): StoredQuote =>
     ...over,
   }) as StoredQuote;
 
-function harness(q: StoredQuote | null, confirmable = true) {
+function harness(q: StoredQuote | null, confirmable = true, gate?: Promise<void>) {
   const sent: OutgoingEmail[] = [];
+  const calendar: unknown[] = [];
   const notes: string[] = [];
   const paid: DepositPaid[] = [];
   const state = { status: q?.depositStatus ?? null, checkoutId: "cs_1", booked: false };
@@ -136,23 +138,44 @@ function harness(q: StoredQuote | null, confirmable = true) {
       bookings: [],
     }),
     confirm: async (_ref, _date, decide) => {
-      const d = decide(await bookings.loadCapacity(""));
+      const capacity = await bookings.loadCapacity("");
+      // Check-then-set with nothing awaited in between: the real store does this under a lock
+      // on the date, so two deliveries at once can never both confirm.
+      if (state.booked) return null;
+      const d = decide(capacity);
       if (!d) return null;
       state.booked = true;
+      calendar.push(d.booking);
       return d.result;
     },
   };
   const deps = {
     bookings,
     depositStore,
-    sendEmail: async (e: OutgoingEmail) => (sent.push(e), true),
+    // `gate` makes the emails slow (like the ~15 s PDF), so tests can see what happens meanwhile.
+    sendEmail: async (e: OutgoingEmail) => {
+      await gate;
+      sent.push(e);
+      return true;
+    },
     teamEmail: "team@example.com",
     customerReplyTo: "hello@example.com",
     chatNote: async (_id: string, text: string) => void notes.push(text),
     now: () => new Date("2026-10-12T02:00:00Z"),
   };
-  return { deps, sent, notes, paid, state };
+  return { deps, sent, notes, paid, state, calendar };
 }
+
+/** A priced estimate that can really be booked: Wed 21 Oct, 07:30, 6-8T, 2 movers, 4.5 h. */
+const bookableRow = (over: Partial<StoredQuote> = {}) =>
+  quoteRow({
+    status: "priced",
+    amountAud: 720,
+    validUntil: "2026-10-22",
+    internalBreakdown: { truck: "6-8T", movers: 2, jobHours: 4.5, crewRateAudPerHour: 140, labourCostAud: 630, accessCostAud: 0 },
+    rateCardSnapshot: fixtureRateCard,
+    ...over,
+  } as Partial<StoredQuote>);
 
 const event = (type: string, object: Partial<CheckoutSessionEvent["data"]["object"]> = {}, livemode = false): CheckoutSessionEvent => ({
   id: "evt_1",
@@ -170,9 +193,11 @@ describe("Stripe says the deposit is paid", () => {
     expect(team.subject).toContain("ACTION NEEDED -- deposit paid, booking not confirmed");
     expect(team.subject).toContain("[TEST]");
     expect(h.notes[0]).toContain("we've received your $100 deposit");
-    // Stripe sends it again: nothing happens twice.
-    expect(await handleStripeEvent(event("checkout.session.completed"), h.deps)).toBe("duplicate");
-    expect(h.sent).toHaveLength(1);
+    // Stripe sends it again while the booking is still unconfirmed: the payment is NOT recorded
+    // twice, but the confirmation is tried again (and the team is told again why it can't be done).
+    expect(await handleStripeEvent(event("checkout.session.completed"), h.deps)).toBe("needs_team");
+    expect(h.paid).toHaveLength(1);
+    expect(h.sent).toHaveLength(2);
   });
 
   it("bank (PayTo): waits while it's processing, then records it as a bank payment", async () => {
@@ -212,5 +237,75 @@ describe("Stripe says the deposit wasn't paid", () => {
     const h = harness(quoteRow({ depositStatus: "processing" }));
     expect(await handleStripeEvent(event("checkout.session.async_payment_failed"), h.deps)).toBe("failed");
     expect(h.sent[0]!.text).toContain("didn't go through");
+  });
+});
+
+describe("a slow webhook must not strand or double a paid booking", () => {
+  it("confirms and calendars the booking BEFORE the emails, and lets the emails finish after the reply", async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const h = harness(bookableRow(), true, gate);
+    const deferred: Promise<unknown>[] = [];
+
+    // The handler answers while every email is still stuck behind the gate (the slow PDF).
+    expect(await handleStripeEvent(event("checkout.session.completed"), { ...h.deps, defer: (w) => void deferred.push(w) })).toBe("confirmed");
+    expect(h.paid).toHaveLength(1); // payment recorded
+    expect(h.state.booked).toBe(true); // booking confirmed ...
+    expect(h.calendar).toHaveLength(1); // ... and on the calendar
+    expect(h.sent).toHaveLength(0); // no email has gone yet
+    expect(h.notes).toHaveLength(0);
+    expect(deferred).toHaveLength(1);
+
+    release();
+    await Promise.all(deferred);
+    expect(h.sent.some((e) => e.kind === "team" && e.subject.includes("Booked + deposit paid"))).toBe(true);
+    expect(h.notes[0]).toContain("Your move is booked for");
+    expect(h.notes[0]).toContain("we've emailed your confirmation");
+  });
+
+  it("without a defer hook (tests, local dev) it simply finishes everything before returning", async () => {
+    const h = harness(bookableRow());
+    expect(await handleStripeEvent(event("checkout.session.completed"), h.deps)).toBe("confirmed");
+    expect(h.sent.length).toBeGreaterThan(0);
+    expect(h.notes).toHaveLength(1);
+  });
+
+  it("a repeat message after a normal run does nothing (no second booking, email or note)", async () => {
+    const h = harness(bookableRow());
+    await handleStripeEvent(event("checkout.session.completed"), h.deps);
+    const emails = h.sent.length;
+    // The stored booking now reads confirmed, like the database would.
+    const confirmed = harness(bookableRow({ bookingStatus: "confirmed", depositStatus: "paid" }));
+    expect(await handleStripeEvent(event("checkout.session.completed"), confirmed.deps)).toBe("duplicate");
+    expect(confirmed.sent).toHaveLength(0);
+    expect(confirmed.notes).toHaveLength(0);
+    expect(confirmed.calendar).toHaveLength(0);
+    expect(emails).toBeGreaterThan(0);
+  });
+
+  it("RECOVERY: the first delivery died after recording the payment but before confirming -- the retry confirms it", async () => {
+    // Payment already recorded as paid, booking still only 'requested'.
+    const h = harness(bookableRow({ depositStatus: "paid" }));
+    expect(await handleStripeEvent(event("checkout.session.completed"), h.deps)).toBe("confirmed");
+    expect(h.paid).toHaveLength(0); // not recorded a second time
+    expect(h.state.booked).toBe(true);
+    expect(h.calendar).toHaveLength(1);
+    expect(h.sent.some((e) => e.kind === "team")).toBe(true);
+    expect(h.notes).toHaveLength(1);
+  });
+
+  it("two deliveries at once confirm the booking only once", async () => {
+    const h = harness(bookableRow({ depositStatus: "paid" }));
+    const [a, b] = await Promise.all([handleStripeEvent(event("checkout.session.completed"), h.deps), handleStripeEvent(event("checkout.session.completed"), h.deps)]);
+    expect([a, b].filter((o) => o === "confirmed")).toHaveLength(1);
+    expect([a, b].filter((o) => o === "duplicate")).toHaveLength(1);
+    expect(h.calendar).toHaveLength(1);
+  });
+
+  it("a retry when the time can no longer be booked still tells the team", async () => {
+    const h = harness(bookableRow({ depositStatus: "paid" }), false);
+    expect(await handleStripeEvent(event("checkout.session.completed"), h.deps)).toBe("needs_team");
+    expect(h.sent[0]!.subject).toContain("ACTION NEEDED");
+    expect(h.calendar).toHaveLength(0);
   });
 });

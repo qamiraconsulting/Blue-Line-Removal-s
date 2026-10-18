@@ -12,11 +12,24 @@ import type { CheckoutSessionEvent } from "./stripe.js";
 //  - PayTo approved but not yet settled          -> "processing", wait for the next message
 //  - PayTo failed / the page expired unpaid      -> email the team; the booking isn't confirmed
 // Stripe may send a message more than once, or out of order: everything here is safe to repeat.
+//
+// Two things make that safe AND fast (found in the first real test, 18 Oct 2026, when a delivery
+// took 27 s, Stripe gave up after ~20 s and retried):
+//  - the order of work: record the payment -> confirm the booking in the calendar (a few
+//    seconds) -> answer Stripe -> THEN send the emails/PDF/driver notice (`defer`);
+//  - a repeat message for a payment that is already recorded does not stop at "duplicate" if
+//    the booking is still unconfirmed: it tries the confirmation again, so a delivery that died
+//    between "recorded" and "confirmed" can't leave a paid booking stranded.
 
 export interface DepositWebhookDeps extends BookingDeps {
   depositStore: DepositStore;
   /** Adds a message to the customer's chat so they see what happened if they come back. */
   chatNote?: (conversationId: string, text: string) => Promise<void>;
+  /**
+   * Hands work to run AFTER the reply to Stripe has been sent (Vercel's waitUntil). Unset =
+   * the work is simply awaited first (tests, local dev).
+   */
+  defer?: (work: Promise<unknown>) => void;
 }
 
 export type WebhookOutcome =
@@ -90,7 +103,9 @@ export async function handleStripeEvent(event: CheckoutSessionEvent, deps: Depos
     method,
     testMode: !event.livemode,
   });
-  if (!recorded) return "duplicate";
+  // A repeat message: the payment was recorded earlier. Only carry on if the booking is still
+  // waiting to be confirmed (the earlier delivery may have stopped half way).
+  if (!recorded && q.bookingStatus !== "requested") return "duplicate";
   alert.method = method;
 
   if (session.currency !== "aud" || amountCents !== DEPOSIT_AUD * 100) {
@@ -100,12 +115,20 @@ export async function handleStripeEvent(event: CheckoutSessionEvent, deps: Depos
 
   const result = await confirmPaidBooking(reference, !event.livemode, deps);
   if (result.outcome === "confirmed") {
-    await note(
-      `Thanks -- we've received your $${DEPOSIT_AUD} deposit. Your move is booked for ${formatDateLabel(result.date)} with arrival at ${formatArrivalTime(result.arrivalTime)}${result.emailed ? ", and we've emailed your confirmation" : ""}. Reference ${q.reference}.`,
+    // The booking is confirmed. The notices and the chat note (which says whether the customer
+    // was emailed) finish after Stripe has its answer.
+    const finish = result.notices.then((emailed) =>
+      note(
+        `Thanks -- we've received your $${DEPOSIT_AUD} deposit. Your move is booked for ${formatDateLabel(result.date)} with arrival at ${formatArrivalTime(result.arrivalTime)}${emailed ? ", and we've emailed your confirmation" : ""}. Reference ${q.reference}.`,
+      ),
     );
+    if (deps.defer) deps.defer(finish);
+    else await finish;
     return "confirmed";
   }
   if (result.outcome === "already_confirmed") {
+    // On a repeat message this just means the earlier delivery got there first.
+    if (!recorded) return "duplicate";
     await note(`Thanks -- we've received your $${DEPOSIT_AUD} deposit for booking ${q.reference}.`);
     return "already_confirmed";
   }

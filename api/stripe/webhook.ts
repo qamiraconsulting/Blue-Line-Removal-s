@@ -1,3 +1,4 @@
+import { waitUntil } from "@vercel/functions";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { dbBookingStore } from "../../src/server/quote/booking.js";
 import { buildQuoteDeps } from "../../src/server/quote/deps.js";
@@ -52,7 +53,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const outcome = await handleStripeEvent(event, { ...deps, bookings: dbBookingStore, depositStore: dbDepositStore, chatNote: dbChatNote });
+    // The emails / PDF / driver notice run after the reply (waitUntil): Stripe only waits ~20 s
+    // for an answer and the PDF alone takes ~15 s. The payment and the calendar are saved first.
+    const outcome = await handleStripeEvent(event, { ...deps, bookings: dbBookingStore, depositStore: dbDepositStore, chatNote: dbChatNote, defer: (work) => waitUntil(work) });
     console.log(`Stripe ${event.type}: ${outcome}`); // no customer details in logs
     res.status(200).json({ received: true, outcome });
   } catch (err) {

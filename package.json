@@ -23,6 +23,7 @@
     "@react-router/node": "^7.18.1",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.38.2",
+    "@vercel/functions": "3.10.1",
     "@vercel/node": "^5.9.7",
     "clsx": "^2.1.1",
     "drizzle-orm": "^0.45.2",

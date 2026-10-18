@@ -19,6 +19,9 @@
     },
     "api/cron/notices.ts": {
       "maxDuration": 60
+    },
+    "api/stripe/webhook.ts": {
+      "maxDuration": 60
     }
   },
   "rewrites": [

@@ -375,7 +375,18 @@ async function sendBookedNotices(q: StoredQuote, date: string, arrivalTime: stri
 }
 
 export type PaidBookingOutcome =
-  | { outcome: "confirmed"; emailed: boolean; arrivalTime: string; date: string }
+  | {
+      outcome: "confirmed";
+      arrivalTime: string;
+      date: string;
+      /**
+       * The team email, the branded PDF to the customer and the driver notice. Already running
+       * (never rejects); resolves to whether the customer was emailed. These are the slow part
+       * (the PDF takes ~15 s), so the Stripe webhook answers Stripe first and lets them finish
+       * afterwards -- see api/stripe/webhook.ts.
+       */
+      notices: Promise<boolean>;
+    }
   | { outcome: "already_confirmed" }
   /** Paid, but the team has to confirm: `problem` says why (told to the team). */
   | { outcome: "needs_team"; problem: string };
@@ -396,7 +407,8 @@ const SLOT_PROBLEM: Record<string, string> = {
  * Stripe says the deposit is paid: confirm the booking automatically if its arrival time still
  * has the truck and crew free (checked under the date's lock, like an instant booking). The
  * team's "confirm instantly" switch doesn't matter here -- the payment is the go-ahead. If it
- * can't be confirmed, the booking stays a request for the team, with the reason.
+ * can't be confirmed, the booking stays a request for the team, with the reason. Safe to call
+ * again for the same booking: once it's confirmed, it returns "already_confirmed".
  * `stripeTestMode`: paid with Stripe test keys -- only then may a test-price estimate be booked.
  */
 export async function confirmPaidBooking(reference: string, stripeTestMode: boolean, deps: BookingDeps): Promise<PaidBookingOutcome> {
@@ -445,8 +457,9 @@ export async function confirmPaidBooking(reference: string, stripeTestMode: bool
   }
 
   const deposit = { ...depositFor(q.movingDate, nowLocal.slice(0, 10), null), required: true, paid: true };
-  const emailed = await sendBookedNotices({ ...q, depositStatus: "paid" }, job.date, arrivalTime, q.bookingNotes ?? "", deposit, testMode, deps);
-  return { outcome: "confirmed", emailed, arrivalTime, date: job.date };
+  // Started now, not awaited: the booking is already safely confirmed in the database.
+  const notices = sendBookedNotices({ ...q, depositStatus: "paid" }, job.date, arrivalTime, q.bookingNotes ?? "", deposit, testMode, deps).catch(() => false);
+  return { outcome: "confirmed", arrivalTime, date: job.date, notices };
 }
 
 /** The deposit for a requested booking, with its payment link (made now if needed). */

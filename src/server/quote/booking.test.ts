@@ -369,7 +369,8 @@ describe("deposit paid -> confirmed automatically if the time is still free", ()
     const drivers: string[] = [];
     const { deps, sent, calendar, row } = setup(requested(), { ...READY, autoConfirm: false });
     const out = await confirmPaidBooking("BLR-20261012-ABC123", false, { ...deps, notifyDriver: async (t: { quoteReference?: string }) => (drivers.push(t.quoteReference ?? ""), null) } as never);
-    expect(out).toEqual({ outcome: "confirmed", emailed: true, arrivalTime: "07:30", date: "2026-10-21" });
+    expect(out).toMatchObject({ outcome: "confirmed", arrivalTime: "07:30", date: "2026-10-21" });
+    expect(await (out as { notices: Promise<boolean> }).notices).toBe(true); // the customer was emailed
     expect(row()).toMatchObject({ bookingStatus: "confirmed" });
     expect(calendar).toHaveLength(1);
     expect(calendar[0]).toMatchObject({ arrivalTime: "07:30", truckId: "truck-a", createdBy: "deposit paid (confirmed automatically)" });
