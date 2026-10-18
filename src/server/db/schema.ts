@@ -22,6 +22,16 @@ export interface DriverNoticeSnapshot {
   sentAt: string;
 }
 
+/** What the customer was last emailed about a booking made from the calendar -- see src/server/notify/customerNotice.ts. */
+export interface CustomerNoticeSnapshot {
+  email: string;
+  date: string;
+  arrivalTime: string;
+  fromText: string | null;
+  toText: string | null;
+  sentAt: string;
+}
+
 export const conversations = pgTable("conversations", {
   id: uuid("id").primaryKey().defaultRandom(),
   startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
@@ -273,6 +283,10 @@ export const bookings = pgTable(
     driverId: uuid("driver_id").references(() => drivers.id),
     // What the driver was last emailed (so a change sends an update, not a duplicate).
     driverNotice: jsonb("driver_notice").$type<DriverNoticeSnapshot>(),
+    // The team ticked "email the customer their booking details" (phone bookings, trips). The
+    // email goes out the day before the move, and again if the booking later changes.
+    customerNoticeWanted: boolean("customer_notice_wanted").notNull().default(false),
+    customerNotice: jsonb("customer_notice").$type<CustomerNoticeSnapshot>(),
     customerName: text("customer_name"),
     phone: text("phone"),
     customerEmail: text("customer_email"),

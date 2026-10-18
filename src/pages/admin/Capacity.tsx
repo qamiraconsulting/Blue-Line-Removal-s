@@ -194,7 +194,7 @@ function Drivers({ drivers, trucks, busy, onSave }: { drivers: Driver[]; trucks:
     <section className={box}>
       <SectionHeader
         title="Drivers"
-        intro="Everyone who drives a truck. Each truck has one usual driver (set under Trucks below). When a booking on that truck is confirmed -- by the chat, by Matt, or added from a phone call -- its driver is emailed the date, time, pick-up, drop-off and the customer's name, address and phone. Without an email address a driver can't be told."
+        intro="Everyone who drives a truck. Each truck has one usual driver (set under Trucks below). When a booking on that truck is confirmed -- by the chat, by Matt, or added from a phone call -- its driver is emailed the date, time, pick-up, drop-off and the customer's name, address and phone -- the day before the move (straight away if the move is today or tomorrow). Without an email address a driver can't be told."
       />
       <ul className="mt-3 space-y-2">
         {drivers.map((d) => (
@@ -534,10 +534,10 @@ function AddBooking({ trucks, busy, onAdd }: { trucks: Truck[]; busy: boolean; o
         Add booking
       </button>
       <label className="mt-3 flex items-center gap-2 text-sm">
-        <input type="checkbox" checked={notifyCustomer} onChange={(e) => setNotifyCustomer(e.target.checked)} /> Email the customer a booking confirmation (when an email is entered)
+        <input type="checkbox" checked={notifyCustomer} onChange={(e) => setNotifyCustomer(e.target.checked)} /> Email the customer their booking details the day before the move (needs their email)
       </label>
       <p className="mt-2 text-xs text-slate-500">
-        Date, arrival time, estimated hours and movers are required. The truck&apos;s driver is emailed the job automatically once a truck is assigned (pick a specific truck above, or the system picks a free one).
+        Date, arrival time, estimated hours and movers are required. The truck&apos;s driver is emailed the job automatically the day before the move once a truck is assigned (pick a specific truck above, or the system picks a free one).
       </p>
     </section>
   );

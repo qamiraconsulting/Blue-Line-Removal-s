@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import clsx from "clsx";
+import { shortDay } from "../../lib/noticeTiming";
 import { describeProblem, statusAt, time12, toMinutes, tripEnd, tripProblem, truckDay } from "../../lib/truckTrips";
 import { box, button, Field, input, SectionHeader, useCapacity, type Booking, type CapacityData } from "./capacityShared";
 
@@ -8,7 +9,9 @@ import { box, button, Field, input, SectionHeader, useCapacity, type Booking, ty
 // a booking in the same calendar the chat reads (Bookings & capacity), so assigning, editing
 // or cancelling one changes what the chat offers straight away. The same truck -- or the
 // same driver -- can't be on two trips at overlapping times. Each truck's usual driver is set
-// on Bookings & capacity; they are emailed the job when it is confirmed, and again if it changes.
+// on Bookings & capacity. The driver's "New job" email and the customer's booking email go out
+// the DAY BEFORE the move (straight away if the move is today or tomorrow); a change or a
+// cancellation before then simply changes what is sent. After they have gone, changes are emailed at once.
 
 const DAY_START = "06:00";
 const DAY_END = "20:00";
@@ -49,6 +52,20 @@ export default function TruckTrips() {
           </Link>
           .
         </p>
+        <p className="mt-2 text-sm text-slate-600">
+          <strong>Emails:</strong> the driver&apos;s &quot;New job&quot; email and the customer&apos;s booking email go out the <strong>day before the move</strong> (9am
+          Melbourne time), or straight away if the move is today or tomorrow. If you change the date, driver or truck first, or cancel, the emails follow. Once sent,
+          any change is emailed at once.
+        </p>
+        <button
+          type="button"
+          disabled={busy}
+          className="mt-2 text-xs font-bold text-navy underline"
+          onClick={() => void post({ action: "sendDueNotices" }, "Checked for emails that are due.")}
+        >
+          Send due emails now
+        </button>
+        <span className="ml-2 text-xs text-slate-500">(the live site does this every hour; use this on the test link)</span>
         {message && <p className={clsx("mt-3 text-sm", message.error ? "text-red-600" : "text-green-700")}>{message.text}</p>}
       </div>
       <TripsDay
@@ -59,8 +76,8 @@ export default function TruckTrips() {
         onCancel={(b) =>
           window.confirm(
             b.quoteReference
-              ? `This trip is the booking for ${b.customerName ?? b.quoteReference}. Cancelling it cancels their booking too and tells the driver it's off (the customer isn't emailed -- let them know yourself). To only change the truck, driver or times, use Edit instead.`
-              : "Cancel this trip? The truck shows as Available again and its driver is told the job is off.",
+              ? `This trip is the booking for ${b.customerName ?? b.quoteReference}. Cancelling it cancels their booking too, and tells the driver it's off if they were already emailed (the customer isn't emailed about a cancellation -- let them know yourself). To only change the truck, driver or times, use Edit instead.`
+              : "Cancel this trip? The truck shows as Available again. If its driver was already emailed, they are told the job is off; emails still waiting for the day before are cancelled.",
           )
             ? post({ action: "cancelBooking", id: b.id }, b.quoteReference ? "Booking cancelled." : "Trip cancelled.")
             : Promise.resolve(null)
@@ -131,6 +148,7 @@ function TripsDay(props: {
 
   const edit = (b: Booking) => {
     setServerError(null);
+    setNotifyCustomer(b.customerNoticeWanted);
     setF({
       id: b.id,
       truckId: b.truckId ?? "",
@@ -244,7 +262,7 @@ function TripsDay(props: {
                     ) : (
                       segments.map((s) =>
                         s.engaged ? (
-                          <TripRow key={s.trip!.id} trip={s.trip as Booking} busy={props.busy} onEdit={edit} onCancel={props.onCancel} />
+                          <TripRow key={s.trip!.id} trip={s.trip as Booking} today={data.today} busy={props.busy} onEdit={edit} onCancel={props.onCancel} />
                         ) : (
                           <li key={s.start} className="text-xs text-green-700">
                             Available {time12(s.start)} - {time12(s.end)}
@@ -394,17 +412,17 @@ function TripsDay(props: {
         </div>
         <label className="mt-3 flex items-center gap-2 text-sm">
           <input type="checkbox" checked={notifyCustomer} onChange={(e) => setNotifyCustomer(e.target.checked)} />
-          {f.id ? "Email the customer if the date or time changed" : "Email the customer a booking confirmation"} (when their email is entered)
+          Email the customer their booking details the day before the move, and tell them if it changes (needs their email)
         </label>
         <p className="mt-2 text-xs text-slate-500">
-          Truck, date, start and end time are required. The same truck or driver can&apos;t be on two trips at overlapping times. The driver is emailed the job when you save, and again if you change it.
+          Truck, date, start and end time are required. The same truck or driver can&apos;t be on two trips at overlapping times. The driver is emailed the job the day before the move (straight away if it is today or tomorrow), and again if you change it after that.
         </p>
       </section>
     </>
   );
 }
 
-function TripRow({ trip, busy, onEdit, onCancel }: { trip: Booking; busy: boolean; onEdit: (b: Booking) => void; onCancel: (b: Booking) => Promise<string | null> }) {
+function TripRow({ trip, today, busy, onEdit, onCancel }: { trip: Booking; today: string; busy: boolean; onEdit: (b: Booking) => void; onCancel: (b: Booking) => Promise<string | null> }) {
   const route = [trip.fromText, trip.toText].filter(Boolean).join(" → ");
   const contact = [trip.phone, trip.customerEmail].filter(Boolean).join(" · ");
   return (
@@ -420,7 +438,18 @@ function TripRow({ trip, busy, onEdit, onCancel }: { trip: Booking; busy: boolea
         </span>
         {trip.driverName && (
           <span className={clsx("text-xs", trip.driverNotifiedAt ? "text-green-700" : "text-amber-700")}>
-            {trip.driverNotifiedAt ? "emailed" : trip.driverHasEmail ? "not emailed yet" : "no email on file -- not told"}
+            {trip.driverNotifiedAt
+              ? "emailed"
+              : !trip.driverHasEmail
+                ? "no email on file -- not told"
+                : trip.noticeDueOn > today
+                  ? `email scheduled for ${shortDay(trip.noticeDueOn)}`
+                  : "not emailed yet"}
+          </span>
+        )}
+        {trip.customerNoticeWanted && (
+          <span className={clsx("text-xs", trip.customerNotifiedAt ? "text-green-700" : "text-amber-700")}>
+            · customer {trip.customerNotifiedAt ? "emailed" : trip.noticeDueOn > today ? `email scheduled for ${shortDay(trip.noticeDueOn)}` : "email not sent yet"}
           </span>
         )}
         <button type="button" disabled={busy} className="text-xs font-bold text-navy underline" onClick={() => onEdit(trip)}>

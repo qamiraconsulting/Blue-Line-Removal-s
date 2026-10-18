@@ -55,6 +55,7 @@ the "Meanwhile" column says: it never guesses.
 | `hourly-rate-disclosure` | The PDF quote shows rate x hours (15 Oct). Should the chat also answer hourly-rate questions? | PDF shows the breakdown; the chat never states a rate |
 | `stripe-setup` | Vercel STRIPE_SECRET_KEY + STRIPE_WEBHOOK_SECRET, Stripe webhook to /api/stripe/webhook, Vercel protection bypass on previews; test keys now, live at go-live | No payment page; team sends a link |
 | `driver-details` | Enter each driver's name, mobile and email (Bookings & capacity > Drivers) and set every truck's usual driver | Nobody is told about a job on a truck with no driver or a driver with no email; the dashboard flags it |
+| `cron-secret` | Add CRON_SECRET in Vercel (Production) so the hourly job can send the day-before driver and customer emails | No day-before emails on the live site; on the test link use Send due emails now |
 | `driver-sms` | Optional: SMS / WhatsApp for driver and customer notices | Email only |
 | `past-customers` | Matt's 9 real customers imported 16 Oct, all 'Not Confirmed' in his sheet: did any actually move with Blue Line? (Those get marked completed.) | Stored as past quotes; still get the 10% first-customer discount |
 | `gtm-chat-events` | Add GTM triggers / GA4 events for chat_opened, chat_started, chat_estimate_shown, chat_handoff | Events pushed to the dataLayer, not yet recorded |

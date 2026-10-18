@@ -61,6 +61,11 @@ export interface Booking {
   driverHasEmail: boolean;
   /** When the driver was last emailed about it. */
   driverNotifiedAt: string | null;
+  /** The team asked for the customer to be emailed their booking details. */
+  customerNoticeWanted: boolean;
+  customerNotifiedAt: string | null;
+  /** The day those emails go out: the day before the move. */
+  noticeDueOn: string;
   customerName: string | null;
   phone: string | null;
   customerEmail: string | null;

@@ -1,7 +1,9 @@
 import { Resend } from "resend";
 import { site } from "../../data/site.js";
 import { appsScriptSender } from "../jobs/pdfQuote.js";
+import { dbCustomerNoticeStore, syncCustomerNoticeSafely } from "../notify/customerNotice.js";
 import { dbDriverNoticeStore, syncDriverNoticeSafely } from "../notify/driverNotice.js";
+import { sendDueNotices } from "../notify/dueNotices.js";
 import { demoDepositLinkFor } from "../payments/demoLink.js";
 import { dbDepositStore, siteUrlFrom } from "../payments/depositPayment.js";
 import { stripeConfigFrom } from "../payments/stripe.js";
@@ -60,10 +62,15 @@ export function buildQuoteDeps(env: Env = process.env): QuoteServiceDeps | null 
   // The booking deposit's payment pages (src/server/payments). Unset = the team sends a link.
   const stripe = stripeConfigFrom(env);
 
+  // Driver and customer day-before emails (src/server/notify). Previews never email real people.
+  const nonProduction = env.VERCEL_ENV !== "production";
+  const driverNotice = { store: dbDriverNoticeStore, sendEmail, replyTo: site.email, testEmailTo, nonProduction };
+  const customerNotice = { store: dbCustomerNoticeStore, sendEmail, replyTo: site.email, testEmailTo, nonProduction };
+
   return {
-    notifyDriver: databaseConfigured
-      ? (target) => syncDriverNoticeSafely(target, { store: dbDriverNoticeStore, sendEmail, replyTo: site.email, testEmailTo, nonProduction: env.VERCEL_ENV !== "production" })
-      : undefined,
+    notifyDriver: databaseConfigured ? (target) => syncDriverNoticeSafely(target, driverNotice) : undefined,
+    notifyCustomer: databaseConfigured ? (target) => syncCustomerNoticeSafely(target, customerNotice) : undefined,
+    sendDueNotices: databaseConfigured ? () => sendDueNotices({ driver: driverNotice, customer: customerNotice }) : undefined,
     rateCard: getActiveRateCard(),
     allowPlaceholderRateCard,
     routes: env.GOOGLE_MAPS_SERVER_KEY ? { apiKey: env.GOOGLE_MAPS_SERVER_KEY } : null,

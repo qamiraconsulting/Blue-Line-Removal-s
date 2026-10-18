@@ -204,8 +204,7 @@ export function renderManualBookingEmail(input: {
   ] as [string, string][]).filter(([, v]) => Boolean(v));
   const greeting = input.name ? `Hi ${firstName(input.name)},` : "Hi,";
   const opening = input.kind === "confirmed" ? "Your move with us is booked. Here are the details:" : "Your booking has been updated. Here are the new details:";
-  const closing = "Our team will confirm the final charges with you on the day, before we start. If anything needs to change, just call us.";
-  const text = [greeting, "", opening, "", ...rows.map(([k, v]) => `${k}: ${v}`), "", closing, `Call us on ${site.phone.display}.`, "", site.name].join("\n");
+  const text = [greeting, "", opening, "", ...rows.map(([k, v]) => `${k}: ${v}`), "", `Call us on ${site.phone.display}.`, "", site.name].join("\n");
   const table = rows
     .map(([k, v]) => `<tr><td style="padding:3px 14px 3px 0;color:#5b6b7c">${esc(k)}</td><td style="padding:3px 0"><strong>${esc(v)}</strong></td></tr>`)
     .join("");
@@ -213,7 +212,6 @@ export function renderManualBookingEmail(input: {
 <p style="margin:0 0 14px">${esc(greeting)}</p>
 <p style="margin:0 0 14px;color:${NAVY}">${esc(opening)}</p>
 <table style="border-collapse:collapse;margin:0 0 14px;font-size:14px">${table}</table>
-<p style="margin:0 0 14px">${esc(closing)}</p>
 <p style="margin:0">Call us on <a href="${esc(site.phone.href)}" style="color:${ORANGE};font-weight:bold">${esc(site.phone.display)}</a>.</p>`);
   return {
     subject: input.kind === "confirmed" ? `Your move is booked: ${formatDateLabel(input.date)}, ${formatArrivalTime(input.arrivalTime)}` : `Your booking has been updated: ${formatDateLabel(input.date)}, ${formatArrivalTime(input.arrivalTime)}`,

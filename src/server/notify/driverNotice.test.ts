@@ -6,7 +6,8 @@ import { noticeChanges, syncDriverNotice, type DriverNoticeStore, type TripForNo
 
 const SAM: DriverLike = { id: "d-sam", name: "Sam Patel", phone: "0400 111 222", email: "sam@example.com", active: true };
 const PAT: DriverLike = { id: "d-pat", name: "Pat Lee", phone: null, email: "pat@example.com", active: true };
-const NOW = new Date("2026-10-16T02:00:00Z");
+// Sun 18 Oct, 1pm in Melbourne: the trips below (Mon 19 Oct) are tomorrow, so their emails are due now.
+const NOW = new Date("2026-10-18T02:00:00Z");
 
 const TRUCKS = [{ id: "t-baby", driverId: SAM.id }, { id: "t-big", driverId: null }];
 

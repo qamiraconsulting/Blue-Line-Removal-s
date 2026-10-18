@@ -1,4 +1,6 @@
 import { eq } from "drizzle-orm";
+import { noticeTiming, shortDay, type NoticeMode } from "../../lib/noticeTiming.js";
+import { melbourneNowLocal } from "../capacity/store.js";
 import { fromMinutes, toMinutes } from "../../lib/truckTrips.js";
 import { resolveDriver, type DriverLike, type ResolvedDriver } from "../../lib/drivers.js";
 import { getDb } from "../db/client.js";
@@ -16,6 +18,12 @@ import { customerRecipient, type OutgoingEmail } from "../quote/service.js";
 // it is now with what the driver was last told, and only emails when something differs --
 // a new job, a changed job, a different driver (old one told they're off it), or a cancellation.
 // The driver never sees a price.
+//
+// Timing (Ayesha, 2026-10-18): the first "New job" email is NOT sent when the truck and driver
+// are assigned but the day before the move (straight away if that day is today or has passed) --
+// see src/lib/noticeTiming.ts. Until then nothing is stored: the email is built from the booking
+// as it is at send time, so a new date, driver or truck before then is picked up and a cancelled
+// booking sends nothing. Once the driver has been told, any change is sent straight away.
 
 export interface TripForNotice {
   id: string;
@@ -59,6 +67,8 @@ export interface DriverNoticeDeps {
 export type DriverNoticeResult =
   | { status: "sent"; kind: "new" | "update" | "cancelled" | "reassigned"; to: string }
   | { status: "unchanged" }
+  /** Not due yet: it goes out on `on` (the day before the move). */
+  | { status: "scheduled"; on: string }
   /** Nobody could be told; `why` says what the team needs to fix. */
   | { status: "not_notified"; why: "no_trip" | "no_truck" | "no_driver" | "driver_has_no_email" | "driver_inactive" | "test_mode" | "email_failed" };
 
@@ -75,6 +85,7 @@ export const NOTICE_WHY: Record<string, string> = {
 /** One line for the team: did the driver get told? null = nothing worth saying. */
 export function driverNoticeLine(result: DriverNoticeResult | undefined, driverName?: string | null): string | null {
   if (!result || result.status === "unchanged") return null;
+  if (result.status === "scheduled") return `Driver email scheduled for ${shortDay(result.on)} (the day before the move).`;
   if (result.status === "sent") {
     const what = { new: "emailed the job", update: "emailed the changes", cancelled: "emailed that the job is off", reassigned: "emailed that the job is off" }[result.kind];
     return `Driver ${what}.`;
@@ -198,7 +209,7 @@ export function renderDriverOffJob(s: DriverNoticeSnapshot, reason: "cancelled" 
 
 // ------------------------------------------------------------------------------------ the sync
 
-export async function syncDriverNotice(target: NoticeTarget, deps: DriverNoticeDeps): Promise<DriverNoticeResult> {
+export async function syncDriverNotice(target: NoticeTarget, deps: DriverNoticeDeps, opts: { mode?: NoticeMode } = {}): Promise<DriverNoticeResult> {
   const trip = await deps.store.find(target);
   if (!trip) return { status: "not_notified", why: "no_trip" };
   const now = (deps.now ?? (() => new Date()))();
@@ -242,6 +253,9 @@ export async function syncDriverNotice(target: NoticeTarget, deps: DriverNoticeD
   // 2. The driver who should do it.
   const current = prev && prev.driverId === want.driverId ? prev : null;
   if (!current) {
+    // The first email waits for the day before the move (see the top of this file).
+    const timing = noticeTiming(trip.date, melbourneNowLocal(now), opts.mode ?? "assign");
+    if (!timing.due) return { status: "scheduled", on: timing.sendOn };
     const sent = await deliver(want.driverEmail, renderDriverNewJob(want, trip));
     if (sent !== true) return { status: "not_notified", why: sent === "test" ? "test_mode" : "email_failed" };
     await deps.store.save(trip.id, want);
@@ -256,9 +270,9 @@ export async function syncDriverNotice(target: NoticeTarget, deps: DriverNoticeD
 }
 
 /** Never throws: telling the driver must not undo or fail a booking that has been made. */
-export async function syncDriverNoticeSafely(target: NoticeTarget, deps: DriverNoticeDeps): Promise<DriverNoticeResult> {
+export async function syncDriverNoticeSafely(target: NoticeTarget, deps: DriverNoticeDeps, opts: { mode?: NoticeMode } = {}): Promise<DriverNoticeResult> {
   try {
-    return await syncDriverNotice(target, deps);
+    return await syncDriverNotice(target, deps, opts);
   } catch (err) {
     console.error("Driver notice failed:", err instanceof Error ? err.message : "unknown error");
     return { status: "not_notified", why: "email_failed" };

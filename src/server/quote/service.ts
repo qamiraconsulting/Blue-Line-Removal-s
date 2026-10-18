@@ -23,10 +23,13 @@ import type { QuoteApiResult } from "../../lib/quoteContract.js";
 import { moverCounts, truckIds, type RateCard } from "./rateCard.js";
 import type { NewQuoteRow, QuoteStore } from "./store.js";
 import type { PdfSender } from "../jobs/pdfQuote.js";
+import type { CustomerNoticeResult } from "../notify/customerNotice.js";
 import type { DriverNoticeResult, NoticeTarget } from "../notify/driverNotice.js";
+import type { DueNoticeSummary } from "../notify/dueNotices.js";
 import type { DepositPaymentDeps } from "../payments/depositPayment.js";
 
 export type DriverNotifier = (target: NoticeTarget) => Promise<DriverNoticeResult>;
+export type CustomerNotifier = (target: NoticeTarget) => Promise<CustomerNoticeResult>;
 
 // Ties the quote form to the engine: validate -> distances -> price -> store -> email.
 // Everything external (Google, the database, email, the clock) is injected, so the whole
@@ -130,6 +133,10 @@ export interface QuoteServiceDeps {
    * move, a cancellation). Never throws. Unset = nobody is told (tests, no database).
    */
   notifyDriver?: DriverNotifier;
+  /** Emails the customer their booking (phone bookings / trips), the day before the move. */
+  notifyCustomer?: CustomerNotifier;
+  /** Sends the day-before emails that have come due (the hourly job). */
+  sendDueNotices?: () => Promise<DueNoticeSummary>;
   now?: () => Date;
   makeReference?: (now: Date) => string;
   log?: (message: string, meta?: Record<string, unknown>) => void;

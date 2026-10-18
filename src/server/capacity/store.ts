@@ -1,6 +1,7 @@
 import { and, asc, eq, gte, lte, sql } from "drizzle-orm";
 import { getDb } from "../db/client.js";
 import { resolveDriver } from "../../lib/drivers.js";
+import { noticeDate } from "../../lib/noticeTiming.js";
 import { tripProblem, toMinutes, type TripProblem } from "../../lib/truckTrips.js";
 import { bookingSettings, bookings, dayOverrides, drivers, quotes, trucks } from "../db/schema.js";
 import type { CalendarBooking, CapacitySettings, CapacitySnapshot, CapacityTruck, DayOverride } from "./availability.js";
@@ -182,7 +183,7 @@ export async function listBookings(from: string, to: string) {
     db.select({ id: trucks.id, driverId: trucks.driverId }).from(trucks),
     db.select().from(drivers),
   ]);
-  return rows.map(({ driverNotice, ...b }) => {
+  return rows.map(({ driverNotice, customerNotice, ...b }) => {
     const who = resolveDriver(b, truckRows, driverRows);
     return {
       ...b,
@@ -190,6 +191,9 @@ export async function listBookings(from: string, to: string) {
       driverCover: who?.isCover ?? false,
       driverHasEmail: Boolean(who?.driver?.email),
       driverNotifiedAt: driverNotice?.sentAt ?? null,
+      customerNotifiedAt: customerNotice?.sentAt ?? null,
+      /** The day the driver's and customer's emails go out: the day before the move. */
+      noticeDueOn: noticeDate(b.date),
     };
   });
 }
@@ -208,6 +212,8 @@ export interface TripInput {
   movers: number;
   /** Someone covering this one trip. null = the truck's usual driver. */
   driverId: string | null;
+  /** Email the customer their booking the day before the move. */
+  customerNoticeWanted: boolean;
   customerName: string | null;
   phone: string | null;
   customerEmail: string | null;
@@ -263,6 +269,7 @@ export async function saveTrip(trip: TripInput, by: string): Promise<SaveTripRes
       customerName: trip.customerName,
       phone: trip.phone,
       customerEmail: trip.customerEmail,
+      customerNoticeWanted: trip.customerNoticeWanted,
       fromText: trip.fromText,
       toText: trip.toText,
       notes: trip.notes,

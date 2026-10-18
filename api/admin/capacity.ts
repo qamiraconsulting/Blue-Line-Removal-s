@@ -20,11 +20,9 @@ import {
   saveTruck,
   upcomingBookingIdsForTruck,
 } from "../../src/server/capacity/store.js";
+import { customerNoticeLine } from "../../src/server/notify/customerNotice.js";
 import { driverNoticeLine } from "../../src/server/notify/driverNotice.js";
-import { renderManualBookingEmail } from "../../src/server/quote/bookingEmails.js";
 import { buildQuoteDeps } from "../../src/server/quote/deps.js";
-import { customerRecipient } from "../../src/server/quote/service.js";
-import { site } from "../../src/data/site.js";
 import { getDb } from "../../src/server/db/client.js";
 import { bookings, quotes } from "../../src/server/db/schema.js";
 import { describeProblem } from "../../src/lib/truckTrips.js";
@@ -112,6 +110,8 @@ const actionSchema = z.discriminatedUnion("action", [
     notifyCustomer: z.boolean().optional(),
   }),
   z.object({ action: z.literal("cancelBooking"), id: z.string().uuid() }),
+  /** Sends the driver and customer emails whose day-before has come (the hourly job does this on the live site). */
+  z.object({ action: z.literal("sendDueNotices") }),
   z.object({
     action: z.literal("saveTrip"),
     trip: z.object({
@@ -186,22 +186,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const line = driverNoticeLine(await mail?.notifyDriver?.(target), driverName);
       if (line) notices.push(line);
     };
-    /** Customers are only emailed from production; the test link sends to the test inbox (or nowhere). */
-    const tellCustomer = async (
-      to: string | null | undefined,
-      mailInput: Parameters<typeof renderManualBookingEmail>[0],
-    ) => {
-      if (!to) return;
-      const address = customerRecipient(to, process.env.VERCEL_ENV !== "production", mail?.testEmailTo);
-      if (!mail || !address) {
-        notices.push("Customer NOT emailed: this is the test link, so customer emails aren't sent.");
-        return;
-      }
-      const content = renderManualBookingEmail(mailInput);
-      const sent = await mail
-        .sendEmail({ ...content, subject: address === to ? content.subject : `[TEST] ${content.subject}`, to: address, replyTo: site.email, kind: "customer" })
-        .catch(() => false);
-      notices.push(sent ? "Customer emailed." : "Customer NOT emailed: the email couldn't be sent.");
+    /** The customer's booking email: goes out the day before the move (or straight away if it's today/tomorrow). */
+    const tellCustomer = async (target: { bookingId: string }) => {
+      const line = customerNoticeLine(await mail?.notifyCustomer?.(target));
+      if (line) notices.push(line);
     };
 
     switch (body.action) {
@@ -247,25 +235,40 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           { ...(await loadCapacity(b.date)), nowLocal: "1970-01-01T00:00", settings: { ...(await loadSettings()), arrivalTimes: [b.arrivalTime], minNoticeHours: 0, maxDaysAhead: null } },
         );
         const slot = check.slots[0];
-        const id = await addBooking({ ...b, customerEmail: b.customerEmail ?? null, truckId: b.truckId ?? slot?.truckId ?? null, status: "confirmed", createdBy: admin.userId });
+        const id = await addBooking({
+          ...b,
+          customerEmail: b.customerEmail ?? null,
+          customerNoticeWanted: Boolean(body.notifyCustomer && b.customerEmail),
+          truckId: b.truckId ?? slot?.truckId ?? null,
+          status: "confirmed",
+          createdBy: admin.userId,
+        });
         await tellDriver({ bookingId: id });
-        if (body.notifyCustomer) await tellCustomer(b.customerEmail, { name: b.customerName, kind: "confirmed", date: b.date, arrivalTime: b.arrivalTime, from: b.fromText, to: b.toText });
+        await tellCustomer({ bookingId: id });
         res.status(200).json({ ok: true, notices, capacityWarning: !check.dayOpen ? check.dayReason : slot?.available ? null : (slot?.reason ?? null) });
         return;
       }
       case "saveTrip": {
-        const saved = await saveTrip(body.trip, admin.userId);
+        const saved = await saveTrip({ ...body.trip, customerNoticeWanted: Boolean(body.notifyCustomer && body.trip.customerEmail) }, admin.userId);
         if (!saved.ok) {
           res.status(409).json({ error: describeProblem(saved.problem, saved.truckName) });
           return;
         }
         await tellDriver({ bookingId: saved.id });
-        const t = body.trip;
-        if (body.notifyCustomer && (saved.created || saved.rescheduled)) {
-          await tellCustomer(t.customerEmail, { name: t.customerName, kind: saved.created ? "confirmed" : "rescheduled", date: t.date, arrivalTime: t.start, from: t.fromText, to: t.toText });
-        }
+        await tellCustomer({ bookingId: saved.id });
         res.status(200).json({ ok: true, id: saved.id, notices });
         return;
+      }
+      case "sendDueNotices": {
+        const summary = await mail?.sendDueNotices?.();
+        notices.push(
+          !summary
+            ? "Emails aren't set up here."
+            : summary.driverEmails + summary.customerEmails === 0
+              ? "No emails were due."
+              : `Sent ${summary.driverEmails} driver and ${summary.customerEmails} customer email${summary.driverEmails + summary.customerEmails === 1 ? "" : "s"}.`,
+        );
+        break;
       }
       case "cancelBooking": {
         const [row] = await getDb().select({ quoteReference: bookings.quoteReference }).from(bookings).where(eq(bookings.id, body.id)).limit(1);

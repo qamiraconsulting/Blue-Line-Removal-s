@@ -43,6 +43,13 @@
       "when": 1792162748448,
       "tag": "0005_booking_deposit",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792331748351,
+      "tag": "0006_day_before_notices",
+      "breakpoints": true
     }
   ]
 }

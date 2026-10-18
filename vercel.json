@@ -2,11 +2,35 @@
   "buildCommand": "npm run build",
   "outputDirectory": "build/client",
   "functions": {
-    "api/chat/message.ts": { "maxDuration": 60 },
-    "api/quote.ts": { "maxDuration": 30 },
-    "api/booking.ts": { "maxDuration": 60 },
-    "api/admin/jobs.ts": { "maxDuration": 60 },
-    "api/intake.ts": { "maxDuration": 30 }
+    "api/chat/message.ts": {
+      "maxDuration": 60
+    },
+    "api/quote.ts": {
+      "maxDuration": 30
+    },
+    "api/booking.ts": {
+      "maxDuration": 60
+    },
+    "api/admin/jobs.ts": {
+      "maxDuration": 60
+    },
+    "api/intake.ts": {
+      "maxDuration": 30
+    },
+    "api/cron/notices.ts": {
+      "maxDuration": 60
+    }
   },
-  "rewrites": [{ "source": "/(.*)", "destination": "/__spa-fallback.html" }]
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/__spa-fallback.html"
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/notices",
+      "schedule": "0 * * * *"
+    }
+  ]
 }

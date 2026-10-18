@@ -291,6 +291,13 @@ export const openItems: OpenItem[] = [
     status: "internal",
   },
   {
+    id: "cron-secret",
+    topic: "operations",
+    question: "Add CRON_SECRET (any long random string) in Vercel for Production. The hourly job (vercel.json) that sends the day-before driver and customer emails needs it, and Vercel only runs cron jobs on the live deployment.",
+    meanwhile: "Without it no day-before email is sent on the live site (nothing runs). On the test link use Truck trips > Send due emails now.",
+    status: "internal",
+  },
+  {
     id: "driver-sms",
     topic: "operations",
     question: "Driver and customer notices go by email. If SMS or WhatsApp is wanted as well, pick a provider (an Australian SMS service, or the WhatsApp Business Platform / Cloud API tier) and add drivers' mobile consent.",
