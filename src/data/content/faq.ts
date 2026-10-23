@@ -20,12 +20,7 @@ export const faq = {
     {
       question: "How do I get a quote?",
       answer:
-        "Email through a few photos, or fill in the quote form on our website. Either way, you'll get a flat-rate quote before we start — no call-out fee just to find out the price.",
-    },
-    {
-      question: "Do you charge by the hour or a flat rate?",
-      answer:
-        "Flat rate, always. We quote by the job, not the hour, so you know the full cost upfront and there's no surprise number waiting at the end.",
+        "Email through a few photos, or fill in the quote form on our website. Either way, you'll get a quote before we start — no call-out fee just to find out the price.",
     },
     {
       question: "Are you licensed and insured?",
@@ -80,7 +75,7 @@ export const faq = {
     },
     {
       question: "Do you offer a discount for new customers?",
-      answer: "Yes — first-time customers get 30% off their flat-rate quote. Just note it on the quote form.",
+      answer: "Yes — first-time customers get 10% off their first booking. Just note it on the quote form.",
     },
     {
       question: "Can you move specialty or fragile items like pianos?",

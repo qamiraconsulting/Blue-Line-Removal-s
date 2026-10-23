@@ -34,8 +34,8 @@ export const trustIntro = {
 // instead on the Quote page so it isn't lost. Update or retire seasonally.
 export const promo = {
   badge: "New Customer Offer",
-  heading: "30% off your first move",
-  body: "Book your first move or junk removal with Blue Line Removals and save 30% off the flat-rate quote — just note it on the form.",
+  heading: "10% off your first booking",
+  body: "Book your first move or junk removal with Blue Line Removals and save 10% — just note it on the form.",
 };
 
 export const trustStats = [
@@ -112,8 +112,8 @@ export const howItWorks = [
   },
   {
     step: "02",
-    title: "Get a flat-rate quote",
-    body: "No call-out fee to find out the price. We quote by the job, not the hour, so there's no surprise number at the end.",
+    title: "Get a free quote",
+    body: "No call-out fee to find out the price. You'll know what to expect well before moving day.",
   },
   {
     step: "03",
@@ -145,8 +145,8 @@ export const whyUs = [
     body: "Most jobs can be booked and cleared the same day. If it's urgent, just say so on the quote form.",
   },
   {
-    title: "Upfront, Flat-Rate Pricing",
-    body: "You get a price before we start, not an hourly meter running while we work. What we quote is what you pay.",
+    title: "Free, No-Obligation Quotes",
+    body: "Get a quote before you book, with no call-out fee and no pressure to go ahead.",
   },
   {
     title: "Donate & Recycle First",
@@ -215,6 +215,6 @@ export const reviews = {
 export const quoteCta = {
   eyebrow: "Get a quote",
   heading: "Tell us what needs to go — or where it needs to go.",
-  body: "Get a free, no-obligation quote in minutes. First move or first junk pickup with us? Ask about the 30% new-customer offer. Same-day slots fill up fast, so the earlier in the day you reach out, the more likely we can fit you in today.",
+  body: "Get a free, no-obligation quote in minutes. First move or first junk pickup with us? Ask about the 10% new-customer offer. Same-day slots fill up fast, so the earlier in the day you reach out, the more likely we can fit you in today.",
   cta: { label: "Get My Free Quote", href: "/quote" },
 };
