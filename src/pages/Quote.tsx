@@ -19,7 +19,7 @@ const quoteTrust = [
   { icon: ShieldCheck, label: "Fully Insured" },
 ];
 
-const propertySizes = ["Studio / 1 Bed", "2 Bedroom", "3 Bedroom", "4+ Bedroom", "Office / Commercial", "Not Sure Yet"];
+const propertySizes = ["Studio / 1 Bed", "2 Bedroom", "3 Bedroom", "4+ Bedroom", "Apartment", "Office / Commercial", "Not Sure Yet"];
 
 export function Quote() {
   const [searchParams] = useSearchParams();

@@ -214,6 +214,16 @@ function requestError(error: z.ZodError, input: Record<string, unknown>): string
 }
 
 /**
+ * "Apartment" on the form's Property Size list says the type of home but not its size, so it
+ * can't be priced: it goes to the team as a personal quote (home size "not sure"), and this note
+ * tells them it was an apartment -- floor, lift or stairs and the parking distance still to ask.
+ */
+function withApartmentNote(propertySize: string, accessNotes: string): string {
+  if (propertySize.trim().toLowerCase() !== "apartment") return accessNotes;
+  return [accessNotes, "Customer chose Apartment as the property type: ask the number of bedrooms, floor, lift or stairs, and the parking distance."].filter(Boolean).join(" -- ");
+}
+
+/**
  * The form's separate address fields become the one line of text used everywhere else. A
  * half-filled address is refused (the driver needs all of it); a blank one is just "not given".
  */
@@ -283,7 +293,7 @@ export async function handleQuoteRequest(
   const req: QuoteRequest =
     withAddresses.data.need === "junk"
       ? { ...withAddresses.data, propertySize: "", notes: "", photos: undefined }
-      : { ...withAddresses.data, junkDetails: "", photos: undefined };
+      : { ...withAddresses.data, junkDetails: "", photos: undefined, accessNotes: withApartmentNote(withAddresses.data.propertySize, withAddresses.data.accessNotes) };
 
   const emailNormalised = req.email;
   const phoneNormalised = normalisePhone(req.phone);

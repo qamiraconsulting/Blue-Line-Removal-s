@@ -404,6 +404,23 @@ describe("Junk Removal on the quote form: details and photos reach the team", ()
   });
 });
 
+describe("Property Size: Apartment", () => {
+  it("can't be priced (no size), so the team follows up -- and is told it was an apartment", async () => {
+    const { run, sent, store } = setup();
+    const res = await run({ ...goodBody, propertySize: "Apartment", accessNotes: "" });
+    expect(res.status).toBe(200);
+    expect(store!.rows[0]).toMatchObject({ status: "manual_review", manualReason: "commercial_or_unsure_size", propertySize: "unsure" });
+    expect(store!.rows[0]!.accessNotes).toContain("Customer chose Apartment");
+    expect(sent.find((e) => e.kind === "team")!.text).toContain("Customer chose Apartment as the property type");
+  });
+
+  it("other sizes are untouched", async () => {
+    const { run, store } = setup();
+    await run({ ...goodBody, propertySize: "2 Bedroom" });
+    expect(store!.rows[0]).toMatchObject({ status: "priced", propertySize: "2_bed", accessNotes: null });
+  });
+});
+
 describe("validation and abuse limits", () => {
   it("keeps the form's existing messages", async () => {
     const { run } = setup();
