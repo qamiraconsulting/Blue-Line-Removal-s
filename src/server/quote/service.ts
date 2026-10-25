@@ -83,11 +83,16 @@ export const quoteRequestSchema = z.object({
   propertySize: z.string().trim().max(100).optional().default(""),
   // Stairs, parking distance, heavy items -- free text, passed to the team with the quote.
   accessNotes: z.string().trim().max(1000).optional().default(""),
-  // Priced access (chat, 2026-10-16): flights of stairs carried (no lift) at each end, and a
-  // long carry when the truck can't park within 100 m of the door.
+  // Priced access (chat): flights of stairs carried (no lift) at each end, and the facts behind
+  // the long carry. Blue Line's rule (25 Oct 2026) is applied here, not by the chat: a long carry
+  // is charged at an end that is an apartment/unit, or where the truck can't park within 50 m
+  // of the door -- once per end (see longCarryAtEnd).
   pickupStairFlights: z.coerce.number().int().min(0).max(30).optional().default(0),
   dropoffStairFlights: z.coerce.number().int().min(0).max(30).optional().default(0),
-  longCarry: z.boolean().optional().default(false),
+  pickupApartment: z.boolean().optional().default(false),
+  dropoffApartment: z.boolean().optional().default(false),
+  pickupParkingOver50m: z.boolean().optional().default(false),
+  dropoffParkingOver50m: z.boolean().optional().default(false),
   // The website form's optional "Additional notes" box.
   notes: z.string().trim().max(1000).optional().default(""),
   // Ignored: the first-customer discount is now worked out from the database (see below).
@@ -151,6 +156,16 @@ export type QuoteApiResponse =
 
 const defaultReference = (now: Date) =>
   `BLR-${now.toISOString().slice(0, 10).replace(/-/g, "")}-${randomBytes(3).toString("hex").toUpperCase()}`;
+
+/**
+ * Blue Line's long-carry rule (reply to Part B4, 25 Oct 2026): it always applies at an apartment
+ * pick-up or drop-off ("houses don't need the long carry"), and at any end where the truck can't
+ * park within 50 m of the door. The charge is once per end. "Not sure" parking is NOT charged
+ * here -- the customer is told it is confirmed on the day.
+ */
+export function longCarryAtEnd(isApartment: boolean, parkingOver50m: boolean): boolean {
+  return isApartment || parkingOver50m;
+}
 
 export const melbourneToday = (now: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: "Australia/Melbourne" }).format(now);
 
@@ -306,7 +321,13 @@ export async function handleQuoteRequest(
     firstMoveEligible,
     // Stairs and a long carry are priced from the rate card; heavy items stay in the free-text
     // access notes for the team.
-    access: { pickupStairFlights: req.pickupStairFlights, dropoffStairFlights: req.dropoffStairFlights, longCarry: req.longCarry, heavyItems: 0 },
+    access: {
+      pickupStairFlights: req.pickupStairFlights,
+      dropoffStairFlights: req.dropoffStairFlights,
+      pickupLongCarry: longCarryAtEnd(req.pickupApartment, req.pickupParkingOver50m),
+      dropoffLongCarry: longCarryAtEnd(req.dropoffApartment, req.dropoffParkingOver50m),
+      heavyItems: 0,
+    },
     specialItems: req.specialItems,
     depotToPickup,
     pickupToDropoff,

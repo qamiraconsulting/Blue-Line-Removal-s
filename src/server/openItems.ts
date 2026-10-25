@@ -32,44 +32,42 @@ export const openItems: OpenItem[] = [
     id: "home-size-guide",
     topic: "pricing",
     question: "Home size guide: for studio/1 bed, 2 bed, 3 bed and 4+ bed -- usual truck, movers and typical hours.",
-    meanwhile: "No instant estimates -- every request goes to the team.",
-    status: "asked",
-    ref: "Email 12 Oct, B1",
-    rateCardPaths: ["jobSizes.studio_1bed", "jobSizes.2_bed", "jobSizes.3_bed", "jobSizes.4plus_bed"],
+    meanwhile:
+      "ANSWERED 25 Oct and in the rate card: studio/1 bed 4.5T 2 movers 2 h; 2 bed 4.5T 2 movers 3 h; 3 bed 6-8T 2 movers 5 h; 4+ bed 10T 3 movers 7 h. The hours are to load and unload, so the real drive time between the addresses is added on top.",
+    status: "answered",
+    ref: "Reply 25 Oct, B1",
   },
   {
     id: "weekend-holiday-surcharge",
     topic: "pricing",
     question: "Is there a surcharge on weekends and public holidays? If so, how much?",
-    meanwhile: "Weekend and public-holiday moves go to the team (weekdays are estimated).",
-    status: "asked",
-    ref: "Email 12 Oct, B2",
-    rateCardPaths: ["weekendSurchargePercent", "publicHolidaySurchargePercent"],
+    meanwhile: "ANSWERED 25 Oct: no surcharge on weekends or public holidays (0% in the rate card).",
+    status: "answered",
+    ref: "Reply 25 Oct, B2",
   },
   {
     id: "heavy-items",
     topic: "pricing",
-    question: "Which items count as heavy ($80)? Are there any items Blue Line won't move?",
+    question: "Which items count as heavy ($80)? Are there any items Blue Line won't move? Reply 25 Oct: only 'marble table (100 kg)' so far; Lovejeet is to share the full list with the team.",
     meanwhile: "Heavy items are only captured in the customer's free-text access notes; not priced.",
     status: "asked",
-    ref: "Email 12 Oct, B3",
+    ref: "Reply 25 Oct, B3 (list to follow from Lovejeet)",
   },
   {
     id: "service-area",
     topic: "pricing",
     question: "Furthest pickup from Tarneit and longest move (km) to estimate automatically; a rough list of suburbs/regions covered.",
-    meanwhile: "Nothing can be estimated (the engine can't tell if a job is in range).",
-    status: "asked",
-    ref: "Email 12 Oct, B5",
-    rateCardPaths: ["serviceArea.maxPickupFromDepotKm", "serviceArea.maxMoveKm"],
+    meanwhile: "ANSWERED 25 Oct: 120 km radius from Tarneit -- used as the limit for both the pick-up (from Tarneit) and the move length. Anything beyond goes to the team.",
+    status: "answered",
+    ref: "Reply 25 Oct, B5",
   },
   {
     id: "furniture-wrapping",
     topic: "content",
     question: "Confirm free furniture wrapping on request stays free.",
-    meanwhile: "Not mentioned in estimates or by the chat.",
-    status: "asked",
-    ref: "Email 12 Oct, B6",
+    meanwhile: "ANSWERED 25 Oct: wrapping furniture (bubble wrap, shrink wrap, blankets) stays free; packing belongings into boxes is charged separately. The chat says so.",
+    status: "answered",
+    ref: "Reply 25 Oct, B6",
   },
   {
     id: "first-order-offer",
@@ -92,9 +90,10 @@ export const openItems: OpenItem[] = [
     topic: "pricing",
     question:
       "Blue Line confirms Part A as written: truck rates, extra mover, 2h minimum, charging from arrival to end of unloading with call-out included, extras, 10% discount then GST, estimate wording.",
-    meanwhile: "Part A is in the rate card; card stays 'placeholder' (test figures only).",
+    meanwhile:
+      "Part A is in the rate card and Blue Line's inline replies (25 Oct) accept it, with two points: Lovejeet is to confirm with the team that the call-out is included in the hourly rate (so the card stays 'placeholder' / test figures only until then), and the long carry changed (apartments always; over 50 m elsewhere).",
     status: "asked",
-    ref: "Email 12 Oct, Part A",
+    ref: "Reply 25 Oct, Part A",
   },
   {
     id: "defaults",
@@ -147,9 +146,8 @@ export const openItems: OpenItem[] = [
     id: "typical-hours-driving",
     topic: "pricing",
     question: "Do the guide's 'typical hours' include driving between the two addresses, or should the real drive time be added?",
-    meanwhile: "No estimates until confirmed (ask alongside the B1 answer).",
-    status: "to_ask",
-    rateCardPaths: ["typicalHoursIncludeDriving"],
+    meanwhile: "ANSWERED 25 Oct: Blue Line's hours are 'to load and unload' (no driving), so the real drive between the addresses is added on top. Ayesha: 'go with the email'. Worth a one-line confirmation from Blue Line that this is how they charge.",
+    status: "answered",
   },
   {
     id: "crew-choice-hours",
@@ -334,6 +332,22 @@ export const openItems: OpenItem[] = [
     status: "internal",
   },
 
+  {
+    id: "quote-form-apartment",
+    topic: "website",
+    question:
+      "The website quote form doesn't ask whether pick-up/drop-off is an apartment or how far the truck parks, so its instant estimates leave out the long carry that Blue Line charges at every apartment end (and over 50 m). Add per-end apartment and parking questions to the form (needs Ayesha's OK on the form design).",
+    meanwhile: "Only the chat adds the long carry. Website estimates for apartments are lower than the chat's; the access notes are passed to the team.",
+    status: "internal",
+  },
+  {
+    id: "risky-items-note-pdf",
+    topic: "content",
+    question:
+      "Add Blue Line's note to the branded PDF quote template: 'If our team finds any item risky or breakable when they assess it at pick-up, they may decide whether or not to move that item.' It is already in the estimate emails and the chat. Also decide whether to add it to the booking terms customers agree to.",
+    meanwhile: "The note is in the instant-estimate email and the chat, but not on the PDF quote or in the booking terms.",
+    status: "internal",
+  },
   // ------------------------------------------------------------------ answered, handled
   {
     id: "piano-packing",

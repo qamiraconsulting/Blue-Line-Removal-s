@@ -92,14 +92,22 @@ export type RateCard = z.infer<typeof rateCardSchema>;
  *  - 10% first-order discount on the full subtotal, then 10% GST on the discounted amount
  *  - defaults: round to nearest $10, valid 10 days, one discount per email or phone
  *
- * Still null, asked in Part B -- the engine will not price while any of these is needed:
- *  - home size guide (truck / movers / typical hours) -- B1
- *  - weekend and public-holiday surcharge -- B2
- *  - service-area limits -- B5
- *  - whether the typical hours include driving (to confirm with the B1 answer)
+ * Blue Line's replies to Part B (the same email, answered inline; pasted by Ayesha 2026-10-25):
+ *  - B1 home size guide: studio/1 bed 4.5T 2 movers 2 h; 2 bed 4.5T 2 movers 3 h; 3 bed 6-8T
+ *    2 movers 5 h; 4+ bed 10T 3 movers 7 h. The hours are "to load and unload" -- they do NOT
+ *    include driving, so the engine adds the real drive between the addresses on top
+ *  - B2 weekends / public holidays: no surcharge (0%)
+ *  - B4 long carry ($40): always applies at an apartment pick-up and drop-off (per end), and
+ *    at any property when the truck can't park within 50 m of the door
+ *  - B5 service area: 120 km radius from Tarneit (used for the pick-up AND the move length)
+ *  - B6 free wrapping of furniture (bubble wrap, shrink wrap, blankets); boxes are charged
+ *
+ * Still open (src/server/openItems.ts): Lovejeet confirming with the team that the call-out is
+ * included in the hourly rate -- which is why `status` is still "placeholder" below -- the
+ * heavy-items list (B3) and the WhatsApp number (B8).
  */
 export const blrRateCard: RateCard = {
-  version: "blr-email-2026-10-12",
+  version: "blr-email-2026-10-25",
   status: "placeholder",
 
   trucks: {
@@ -110,19 +118,21 @@ export const blrRateCard: RateCard = {
   extraMoverHourlyRateAud: 60,
   minimumJobHours: 2,
 
+  // B1, Blue Line's reply: hours are to LOAD AND UNLOAD only, so drive time is added by the engine.
   jobSizes: {
-    studio_1bed: null,
-    "2_bed": null,
-    "3_bed": null,
-    "4plus_bed": null,
+    studio_1bed: { truck: "4.5T", movers: 2, typicalHours: 2 },
+    "2_bed": { truck: "4.5T", movers: 2, typicalHours: 3 },
+    "3_bed": { truck: "6-8T", movers: 2, typicalHours: 5 },
+    "4plus_bed": { truck: "10T", movers: 3, typicalHours: 7 },
   },
-  typicalHoursIncludeDriving: null,
+  typicalHoursIncludeDriving: false,
 
   accessExtras: { perStairFlightAud: 40, longCarryAud: 40, perHeavyItemAud: 80 },
 
   gst: { ratesIncludeGst: false, ratePercent: 10 },
-  weekendSurchargePercent: null,
-  publicHolidaySurchargePercent: null,
+  // B2, Blue Line's reply: no surcharge on weekends or public holidays.
+  weekendSurchargePercent: 0,
+  publicHolidaySurchargePercent: 0,
   // Victorian public holidays from today on (business.vic.gov.au). Add the 2027 AFL Grand
   // Final eve once the AFL fixes the date.
   publicHolidays: [
@@ -152,8 +162,9 @@ export const blrRateCard: RateCard = {
 
   serviceArea: {
     depotAddress: "Tarneit, VIC, Australia",
-    maxPickupFromDepotKm: null,
-    maxMoveKm: null,
+    // B5, Blue Line's reply: "120 km radius from Tarneit" -- used for both limits.
+    maxPickupFromDepotKm: 120,
+    maxMoveKm: 120,
   },
 };
 

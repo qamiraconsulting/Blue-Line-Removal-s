@@ -44,7 +44,14 @@ export const getQuoteInput = z.object({
     .min(0)
     .max(30)
     .describe("Flights of stairs at the DROP-OFF (0 if there's a lift they can use, or no stairs)."),
-  longCarry: z.boolean().describe("True if the truck can't park within 100 metres of the door at either end."),
+  pickupApartment: z.boolean().describe("True if the PICKUP is an apartment/unit/flat. A long-carry charge then always applies there (the server adds it)."),
+  dropoffApartment: z.boolean().describe("True if the DROP-OFF is an apartment/unit/flat. A long-carry charge then always applies there (the server adds it)."),
+  pickupParkingOver50m: z
+    .boolean()
+    .describe("True ONLY if the customer definitely said the truck can't park within 50 metres of the door at the PICKUP. False if it can, or they're not sure."),
+  dropoffParkingOver50m: z
+    .boolean()
+    .describe("True ONLY if the customer definitely said the truck can't park within 50 metres of the door at the DROP-OFF. False if it can, or they're not sure."),
   accessNotes: z
     .string()
     .max(1000)

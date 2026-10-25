@@ -3,7 +3,7 @@ import { fixtureRateCard } from "../quote/rateCard.fixture.js";
 import type { OutgoingEmail, QuoteServiceDeps } from "../quote/service.js";
 import type { NewQuoteRow, QuoteStore } from "../quote/store.js";
 import type { LeadPatch, LeadStore } from "./leadStore.js";
-import { ESTIMATE_DISCLAIMER } from "../quote/emails.js";
+import { ESTIMATE_DISCLAIMER, RISKY_ITEMS_NOTE } from "../quote/emails.js";
 import { buildSystemPrompt } from "./systemPrompt.js";
 import { chatTools, createToolRunner } from "./tools.js";
 
@@ -64,7 +64,10 @@ const quoteInput = {
   moveType: "home",
   pickupStairFlights: 0,
   dropoffStairFlights: 0,
-  longCarry: false,
+  pickupApartment: false,
+  dropoffApartment: false,
+  pickupParkingOver50m: false,
+  dropoffParkingOver50m: false,
   specialItems: false,
   accessNotes: "",
 };
@@ -302,14 +305,20 @@ describe("tool and prompt wording", () => {
     // the first-customer discount is worked out, never asked
     expect(prompt).toContain("Never ask whether this is their first move with us");
     expect(prompt).toContain("10% first-move discount has been applied");
-    // apartments and parking over 100 m
-    expect(prompt).toContain("within 100 metres");
-    expect(prompt).toContain("The only extra charges for an apartment are stairs with no lift and a long carry");
+    // Blue Line's long-carry rule (25 Oct 2026): always at an apartment end, and over 50 m for a house
+    expect(prompt).toContain("a long-carry charge ALWAYS applies at that end");
+    expect(prompt).toContain("within 50 metres of the door");
+    expect(prompt).toContain("The only extra charges for an apartment are stairs with no lift and that long carry");
     expect(prompt).not.toContain("extra apartment charges may apply");
+    expect(prompt).not.toMatch(/100 m(etres)?\b(?!.*kg)/); // the old 100 m rule is gone
     // unsure about parking: not priced, customer told, team told
-    expect(prompt).toContain("[[choices: Within 100 m | More than 100 m | Not sure]]");
+    expect(prompt).toContain("[[choices: Within 50 m | More than 50 m | Not sure]]");
     expect(prompt).toContain("parking distance not known");
-    expect(prompt).toContain("not when they're unsure");
+    expect(prompt).toContain("never when they're unsure");
+    expect(prompt).toContain("pickupApartment / dropoffApartment");
+    // the risky-item note and free furniture wrapping
+    expect(prompt).toContain(RISKY_ITEMS_NOTE);
+    expect(prompt).toContain("Wrapping furniture (bubble wrap, shrink wrap and blankets to cover it) is free");
     // the deposit, and paying the rest
     expect(prompt).toContain("To lock in your booking we take a $100 deposit before the move.");
     expect(prompt).toContain("card, bank transfer or cash");

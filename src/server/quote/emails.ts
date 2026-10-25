@@ -20,6 +20,15 @@ export interface QuoteDetails {
 }
 
 // Wording required on every estimate (Ayesha's email to Blue Line, 2026-10-12, Part A).
+/**
+ * Added to every estimate/quote (Blue Line's reply, 25 Oct 2026: "Add this note in the quote").
+ * Blue Line's own wording was: "If the team finds any item to be risky/breakable in their
+ * assessment at the time of pick up, then they may take a decision of whether or not to move
+ * such items."
+ */
+export const RISKY_ITEMS_NOTE =
+  "If our team finds any item risky or breakable when they assess it at pick-up, they may decide whether or not to move that item.";
+
 export const ESTIMATE_DISCLAIMER =
   "This is an estimate based on the details you've provided. The final price may vary depending on the actual hours worked, inventory, access, stairs, parking and any special requirements.";
 
@@ -93,6 +102,7 @@ export function renderCustomerQuoteEmail(input: {
     input.firstMoveApplied ? `  Your ${offer} has been applied.` : "",
     "",
     ESTIMATE_DISCLAIMER,
+    RISKY_ITEMS_NOTE,
     "",
     ...rows.map(([k, v]) => `${k}: ${v}`),
     "",
@@ -115,7 +125,8 @@ export function renderCustomerQuoteEmail(input: {
 <p style="margin:0 0 14px">Thanks for asking for a quote. Here's your estimate:</p>
 <p style="margin:0 0 6px;font-size:34px;font-weight:bold;color:${NAVY}">${esc(price)}</p>
 <p style="margin:0 0 14px;color:#5b6b7c;font-size:13px">GST included${input.firstMoveApplied ? ` &middot; <strong style="color:${ORANGE}">${esc(offer)} applied</strong>` : ""}</p>
-<p style="margin:0 0 14px">${esc(ESTIMATE_DISCLAIMER)}</p>
+<p style="margin:0 0 8px">${esc(ESTIMATE_DISCLAIMER)}</p>
+<p style="margin:0 0 14px">${esc(RISKY_ITEMS_NOTE)}</p>
 <table style="border-collapse:collapse;margin:0 0 14px;font-size:14px">${rows
     .map(
       ([k, v]) =>

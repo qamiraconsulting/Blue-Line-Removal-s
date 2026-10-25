@@ -12,14 +12,9 @@ the "Meanwhile" column says: it never guesses.
 
 | Item | Ref | Question | Meanwhile |
 |---|---|---|---|
-| `home-size-guide` | B1 | Usual truck, movers and typical hours for studio/1 bed, 2 bed, 3 bed, 4+ bed | No instant estimates — every request goes to the team |
-| `weekend-holiday-surcharge` | B2 | Weekend / public-holiday surcharge, and how much | Weekend and holiday moves go to the team |
-| `heavy-items` | B3 | Which items count as heavy ($80); items not moved | Captured in access notes, not priced |
-| `service-area` | B5 | Furthest pickup from Tarneit, longest move (km); suburbs/regions covered | No instant estimates |
-| `furniture-wrapping` | B6 | Free furniture wrapping on request stays free? | Not mentioned |
-| `first-order-offer` | B7 | First-order offer 30% → 10% everywhere | 10% in engine, chat and emails; website still says 30% (home page ×2, FAQ, quote form) |
+| `heavy-items` | B3 | Which items count as heavy ($80); items not moved. Reply 25 Oct: marble table (100 kg) so far; Lovejeet to send the full list | Captured in access notes, not priced |
 | `whatsapp-number` | B8 | WhatsApp Business number for the website | Phone only |
-| `part-a-confirm` | Part A | Blue Line confirms the rates and rules as written | In the rate card; test figures only |
+| `part-a-confirm` | Part A | Blue Line accepted Part A (25 Oct). Still open: Lovejeet confirms with the team that the call-out is included in the hourly rate | In the rate card; stays test figures only until then |
 | `defaults` | Defaults | Round to $10, valid 10 days, one discount per email/phone | In use |
 
 ## To clarify with Blue Line (not in the email)
@@ -30,7 +25,7 @@ the "Meanwhile" column says: it never guesses.
 | `capacity-setup` | Fill in Bookings & capacity on the dashboard (trucks, working days, arrival times, end of day, gap, movers, notice, days ahead, optional limit), keep phone bookings in the calendar, then decide on instant confirmation | Instant confirmation off; team confirms every booking |
 | `existing-booking-tool` | Is there another calendar/tool with bookings today? Enter them on the dashboard or we connect to it | Only dashboard bookings count |
 | `cancellation-policy` | Deposit and cancellation/rescheduling policy for the booking terms | No deposit; cancellations by phone |
-| `typical-hours-driving` | Do the "typical hours" include driving between addresses? (ask with the B1 answer) | No estimates until confirmed |
+| `typical-hours-driving` | The "typical hours" are to load and unload (25 Oct), so the engine adds the real drive time. Worth a one-line confirmation from Blue Line | Drive time added on top |
 | `crew-choice-hours` | If the customer picks a different truck/crew than the guide, do the hours change? | Guide's hours always used |
 | `deposit-terms` | Is the $100 deposit taken off the final bill, and refundable if the customer cancels or moves the date? | Chat only says a $100 deposit locks the booking in; refunds by hand in Stripe |
 | `stripe-account` | Blue Line opens a Stripe account (ABN, owner ID, payout BSB + account), requests PayTo, switches on receipts, gives Qamira Developer access. Plain bank transfer dropped (16 Oct) | Testing on Qamira's Stripe test account; no keys = team sends a link |
@@ -56,6 +51,8 @@ the "Meanwhile" column says: it never guesses.
 | `stripe-setup` | Vercel STRIPE_SECRET_KEY + STRIPE_WEBHOOK_SECRET, Stripe webhook to /api/stripe/webhook, Vercel protection bypass on previews; test keys now, live at go-live | No payment page; team sends a link |
 | `driver-details` | Enter each driver's name, mobile and email (Bookings & capacity > Drivers) and set every truck's usual driver | Nobody is told about a job on a truck with no driver or a driver with no email; the dashboard flags it |
 | `cron-secret` | Add CRON_SECRET in Vercel (Production) so the hourly job can send the day-before driver and customer emails | No day-before emails on the live site; on the test link use Send due emails now |
+| `quote-form-apartment` | Website form doesn't ask apartment / parking distance per end, so it leaves out the long carry at apartments; add the questions to the form | Only the chat adds the long carry; website apartment estimates are lower |
+| `risky-items-note-pdf` | Add the risky/breakable-item note to the PDF quote template and decide on the booking terms | In the estimate email and the chat only |
 | `driver-sms` | Optional: SMS / WhatsApp for driver and customer notices | Email only |
 | `past-customers` | Matt's 9 real customers imported 16 Oct, all 'Not Confirmed' in his sheet: did any actually move with Blue Line? (Those get marked completed.) | Stored as past quotes; still get the 10% first-customer discount |
 | `gtm-chat-events` | Add GTM triggers / GA4 events for chat_opened, chat_started, chat_estimate_shown, chat_handoff | Events pushed to the dataLayer, not yet recorded |
@@ -67,8 +64,13 @@ the "Meanwhile" column says: it never guesses.
 
 | Item | Answer | Handling |
 |---|---|---|
-| `long-carry-distance` | Long carry applies over 100 m from the door (Ayesha, 16 Oct) | Asked in the chat and priced ($40) |
+| `long-carry-distance` | Long carry ($40) always applies at an apartment pick-up and drop-off, and at any end where the truck can't park within 50 m of the door; once per end (Blue Line reply 25 Oct, replaces the 100 m rule of 16 Oct) | The server adds it (chat asks apartment per end and parking over 50 m for houses) |
+| `home-size-guide` | Studio/1 bed 4.5T 2 movers 2 h; 2 bed 4.5T 2 movers 3 h; 3 bed 6-8T 2 movers 5 h; 4+ bed 10T 3 movers 7 h -- hours to load and unload (Blue Line reply 25 Oct, B1) | In the rate card; the engine adds the real drive time on top |
+| `weekend-holiday-surcharge` | No surcharge on weekends or public holidays (B2) | 0% in the rate card |
+| `service-area` | 120 km radius from Tarneit (B5) | Pick-up and move length each limited to 120 km; beyond goes to the team |
+| `furniture-wrapping` | Free wrapping of furniture (bubble wrap, shrink wrap, blankets); boxes charged separately (B6) | Chat tells customers |
+| `first-order-offer` | First-order offer is 10% everywhere (B7); the website was changed | 10% in engine, chat, emails and website |
 | `access-pricing` | Stairs (no lift) and the long carry are priced (Ayesha, 16 Oct) | Asked in the chat and priced from the rate card |
-| `apartment-charges` | Apartments have no other extra charges, only stairs and the long carry (Ayesha, 16 Oct) | Chat names only those two |
-| `parking-unknown` | Customer doesn't know the parking distance (Ayesha, 16 Oct) | Not priced; customer told a long carry over 100 m is charged on the day; team sees "parking distance not known" |
+| `apartment-charges` | Apartments have no other extra charges, only stairs and the long carry, which now always applies (Ayesha 16 Oct; Blue Line 25 Oct) | Chat names only those two |
+| `parking-unknown` | Customer doesn't know the parking distance (Ayesha, 16 Oct) | Not priced; customer told a long carry over 50 m is charged on the day; team sees "parking distance not known" |
 | `piano-packing` | Piano from $200 (type/access); packing = materials at cost + hourly labour | Personal quote from the team |

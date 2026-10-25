@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { blrRateCard, type RateCard } from "./rateCard.js";
 import { fixtureRateCard } from "./rateCard.fixture.js";
-import { handleQuoteRequest, normalisePhone, type OutgoingEmail, type QuoteApiResult, type QuoteServiceDeps } from "./service.js";
+import { handleQuoteRequest, longCarryAtEnd, normalisePhone, type OutgoingEmail, type QuoteApiResult, type QuoteServiceDeps } from "./service.js";
 import type { NewQuoteRow, QuoteStore } from "./store.js";
 
 // Same hand-checkable card as the engine tests: ex-GST rates, weekend +20%, round to $10.
@@ -183,12 +183,24 @@ describe("the first-customer offer -- worked out from the database, never asked"
 });
 
 describe("priced access", () => {
-  it("stairs (no lift) and a long carry over 100 m are added to the estimate", async () => {
+  it("stairs (no lift) and a long carry are added to the estimate", async () => {
     const { run, store } = setup();
-    // fixture: $40 per flight, $60 long carry; 2 flights + long carry on the $720 job = (652.5 + 80 + 60) * 1.1 = 871.75 -> $870
-    const res = result(await run({ ...goodBody, pickupStairFlights: 1, dropoffStairFlights: 1, longCarry: true }));
+    // fixture: $40 per flight, $60 long carry; 2 flights + long carry at ONE end on the $720 job = (652.5 + 80 + 60) * 1.1 = 871.75 -> $870
+    const res = result(await run({ ...goodBody, pickupStairFlights: 1, dropoffStairFlights: 1, dropoffParkingOver50m: true }));
     expect(res).toMatchObject({ kind: "price", amountAud: 870 });
-    expect(store!.rows[0]!.inputs).toMatchObject({ access: { pickupStairFlights: 1, dropoffStairFlights: 1, longCarry: true } });
+    expect(store!.rows[0]!.inputs).toMatchObject({ access: { pickupStairFlights: 1, dropoffStairFlights: 1, pickupLongCarry: false, dropoffLongCarry: true } });
+  });
+
+  it("Blue Line's long-carry rule: always at an apartment end, or when parking is over 50 m -- once per end", async () => {
+    expect(longCarryAtEnd(true, false)).toBe(true); // apartment, parking not mentioned
+    expect(longCarryAtEnd(false, true)).toBe(true); // house, truck parks over 50 m away
+    expect(longCarryAtEnd(true, true)).toBe(true); // still only ONE charge for that end
+    expect(longCarryAtEnd(false, false)).toBe(false); // house, parking close or not known
+    const { run, store } = setup();
+    // apartment to apartment: 2 ends x $60 = 120 -> (652.5 + 120) * 1.1 = 849.75 -> $850
+    const res = result(await run({ ...goodBody, pickupApartment: true, dropoffApartment: true, dropoffParkingOver50m: true }));
+    expect(res).toMatchObject({ kind: "price", amountAud: 850 });
+    expect(store!.rows[0]!.inputs).toMatchObject({ access: { pickupLongCarry: true, dropoffLongCarry: true } });
   });
 });
 
@@ -261,10 +273,14 @@ describe("personal quote straight from the chat (the team prices it)", () => {
 describe("placeholder rate card in dev/preview", () => {
   const placeholder: RateCard = { ...card, status: "placeholder" };
 
-  it("Blue Line's real card, while it still has gaps, sends every quote to a person even in test mode", async () => {
-    const { run, sent } = setup({ rateCard: blrRateCard, allowPlaceholderRateCard: true });
-    expect(result(await run(goodBody)).kind).toBe("manual");
-    expect(sent.find((e) => e.kind === "team")!.text).toContain("rate_card_incomplete");
+  it("Blue Line's real card, still on test status: a TEST price on screen only, never emailed to the customer; in production it goes to a person", async () => {
+    const test = setup({ rateCard: blrRateCard, allowPlaceholderRateCard: true });
+    expect(result(await test.run(goodBody))).toMatchObject({ kind: "price", testMode: true, emailed: false });
+    expect(test.sent.filter((e) => e.kind === "customer")).toHaveLength(0);
+
+    const live = setup({ rateCard: blrRateCard });
+    expect(result(await live.run(goodBody)).kind).toBe("manual");
+    expect(live.sent.find((e) => e.kind === "team")!.text).toContain("rate_card_not_confirmed");
   });
 
   it("refuses to price unless explicitly allowed", async () => {

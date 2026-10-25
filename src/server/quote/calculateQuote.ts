@@ -35,7 +35,9 @@ export interface QuoteInputs {
   access: {
     pickupStairFlights: number;
     dropoffStairFlights: number;
-    longCarry: boolean;
+    /** The long carry applies at the pick-up / the drop-off (see longCarryAtEnd in service.ts). Charged once per end. */
+    pickupLongCarry: boolean;
+    dropoffLongCarry: boolean;
     heavyItems: number;
   };
   /** Piano, pool table, safe, etc. -- never auto-priced. */
@@ -148,7 +150,7 @@ export function calculateQuote(inputs: QuoteInputs, rateCard: RateCard, options:
   const stairFlights = inputs.access.pickupStairFlights + inputs.access.dropoffStairFlights;
   const accessCost =
     stairFlights * rateCard.accessExtras.perStairFlightAud +
-    (inputs.access.longCarry ? rateCard.accessExtras.longCarryAud : 0) +
+    ((inputs.access.pickupLongCarry ? 1 : 0) + (inputs.access.dropoffLongCarry ? 1 : 0)) * rateCard.accessExtras.longCarryAud +
     inputs.access.heavyItems * rateCard.accessExtras.perHeavyItemAud;
 
   const charges = (labourCost + accessCost) * (1 + surchargePercent / 100);

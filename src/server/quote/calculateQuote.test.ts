@@ -18,7 +18,7 @@ const base: QuoteInputs = {
   movingDate: WEEKDAY,
   firstMoveRequested: false,
   firstMoveEligible: true,
-  access: { pickupStairFlights: 0, dropoffStairFlights: 0, longCarry: false, heavyItems: 0 },
+  access: { pickupStairFlights: 0, dropoffStairFlights: 0, pickupLongCarry: false, dropoffLongCarry: false, heavyItems: 0 },
   specialItems: false,
   depotToPickup: { km: 15, minutes: 25 },
   pickupToDropoff: { km: 20, minutes: 30 },
@@ -126,8 +126,16 @@ describe("estimate arithmetic (hand-checked)", () => {
 
   it("stairs, long carry and heavy items are priced in when known", () => {
     // 2 flights (80) + long carry (60) + 1 heavy item (80) = 220; (652.5 + 220) x 1.1 = 959.75 -> $960
-    const out = price({ access: { pickupStairFlights: 1, dropoffStairFlights: 1, longCarry: true, heavyItems: 1 } });
+    const out = price({ access: { pickupStairFlights: 1, dropoffStairFlights: 1, pickupLongCarry: true, dropoffLongCarry: false, heavyItems: 1 } });
     expect(out.amountAud).toBe(960);
+  });
+
+  it("the long carry is charged once per end", () => {
+    // fixture long carry $60: one end = 652.5 + 60 = 712.5 x 1.1 = 783.75 -> $780; both = 652.5 + 120 = 772.5 x 1.1 = 849.75 -> $850
+    const access = { pickupStairFlights: 0, dropoffStairFlights: 0, heavyItems: 0 };
+    expect(price({ access: { ...access, pickupLongCarry: true, dropoffLongCarry: false } }).amountAud).toBe(780);
+    expect(price({ access: { ...access, pickupLongCarry: false, dropoffLongCarry: true } }).amountAud).toBe(780);
+    expect(price({ access: { ...access, pickupLongCarry: true, dropoffLongCarry: true } }).amountAud).toBe(850);
   });
 
   it("a short job is lifted to the minimum booking", () => {
@@ -215,18 +223,62 @@ describe("Blue Line's real rate card (Ayesha's email of 12 Oct 2026, Part A)", (
     expect(real.validityDays).toBe(10);
   });
 
-  it("leaves everything asked in Part B empty instead of guessing", () => {
-    expect(Object.values(blrRateCard.jobSizes).every((j) => j === null)).toBe(true);
-    expect(blrRateCard.typicalHoursIncludeDriving).toBeNull();
-    expect(blrRateCard.weekendSurchargePercent).toBeNull();
-    expect(blrRateCard.publicHolidaySurchargePercent).toBeNull();
-    expect(blrRateCard.serviceArea.maxPickupFromDepotKm).toBeNull();
-    expect(blrRateCard.serviceArea.maxMoveKm).toBeNull();
+  it("holds Blue Line's replies to Part B (25 Oct 2026), exactly as given", () => {
+    expect(blrRateCard.jobSizes).toEqual({
+      studio_1bed: { truck: "4.5T", movers: 2, typicalHours: 2 },
+      "2_bed": { truck: "4.5T", movers: 2, typicalHours: 3 },
+      "3_bed": { truck: "6-8T", movers: 2, typicalHours: 5 },
+      "4plus_bed": { truck: "10T", movers: 3, typicalHours: 7 },
+    });
+    // "Typical hours to load and unload" -- driving is NOT in them, so the engine adds it.
+    expect(blrRateCard.typicalHoursIncludeDriving).toBe(false);
+    expect(blrRateCard.weekendSurchargePercent).toBe(0);
+    expect(blrRateCard.publicHolidaySurchargePercent).toBe(0);
+    expect(blrRateCard.serviceArea).toMatchObject({ maxPickupFromDepotKm: 120, maxMoveKm: 120 });
   });
 
-  it("can't produce an estimate yet -- not even in test mode -- until Part B is answered", () => {
-    expect(manual({}, blrRateCard)).toBe("rate_card_not_confirmed");
-    expect(manual({}, blrRateCard, true)).toBe("rate_card_incomplete");
+  it("stays on test status until Blue Line signs the numbers off", () => {
+    expect(blrRateCard.status).toBe("placeholder");
+  });
+
+  it("prices hand-checked jobs on the real card (test mode)", () => {
+    const real = getActiveRateCard();
+    const run = (over: Partial<QuoteInputs>) => {
+      const out = calculateQuote({ ...base, ...over }, real, { allowPlaceholderRateCard: true });
+      if (out.kind !== "price") throw new Error(`expected a price, got manual: ${out.reason}`);
+      return out;
+    };
+    // 2 bed: 3 h load/unload + 30 min drive = 3.5 h x $130 (4.5T, 2 movers) = 455; GST 45.5 = 500.5 -> $500
+    expect(run({ propertySize: "2_bed" }).amountAud).toBe(500);
+    // no weekend or public-holiday surcharge: same price on a Saturday
+    expect(run({ propertySize: "2_bed", movingDate: SATURDAY }).amountAud).toBe(500);
+    // studio/1 bed: 2 h + 0.5 h = 2.5 h x 130 = 325 + 32.5 = 357.5 -> $360
+    expect(run({ propertySize: "studio_1bed" }).amountAud).toBe(360);
+    // 4+ bed: 10T with 3 movers = 180 + 60 = $240/h; 7 h + 0.5 h = 7.5 h = 1800; GST 180 = 1980
+    expect(run({ propertySize: "4plus_bed" }).amountAud).toBe(1980);
+    // first order: 455 less 10% = 409.5 + GST 40.95 = 450.45 -> $450
+    expect(run({ propertySize: "2_bed", firstMoveRequested: true }).amountAud).toBe(450);
+    // an apartment end adds the long carry ($40) there: (455 + 40) x 1.1 = 544.5 -> $540
+    expect(run({ propertySize: "2_bed", access: { ...base.access, pickupLongCarry: true } }).amountAud).toBe(540);
+  });
+
+  it("is still refused without the test-mode allowance (never prices in production)", () => {
+    const out = calculateQuote({ ...base, propertySize: "2_bed" }, getActiveRateCard());
+    expect(out.kind).toBe("manual");
+  });
+
+  it("sends moves beyond 120 km to the team", () => {
+    const real = getActiveRateCard();
+    const far = (over: Partial<QuoteInputs>) => calculateQuote({ ...base, ...over }, real, { allowPlaceholderRateCard: true });
+    expect(far({ depotToPickup: { km: 121, minutes: 100 } })).toMatchObject({ kind: "manual", reason: "outside_service_area" });
+    expect(far({ pickupToDropoff: { km: 121, minutes: 100 } })).toMatchObject({ kind: "manual", reason: "outside_service_area" });
+    expect(far({ depotToPickup: { km: 120, minutes: 90 }, pickupToDropoff: { km: 120, minutes: 90 } }).kind).toBe("price");
+  });
+
+  it("all of Part B is now filled in, so the card can estimate in test mode -- but never counts as confirmed", () => {
+    expect(manual({}, blrRateCard)).toBe("rate_card_not_confirmed"); // production: refused
+    const out = calculateQuote(base, blrRateCard, { allowPlaceholderRateCard: true });
+    expect(out.kind).toBe("price");
   });
 });
 
