@@ -35,7 +35,7 @@ export const trustIntro = {
 export const promo = {
   badge: "New Customer Offer",
   heading: "10% off your first booking",
-  body: "Book your first move or junk removal with Blue Line Removals and save 10% — just note it on the form.",
+  body: "Book your first move or junk removal with Blue Line Removals and save 10%. It's taken off your quote automatically, so there's nothing to ask for.",
 };
 
 export const trustStats = [
@@ -212,6 +212,6 @@ export const reviews = {
 export const quoteCta = {
   eyebrow: "Get a quote",
   heading: "Tell us what needs to go — or where it needs to go.",
-  body: "Get a free, no-obligation quote in minutes. First move or first junk pickup with us? Ask about the 10% new-customer offer. Same-day slots fill up fast, so the earlier in the day you reach out, the more likely we can fit you in today.",
+  body: "Get a free, no-obligation quote in minutes. First move or first junk pickup with us? You get 10% off, taken off your quote automatically. Same-day slots fill up fast, so the earlier in the day you reach out, the more likely we can fit you in today.",
   cta: { label: "Get My Free Quote", href: "/quote" },
 };

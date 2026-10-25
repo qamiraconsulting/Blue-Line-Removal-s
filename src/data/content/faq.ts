@@ -75,7 +75,7 @@ export const faq = {
     },
     {
       question: "Do you offer a discount for new customers?",
-      answer: "Yes — first-time customers get 10% off their first booking. Just note it on the quote form.",
+      answer: "Yes — first-time customers get 10% off their first booking. It's taken off your quote automatically, so there's nothing to ask for.",
     },
     {
       question: "Can you move specialty or fragile items like pianos?",
