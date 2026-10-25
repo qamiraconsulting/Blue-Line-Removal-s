@@ -1,12 +1,17 @@
 import { timingSafeEqual } from "node:crypto";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { z } from "zod";
+import { checkCustomer, customerCheckSchema } from "../src/server/intake/customerCheck.js";
 import { parseTeamForm, saveTeamFormJob } from "../src/server/intake/teamForm.js";
 
 // Matt's Google Form -> Neon. Called by one extra step at the end of his Apps Script
 // (docs/apps-script/blr-website-additions.gs) after the quote email has gone, with the shared
 // secret in the x-blr-secret header (APPS_SCRIPT_SECRET here, BLR_SHARED_SECRET in the script's
 // Script Properties). See src/server/intake/teamForm.ts for what's recorded.
+//
+// Same endpoint, same secret, { action: "customerCheck" }: called BEFORE the PDF is made, to ask
+// whether the customer is new (gets the 10% first-booking discount) or has moved with us before.
+// See src/server/intake/customerCheck.ts.
 
 const bodySchema = z.object({
   data: z.record(z.string(), z.unknown()),
@@ -34,6 +39,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
   if (!secretMatches(req.headers["x-blr-secret"], expected)) {
     res.status(401).json({ ok: false, error: "Not allowed." });
+    return;
+  }
+
+  if ((req.body as { action?: unknown } | undefined)?.action === "customerCheck") {
+    const check = customerCheckSchema.safeParse(req.body);
+    if (!check.success) {
+      res.status(400).json({ ok: false, error: "That doesn't look like a customer check." });
+      return;
+    }
+    try {
+      res.status(200).json(await checkCustomer(check.data));
+    } catch (err) {
+      console.error("Customer check failed:", err instanceof Error ? err.message : "unknown error");
+      res.status(502).json({ ok: false, error: "Couldn't check the customer just now." });
+    }
     return;
   }
 

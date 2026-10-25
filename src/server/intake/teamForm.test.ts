@@ -87,4 +87,20 @@ describe("Matt's Google Form row -> a job", () => {
     expect(["4.5T", "6-8T", "10T", "4.5 tonne", ""].map(parseTruck)).toEqual(["4.5T", "6-8T", "10T", "4.5T", null]);
     expect(["2 men 1 truck", "3 movers", "one truck"].map(parseMovers)).toEqual([2, 3, null]);
   });
+
+  it("records the 10% first-booking discount the script took off, as a minus adjustment line", () => {
+    // 520 labour + 100 call-out = 620; 10% off = 62 -> 558 + GST 55.80 = 613.80.
+    const r = parseTeamForm(payload({ values: { Discount: "62.00", Adjustment: "-62.00", Subtotal: "558.00", GST: "55.80", Total: "613.80" } }));
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.job.firstBookingDiscount).toBe(62);
+    expect(r.job.lines).toMatchObject({ labour: 520, callOut: 100, adjustment: -62, subtotal: 558, gst: 55.8, total: 613.8 });
+  });
+
+  it("no discount value means no first-booking discount", () => {
+    const r = parseTeamForm(payload({ values: { Discount: "" } }));
+    expect(r.ok && r.job.firstBookingDiscount).toBe(null);
+    const r2 = parseTeamForm(payload());
+    expect(r2.ok && r2.job.firstBookingDiscount).toBe(null);
+  });
 });

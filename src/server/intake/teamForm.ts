@@ -43,6 +43,8 @@ export interface TeamFormJob {
   channel: string;
   platformJobNumber: string | null;
   finalAmountAud: number | null;
+  /** The 10% first-booking discount the script took off this quote (AUD, before GST), or null. */
+  firstBookingDiscount: number | null;
 }
 
 const str = (v: unknown) => (v === null || v === undefined ? "" : String(v).trim());
@@ -155,6 +157,7 @@ export function parseTeamForm(p: TeamFormPayload): { ok: true; job: TeamFormJob 
       channel: parseChannel(str(field(p.data, "source"))),
       platformJobNumber: str(field(p.data, "platform job number")) || null,
       finalAmountAud: num(field(p.data, "final amount")),
+      firstBookingDiscount: (num(v.Discount) ?? 0) > 0 ? num(v.Discount) : null,
     },
   };
 }
@@ -199,6 +202,7 @@ export async function saveTeamFormJob(job: TeamFormJob): Promise<IntakeResult> {
       movers: job.movers,
       quoteLines: job.lines,
       quotedAmountAud: Math.round(job.lines.total),
+      firstMoveApplied: job.firstBookingDiscount !== null,
       quoteSentAt: now,
       quoteSentBy: "google_form",
       jobStatus: job.status,

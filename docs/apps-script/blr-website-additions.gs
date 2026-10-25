@@ -31,7 +31,8 @@
  *              can pass its own recipient, subject and a short intro (e.g. the team's note).
  *
  *   No template change: addAdjustmentRow_() adds a "Discount / adjustment" line under Packing
- *   only when the website sends a non-zero adjustment. Matt's PDFs are unchanged.
+ *   only when there's a non-zero adjustment. (Since 2026-10-25 that function is in
+ *   blr-first-booking-offer.gs, which also puts the 10% first-booking discount on Matt's quotes.)
  *
  * SCRIPT PROPERTIES (Project Settings > Script Properties) -- never put these in the code:
  *   BLR_SHARED_SECRET   the long random password (same value as APPS_SCRIPT_SECRET in Vercel)
@@ -159,33 +160,11 @@ function sendRowToWebsite_(data, values, moveDateRaw, tz) {
   }
 }
 
-/**
- * EDIT C: the website's quotes can carry a discount, rounding or a team-set total. When they
- * do, add a "Discount / adjustment" line under Packing in the estimate table, so the lines add
- * up to the total. Nothing happens for Matt's quotes (no Adjustment value).
+/*
+ * EDIT C's addAdjustmentRow_() now lives in blr-first-booking-offer.gs (2026-10-25): same
+ * behaviour, plus its own label ("New customer discount (10%)") and a minus sign for discounts.
+ * Keep only ONE addAdjustmentRow_ in Code.gs.
  */
-function addAdjustmentRow_(body, values) {
-  var amount = Number(values && values.Adjustment);
-  if (!amount) return;
-  collect_(body, DocumentApp.ElementType.TABLE).forEach(function (t) {
-    t = t.asTable();
-    if (t.getRow(0).getText().indexOf('Amount (AUD)') === -1) return;
-    for (var r = 1; r < t.getNumRows(); r++) {
-      var row = t.getRow(r);
-      if (!/packing/i.test(row.getCell(0).getText())) continue;
-      var copy = row.copy();
-      var n = copy.getNumCells();
-      copy.getCell(0).editAsText().setText('Discount / adjustment');
-      for (var c = 1; c < n - 1; c++) copy.getCell(c).editAsText().setText('');
-      var amountText = copy.getCell(n - 1).editAsText();
-      var current = amountText.getText();
-      var packing = String(values.Packing);
-      amountText.setText(current.indexOf(packing) !== -1 ? current.replace(packing, values.Adjustment) : values.Adjustment);
-      t.insertTableRow(r + 1, copy);
-      return;
-    }
-  });
-}
 
 /**
  * Optional check from the editor (select testWebsiteQuote, click Run): makes a sample PDF and emails it to

@@ -1,4 +1,5 @@
-import { and, eq, gte, inArray, or, sql } from "drizzle-orm";
+import { and, eq, gte, sql } from "drizzle-orm";
+import { findPreviousMove } from "../customers/previousMove.js";
 import { getDb } from "../db/client.js";
 import { distanceCache, quotes } from "../db/schema.js";
 import type { DistanceCache } from "./distance.js";
@@ -20,17 +21,8 @@ export interface QuoteStore {
 
 export const dbQuoteStore: QuoteStore = {
   async isReturningCustomer(emailNormalised, phoneNormalised) {
-    const rows = await getDb()
-      .select({ id: quotes.id })
-      .from(quotes)
-      .where(
-        and(
-          inArray(quotes.jobStatus, ["booked", "completed"]),
-          or(eq(quotes.emailNormalised, emailNormalised), eq(quotes.phoneNormalised, phoneNormalised)),
-        ),
-      )
-      .limit(1);
-    return rows.length > 0;
+    // Same rule as Matt's Google Form check (src/server/customers/previousMove.ts).
+    return (await findPreviousMove({ email: emailNormalised, phone: phoneNormalised })) !== null;
   },
 
   async recentQuoteCount(emailNormalised, sinceMinutes) {
