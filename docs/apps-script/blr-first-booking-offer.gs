@@ -58,7 +58,7 @@ var FIRST_BOOKING_OFFER = {
 };
 
 /**
- * EDIT E calls this before the PDF is made. Changes `values` in place when the discount applies
+ * EDIT E calls this before the PDF is made. Changes values in place when the discount applies
  * (Subtotal, GST, Total, plus Discount / Adjustment / AdjustmentLabel for the PDF line and the
  * website). Never throws -- if anything goes wrong, Matt's quote still goes out.
  */
@@ -131,8 +131,8 @@ function checkCustomerWithWebsite_(data, values, moveDateRaw, tz) {
 }
 
 /**
- * Who gets the 10%. `check` is the website's answer (null = couldn't check), `override` Matt's
- * "First-booking offer" answer, `source` the form's Source answer.
+ * Who gets the 10%. check = the website's answer (null = couldn't check), override = Matt's
+ * "First-booking offer" answer, source = the form's Source answer.
  */
 function firstBookingOfferDecision_(check, override, source) {
   var o = String(override || '').toLowerCase();
