@@ -43,6 +43,7 @@ export function buildQuoteDeps(env: Env = process.env): QuoteServiceDeps | null 
         subject: email.subject,
         text: email.text,
         html: email.html,
+        ...(email.attachments?.length ? { attachments: email.attachments.map((a) => ({ filename: a.filename, content: a.content, contentType: a.contentType })) } : {}),
       });
       if (error) {
         console.error(`${email.kind} email failed:`, error.name); // never log addresses or content

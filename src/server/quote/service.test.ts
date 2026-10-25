@@ -327,6 +327,83 @@ describe("full street addresses (so the driver can find the pick-up)", () => {
   });
 });
 
+describe("Junk Removal on the quote form: details and photos reach the team", () => {
+  const { from: _f, to: _t, ...withoutText } = goodBody;
+  const jpeg = (n = 2000) => Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(n, 1)]).toString("base64");
+  const png = () => Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(500, 2)]).toString("base64");
+  const heic = () => Buffer.concat([Buffer.from([0, 0, 0, 24, 0x66, 0x74, 0x79, 0x70]), Buffer.from("heic"), Buffer.alloc(300, 3)]).toString("base64");
+  const addr = { unitNumber: "4/12", street: "Station St", suburb: "Preston", state: "VIC", postcode: "3072" };
+  const junk = (over: Record<string, unknown> = {}) => ({
+    ...withoutText,
+    need: "junk",
+    propertySize: "",
+    fromAddress: addr,
+    junkDetails: "old sofa, fridge, 10 garden bags, mattress",
+    photos: [
+      { name: "IMG_1.jpg", type: "image/jpeg", data: jpeg() },
+      { name: "IMG_2.png", type: "image/png", data: png() },
+      { name: "IMG_3.heic", type: "image/heic", data: heic() },
+    ],
+    ...over,
+  });
+
+  it("emails the team the junk details and the photos as attachments, with which service was picked", async () => {
+    const { run, sent, store } = setup();
+    const res = await run(junk());
+    expect(res.status).toBe(200);
+    const team = sent.find((e) => e.kind === "team")!;
+    expect(team.subject).toContain("(Junk Removal)");
+    expect(team.text).toContain("Needs help with: Junk Removal");
+    expect(team.text).toContain("Junk details: old sofa, fridge, 10 garden bags, mattress");
+    expect(team.text).toContain("Junk photos: 3 attached to this email");
+    expect(team.attachments?.map((a) => [a.filename, a.contentType])).toEqual([
+      ["junk-photo-1-IMG_1.jpg", "image/jpeg"],
+      ["junk-photo-2-IMG_2.png", "image/png"],
+      ["junk-photo-3-IMG_3.heic", "image/heic"],
+    ]);
+    // the customer's own email carries no attachments, and the details are stored for the dashboard
+    expect(sent.find((e) => e.kind === "customer")!.attachments).toBeUndefined();
+    expect(store!.rows[0]).toMatchObject({ need: "junk", status: "manual_review", manualReason: "junk_removal", jobDescription: "old sofa, fridge, 10 garden bags, mattress", fromText: "4/12 Station St, Preston VIC 3072" });
+  });
+
+  it("works with no photos and no details too", async () => {
+    const { run, sent } = setup();
+    expect((await run(junk({ photos: [], junkDetails: "" }))).status).toBe(200);
+    const team = sent.find((e) => e.kind === "team")!;
+    expect(team.text).toContain("Junk details: -");
+    expect(team.text).toContain("Junk photos: none sent");
+    expect(team.attachments).toBeUndefined();
+  });
+
+  it("Junk Removal ignores a home size and notes; Moving ignores junk details and photos", async () => {
+    const a = setup();
+    await a.run(junk({ propertySize: "3 Bedroom", notes: "should not be kept" }));
+    expect(a.store!.rows[0]).toMatchObject({ propertySize: null, customerNotes: null });
+
+    const b = setup();
+    await b.run({ ...goodBody, junkDetails: "old sofa", photos: [{ name: "a.jpg", type: "image/jpeg", data: jpeg() }] });
+    expect(b.store!.rows[0]).toMatchObject({ need: "moving", jobDescription: null });
+    const team = b.sent.find((e) => e.kind === "team")!;
+    expect(team.attachments).toBeUndefined();
+    expect(team.text).not.toContain("Junk details");
+  });
+
+  it("refuses photos that aren't what they claim, too many, or too big -- and sends nothing", async () => {
+    const { run, sent } = setup();
+    const bad = (photos: unknown[]) => run(junk({ photos }));
+    const notAPhoto = Buffer.from("%PDF-1.7 definitely not a photo").toString("base64");
+    expect(await bad([{ name: "a.jpg", type: "image/jpeg", data: notAPhoto }])).toMatchObject({ status: 400, body: { error: expect.stringContaining("couldn't be read") } });
+    expect(await bad([{ name: "a.jpg", type: "image/png", data: jpeg() }])).toMatchObject({ status: 400 }); // a JPEG labelled PNG
+    expect(await bad([{ name: "a.gif", type: "image/gif", data: jpeg() }])).toMatchObject({ status: 400 });
+    expect(await bad([{ name: "a.jpg", type: "image/jpeg", data: "not base64!!" }])).toMatchObject({ status: 400 });
+    expect(await bad([{ name: "a.jpg", type: "image/jpeg", data: jpeg(950_000) }])).toMatchObject({ status: 400 }); // over 900 KB
+    expect(await bad(Array.from({ length: 7 }, (_, i) => ({ name: `${i}.jpg`, type: "image/jpeg", data: jpeg() })))).toMatchObject({ status: 400 });
+    // together too big for one request, though each is fine on its own
+    expect(await bad(Array.from({ length: 4 }, (_, i) => ({ name: `${i}.jpg`, type: "image/jpeg", data: jpeg(800_000) })))).toMatchObject({ status: 400, body: { error: expect.stringContaining("too large to send together") } });
+    expect(sent).toHaveLength(0);
+  });
+});
+
 describe("validation and abuse limits", () => {
   it("keeps the form's existing messages", async () => {
     const { run } = setup();

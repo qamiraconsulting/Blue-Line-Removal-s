@@ -19,6 +19,8 @@ import {
   type QuoteDetails,
 } from "./emails.js";
 import { addressProblem, formatAddress, isBlankAddress } from "../../lib/address.js";
+import { MAX_JUNK_DETAILS, MAX_JUNK_PHOTOS } from "../../lib/junkPhotos.js";
+import { checkJunkPhotos, type EmailAttachment } from "./junkPhotos.js";
 import type { QuoteApiResult } from "../../lib/quoteContract.js";
 import { moverCounts, truckIds, type RateCard } from "./rateCard.js";
 import type { NewQuoteRow, QuoteStore } from "./store.js";
@@ -93,8 +95,15 @@ export const quoteRequestSchema = z.object({
   dropoffApartment: z.boolean().optional().default(false),
   pickupParkingOver50m: z.boolean().optional().default(false),
   dropoffParkingOver50m: z.boolean().optional().default(false),
-  // The website form's optional "Additional notes" box.
+  // The website form's optional "Additional notes" box (Moving only).
   notes: z.string().trim().max(1000).optional().default(""),
+  // Junk Removal (the form's "Details of Your Junk" and photos, 2026-10-25). Photos arrive as
+  // base64 and are checked again in checkJunkPhotos; they are emailed to the team, not stored.
+  junkDetails: z.string().trim().max(MAX_JUNK_DETAILS).optional().default(""),
+  photos: z
+    .array(z.object({ name: z.string().trim().max(120), type: z.string().max(40), data: z.string().max(1_300_000) }))
+    .max(MAX_JUNK_PHOTOS)
+    .optional(),
   // Ignored: the first-customer discount is now worked out from the database (see below).
   firstMove: z.boolean().optional().default(false),
   specialItems: z.boolean().optional().default(false),
@@ -105,6 +114,8 @@ export type QuoteRequest = z.infer<typeof quoteRequestSchema>;
 export interface OutgoingEmail extends EmailContent {
   to: string;
   replyTo?: string;
+  /** Only the team's quote email for a Junk Removal request carries any (the customer's photos). */
+  attachments?: EmailAttachment[];
   kind: "customer" | "team" | "driver";
 }
 
@@ -265,7 +276,14 @@ export async function handleQuoteRequest(
   if (!parsed.success) return { status: 400, body: { ok: false, error: requestError(parsed.error, cleaned) } };
   const withAddresses = resolveAddresses(parsed.data);
   if (!withAddresses.ok) return { status: 400, body: { ok: false, error: withAddresses.error } };
-  const req = withAddresses.data;
+  // Each service keeps to its own fields: Junk Removal has no home size or notes, Moving has no
+  // junk details or photos -- whatever else the page happened to send is ignored.
+  const junkPhotos = withAddresses.data.need === "junk" ? checkJunkPhotos(withAddresses.data.photos) : { ok: true as const, attachments: [] as EmailAttachment[] };
+  if (!junkPhotos.ok) return { status: 400, body: { ok: false, error: junkPhotos.error } };
+  const req: QuoteRequest =
+    withAddresses.data.need === "junk"
+      ? { ...withAddresses.data, propertySize: "", notes: "", photos: undefined }
+      : { ...withAddresses.data, junkDetails: "", photos: undefined };
 
   const emailNormalised = req.email;
   const phoneNormalised = normalisePhone(req.phone);
@@ -363,7 +381,7 @@ export async function handleQuoteRequest(
     truck: req.truck ?? null,
     movers: req.movers ?? null,
     accessNotes: req.accessNotes || null,
-    jobDescription: context.personalQuote?.description || null,
+    jobDescription: context.personalQuote?.description || req.junkDetails || null,
     movingDate,
     fromText: req.from || null,
     toText: req.to || null,
@@ -435,6 +453,8 @@ export async function handleQuoteRequest(
     internalBreakdown: priced ? { ...priced.internal } : null,
     jobDescription: context.personalQuote?.description,
     customerNotes: req.notes || undefined,
+    junkDetails: req.need === "junk" ? req.junkDetails : undefined,
+    junkPhotoCount: req.need === "junk" ? junkPhotos.attachments.length : undefined,
     source: context.source,
   });
 
@@ -457,7 +477,9 @@ export async function handleQuoteRequest(
       : renderAcknowledgementEmail({ name: req.name, reference });
 
   const [teamSent, customerSent] = await Promise.all([
-    deps.sendEmail({ ...team, to: deps.teamEmail, replyTo: `${req.name} <${req.email}>`, kind: "team" }).catch(() => false),
+    deps
+      .sendEmail({ ...team, to: deps.teamEmail, replyTo: `${req.name} <${req.email}>`, kind: "team", ...(junkPhotos.attachments.length ? { attachments: junkPhotos.attachments } : {}) })
+      .catch(() => false),
     customerContent && customerTo
       ? deps
           .sendEmail({ ...customerContent, subject: testMode ? `[TEST] ${customerContent.subject}` : customerContent.subject, to: customerTo, replyTo: deps.customerReplyTo, kind: "customer" })

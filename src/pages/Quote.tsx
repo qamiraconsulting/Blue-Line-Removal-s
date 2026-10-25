@@ -1,7 +1,7 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { useSearchParams } from "react-router";
 import clsx from "clsx";
-import { User, Phone, Mail, MapPin, Calendar, Home as HomeIcon, Truck, Trash2, DollarSign, Clock, ShieldCheck, CircleCheck, MessageSquare } from "lucide-react";
+import { User, Phone, Mail, MapPin, Calendar, Home as HomeIcon, Truck, Trash2, DollarSign, Clock, ShieldCheck, CircleCheck, MessageSquare, Camera, Image as ImageIcon, X } from "lucide-react";
 import { Container } from "@/components/ui/Container";
 import { Section } from "@/components/ui/Section";
 import { Reveal } from "@/components/ui/Reveal";
@@ -10,6 +10,8 @@ import { site } from "@/data/site";
 import { trackEvent } from "@/lib/analytics";
 import type { QuoteApiResult } from "@/lib/quoteContract";
 import { addressProblem, AU_STATES, blankAddress, isBlankAddress, type AddressParts } from "@/lib/address";
+import { MAX_JUNK_DETAILS, MAX_JUNK_PHOTOS, MAX_TOTAL_PHOTO_BYTES, PHOTO_ACCEPT } from "@/lib/junkPhotos";
+import { prepareJunkPhoto, type PreparedPhoto } from "@/lib/junkPhotosBrowser";
 
 const quoteTrust = [
   { icon: DollarSign, label: "No Hidden Fees" },
@@ -27,6 +29,64 @@ export function Quote() {
   const [result, setResult] = useState<QuoteApiResult | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Junk photos live here (not in the form) so they survive switching between Moving and Junk
+  // Removal. Everything else on the form is left mounted, just hidden, for the same reason.
+  const [photos, setPhotos] = useState<PreparedPhoto[]>([]);
+  const [photoNotice, setPhotoNotice] = useState<string | null>(null);
+  const [preparing, setPreparing] = useState(0);
+  const photosRef = useRef(photos);
+  photosRef.current = photos;
+  useEffect(
+    () => () => {
+      for (const p of photosRef.current) if (p.previewUrl) URL.revokeObjectURL(p.previewUrl);
+    },
+    [],
+  );
+
+  async function addPhotos(e: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = ""; // so choosing the same photo again still works
+    if (files.length === 0) return;
+    setPhotoNotice(null);
+    setPreparing((n) => n + files.length);
+    let room = MAX_JUNK_PHOTOS - photosRef.current.length;
+    let bytes = photosRef.current.reduce((sum, p) => sum + p.bytes, 0);
+    const added: PreparedPhoto[] = [];
+    const problems: string[] = [];
+    for (const [i, file] of files.entries()) {
+      if (room <= 0) {
+        problems.push(`You can add up to ${MAX_JUNK_PHOTOS} photos.`);
+        setPreparing((n) => n - (files.length - i));
+        break;
+      }
+      const prepared = await prepareJunkPhoto(file, photosRef.current.length + added.length);
+      setPreparing((n) => n - 1);
+      if (!prepared.ok) {
+        problems.push(prepared.error);
+        continue;
+      }
+      if (bytes + prepared.photo.bytes > MAX_TOTAL_PHOTO_BYTES) {
+        if (prepared.photo.previewUrl) URL.revokeObjectURL(prepared.photo.previewUrl);
+        problems.push("Those photos are a little too large to send together. Please remove one or two and try again.");
+        continue;
+      }
+      room -= 1;
+      bytes += prepared.photo.bytes;
+      added.push(prepared.photo);
+    }
+    if (added.length) setPhotos((current) => [...current, ...added]);
+    setPhotoNotice([...new Set(problems)].join(" ") || null);
+  }
+
+  function removePhoto(id: string) {
+    setPhotoNotice(null);
+    setPhotos((current) => {
+      const gone = current.find((p) => p.id === id);
+      if (gone?.previewUrl) URL.revokeObjectURL(gone.previewUrl);
+      return current.filter((p) => p.id !== id);
+    });
+  }
 
   // Set after mount: this page is prerendered at build time, so computing "today" during
   // render would bake the build date into the HTML.
@@ -50,11 +110,16 @@ export function Quote() {
     const toAddress = address("to");
     // The driver needs the whole address, so a half-filled one is sent back for fixing here.
     const problem =
-      (!isBlankAddress(fromAddress) || need === "moving" ? addressProblem(fromAddress, need === "moving" ? "pick-up address" : "address") : null) ??
-      (need === "moving" && !isBlankAddress(toAddress) ? addressProblem(toAddress, "drop-off address") : null) ??
+      addressProblem(fromAddress, "pick-up address") ??
+      (!isBlankAddress(toAddress) ? addressProblem(toAddress, "drop-off address") : null) ??
       (need === "moving" && isBlankAddress(toAddress) ? "Add the drop-off address." : null);
     if (problem) {
       setError(problem);
+      setSubmitting(false);
+      return;
+    }
+    if (preparing > 0) {
+      setError("Your photos are still being prepared -- one moment, then send again.");
       setSubmitting(false);
       return;
     }
@@ -64,10 +129,15 @@ export function Quote() {
       email: data.get("email"),
       need,
       fromAddress: isBlankAddress(fromAddress) ? undefined : fromAddress,
-      toAddress: need === "moving" && !isBlankAddress(toAddress) ? toAddress : undefined,
+      toAddress: !isBlankAddress(toAddress) ? toAddress : undefined,
       date: data.get("date"),
-      propertySize: data.get("propertySize"),
-      notes: data.get("notes"),
+      // Each service sends only its own fields.
+      ...(need === "moving"
+        ? { propertySize: data.get("propertySize"), notes: data.get("notes") }
+        : {
+            junkDetails: data.get("junkDetails"),
+            photos: photos.map(({ name, type, data: base64 }) => ({ name, type, data: base64 })),
+          }),
     };
 
     try {
@@ -76,7 +146,12 @@ export function Quote() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      const body = (await res.json()) as { ok?: boolean; error?: string; result?: QuoteApiResult };
+      // A body the server refuses as too big comes back as plain text, not JSON.
+      const body = (await res.json().catch(() => ({ error: res.status === 413 ? "Your photos are too large to send together. Please remove one or two and try again." : undefined }))) as {
+        ok?: boolean;
+        error?: string;
+        result?: QuoteApiResult;
+      };
       if (!res.ok || !body.ok) {
         setError(body.error ?? `We couldn't send that just now. Please email us at ${site.email} instead.`);
         return;
@@ -125,12 +200,11 @@ export function Quote() {
                     </div>
                   </div>
 
-                  <AddressFields prefix="from" title={need === "moving" ? "Moving From" : "Address"} hint="The full pick-up address, so our driver can find you." required />
-                  {need === "moving" && (
-                    <AddressFields prefix="to" title="Moving To" hint="The full drop-off address." defaultSuburb={prefilledTo} required />
-                  )}
+                  <AddressFields prefix="from" title="Moving From" hint="The full pick-up address, so our driver can find you." required />
+                  <AddressFields prefix="to" title="Moving To" hint="The full drop-off address." defaultSuburb={prefilledTo} required={need === "moving"} />
                   <Field label="Preferred Date" id="date" type="date" icon={Calendar} min={minDate} required={need === "moving"} />
 
+                  <div className={clsx("grid gap-5", need === "junk" && "hidden")}>
                   <div className="grid gap-1.5">
                     <label htmlFor="propertySize" className="text-xs font-bold uppercase tracking-[0.06em] text-ink-dim">
                       Property Size
@@ -166,9 +240,88 @@ export function Quote() {
                       />
                     </div>
                   </div>
+                  </div>
 
-                  <Button type="submit" arrow disabled={submitting} className="mt-1 w-full justify-center">
-                    {submitting ? "Sending…" : "Get My Free Quote"}
+                  {/* Junk Removal only: kept mounted when Moving is picked so nothing typed or chosen is lost. */}
+                  <div className={clsx("grid gap-5", need === "moving" && "hidden")}>
+                    <div className="grid gap-1.5">
+                      <span className="text-xs font-bold uppercase tracking-[0.06em] text-ink-dim">Upload Your Junk Pics</span>
+                      <label
+                        htmlFor="junkPhotos"
+                        className="flex min-h-28 cursor-pointer flex-col items-center justify-center gap-1.5 rounded-lg border-2 border-dashed border-ink/20 bg-paper px-4 py-5 text-center transition-colors hover:border-action focus-within:border-action"
+                      >
+                        <Camera className="h-7 w-7 text-action" aria-hidden="true" />
+                        <span className="font-display text-sm font-bold text-navy">Tap to take or choose photos</span>
+                        <span className="text-xs text-ink-dim">
+                          JPG, PNG or HEIC &middot; up to {MAX_JUNK_PHOTOS} photos
+                        </span>
+                        <input
+                          id="junkPhotos"
+                          type="file"
+                          multiple
+                          accept={PHOTO_ACCEPT}
+                          onChange={addPhotos}
+                          disabled={photos.length >= MAX_JUNK_PHOTOS}
+                          className="sr-only"
+                        />
+                      </label>
+                      <p className="text-xs text-ink-dim">Photos help us give you an exact price faster.</p>
+                      {photoNotice && (
+                        <p className="text-xs font-medium text-action-dim" role="alert">
+                          {photoNotice}
+                        </p>
+                      )}
+                      {(photos.length > 0 || preparing > 0) && (
+                        <ul className="mt-1 grid grid-cols-3 gap-2 sm:grid-cols-4" aria-label="Your junk photos">
+                          {photos.map((photo, i) => (
+                            <li key={photo.id} className="relative aspect-square overflow-hidden rounded-md border border-ink/10 bg-paper">
+                              {photo.previewUrl ? (
+                                <img src={photo.previewUrl} alt={`Junk photo ${i + 1}`} className="h-full w-full object-cover" />
+                              ) : (
+                                <span className="flex h-full w-full flex-col items-center justify-center gap-1 px-1 text-center text-[10px] text-ink-dim">
+                                  <ImageIcon className="h-5 w-5" aria-hidden="true" />
+                                  Photo {i + 1}
+                                </span>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => removePhoto(photo.id)}
+                                aria-label={`Remove junk photo ${i + 1}`}
+                                className="absolute right-1 top-1 flex h-8 w-8 items-center justify-center rounded-full bg-navy/80 text-white hover:bg-navy"
+                              >
+                                <X className="h-4 w-4" aria-hidden="true" />
+                              </button>
+                            </li>
+                          ))}
+                          {Array.from({ length: preparing }).map((_, i) => (
+                            <li key={`preparing-${i}`} className="flex aspect-square animate-pulse items-center justify-center rounded-md border border-ink/10 bg-paper text-[10px] text-ink-dim">
+                              Preparing...
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+
+                    <div className="grid gap-1.5">
+                      <label htmlFor="junkDetails" className="text-xs font-bold uppercase tracking-[0.06em] text-ink-dim">
+                        Details of Your Junk
+                      </label>
+                      <div className="relative">
+                        <MessageSquare className="pointer-events-none absolute left-3.5 top-3 h-4 w-4 text-ink-dim" aria-hidden="true" />
+                        <textarea
+                          id="junkDetails"
+                          name="junkDetails"
+                          rows={3}
+                          maxLength={MAX_JUNK_DETAILS}
+                          placeholder="e.g. old sofa, fridge, 10 garden bags, mattress"
+                          className="w-full resize-y rounded-md border border-ink/15 bg-white py-2.5 pl-10 pr-3.5 text-sm text-ink outline-none focus:border-action"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <Button type="submit" arrow disabled={submitting || preparing > 0} className="mt-1 w-full justify-center">
+                    {submitting ? "Sending…" : need === "junk" ? "Get My Junk Quote" : "Get My Free Quote"}
                   </Button>
 
                   <div className="mt-1 grid grid-cols-3 gap-2 text-center">

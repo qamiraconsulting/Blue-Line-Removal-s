@@ -183,6 +183,9 @@ export function renderTeamEmail(input: {
   jobDescription?: string;
   /** The website form's optional "Additional notes". */
   customerNotes?: string;
+  /** Junk Removal: "Details of Your Junk" and how many photos are attached to this email. */
+  junkDetails?: string;
+  junkPhotoCount?: number;
 }): EmailContent {
   const lines = [
     `Reference: ${input.reference}`,
@@ -201,6 +204,12 @@ export function renderTeamEmail(input: {
     `Truck & crew: ${input.details.capacity || "-"}`,
     `Access notes: ${input.details.accessNotes || "-"}`,
     ...(input.customerNotes ? [`Customer notes: ${input.customerNotes}`] : []),
+    ...(input.need === "junk"
+      ? [
+          `Junk details: ${input.junkDetails || "-"}`,
+          `Junk photos: ${input.junkPhotoCount ? `${input.junkPhotoCount} attached to this email` : "none sent"}`,
+        ]
+      : []),
     `First-customer 10% offer: ${input.firstMoveRequested ? (input.firstMoveApplied ? "applied (no earlier booking with this email or phone)" : "not applied (booked with us before)") : "not checked (database unavailable)"}`,
     ...(input.internalBreakdown ? ["", "Internal breakdown (not shown to the customer):", JSON.stringify(input.internalBreakdown, null, 2)] : []),
   ];
