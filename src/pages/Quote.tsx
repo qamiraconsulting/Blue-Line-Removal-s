@@ -376,7 +376,20 @@ function AddressFields({
           <label htmlFor={`${prefix}_suburb`} className={label}>
             Suburb
           </label>
-          <input id={`${prefix}_suburb`} name={`${prefix}_suburb`} type="text" required={required} maxLength={60} placeholder="Preston" defaultValue={defaultSuburb} autoComplete="off" className={box} />
+          <div className="relative">
+            <MapPin className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-dim" aria-hidden="true" />
+            <input
+              id={`${prefix}_suburb`}
+              name={`${prefix}_suburb`}
+              type="text"
+              required={required}
+              maxLength={60}
+              placeholder="Suburb or City"
+              defaultValue={defaultSuburb}
+              autoComplete="off"
+              className={clsx(box, "pl-10")}
+            />
+          </div>
         </div>
         <div className="grid gap-1.5">
           <label htmlFor={`${prefix}_postcode`} className={label}>
