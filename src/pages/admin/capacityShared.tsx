@@ -15,8 +15,6 @@ export interface Settings {
   bufferMinutes: number | null;
   moversPerDay: number | null;
   minNoticeHours: number | null;
-  maxDaysAhead: number | null;
-  autoConfirmMaxAud: number | null;
 }
 export interface Truck {
   id?: string;

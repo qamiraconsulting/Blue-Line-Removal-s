@@ -133,7 +133,7 @@ function setup(start: JobRow, opts: { pdf?: boolean; pdfFails?: boolean; testEma
   const sent: OutgoingEmail[] = [];
   const pdfs: PdfQuoteJob[] = [];
   const capacity = (): Omit<CapacitySnapshot, "nowLocal"> => ({
-    settings: { autoConfirm: false, workingDays: [1, 2, 3, 4, 5, 6], arrivalTimes: ["07:30"], dayEndTime: "18:00", bufferMinutes: 30, moversPerDay: 4, minNoticeHours: 24, maxDaysAhead: 60, autoConfirmMaxAud: null },
+    settings: { autoConfirm: false, workingDays: [1, 2, 3, 4, 5, 6], arrivalTimes: ["07:30"], dayEndTime: "18:00", bufferMinutes: 30, moversPerDay: 4, minNoticeHours: 24 },
     trucks: [{ id: "truck-a", truckType: "6-8T", active: true }],
     override: null,
     bookings: [],

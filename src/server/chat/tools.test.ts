@@ -218,7 +218,7 @@ describe("request_booking", () => {
         findQuote: async () => stored,
         markRequested: async () => ((marked = true), true),
         loadCapacity: async () => ({
-          settings: { autoConfirm: false, workingDays: [], arrivalTimes: [], dayEndTime: null, bufferMinutes: null, moversPerDay: null, minNoticeHours: null, maxDaysAhead: null, autoConfirmMaxAud: null },
+          settings: { autoConfirm: false, workingDays: [], arrivalTimes: [], dayEndTime: null, bufferMinutes: null, moversPerDay: null, minNoticeHours: null },
           trucks: [],
           override: null,
           bookings: [],

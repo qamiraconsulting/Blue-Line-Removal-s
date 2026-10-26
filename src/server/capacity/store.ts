@@ -22,8 +22,6 @@ export const EMPTY_SETTINGS: CapacitySettings = {
   bufferMinutes: null,
   moversPerDay: null,
   minNoticeHours: null,
-  maxDaysAhead: null,
-  autoConfirmMaxAud: null,
 };
 
 /** Melbourne wall-clock "YYYY-MM-DDTHH:MM". */
@@ -47,7 +45,7 @@ export function melbourneNowLocal(now: Date): string {
 export async function loadSettings(conn: Conn = getDb()): Promise<CapacitySettings> {
   const [row] = await conn.select().from(bookingSettings).where(eq(bookingSettings.id, 1)).limit(1);
   if (!row) return EMPTY_SETTINGS;
-  const { id: _id, updatedAt: _u, updatedBy: _b, ...settings } = row;
+  const { id: _id, updatedAt: _u, updatedBy: _b, maxDaysAhead: _days, autoConfirmMaxAud: _limit, ...settings } = row;
   return settings;
 }
 

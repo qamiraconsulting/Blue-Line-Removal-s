@@ -132,7 +132,7 @@ function harness(q: StoredQuote | null, confirmable = true, gate?: Promise<void>
     findQuote: async (ref) => (q && q.reference === ref ? { ...q, bookingStatus: state.booked ? "confirmed" : q.bookingStatus } : null),
     markRequested: async () => false,
     loadCapacity: async () => ({
-      settings: { autoConfirm: false, workingDays: confirmable ? [0, 1, 2, 3, 4, 5, 6] : [], arrivalTimes: confirmable ? ["07:30"] : [], dayEndTime: "18:00", bufferMinutes: 0, moversPerDay: 4, minNoticeHours: 0, maxDaysAhead: 365, autoConfirmMaxAud: null },
+      settings: { autoConfirm: false, workingDays: confirmable ? [0, 1, 2, 3, 4, 5, 6] : [], arrivalTimes: confirmable ? ["07:30"] : [], dayEndTime: "18:00", bufferMinutes: 0, moversPerDay: 4, minNoticeHours: 0 },
       trucks: [{ id: "truck-a", truckType: "6-8T", active: true }],
       override: null,
       bookings: [],

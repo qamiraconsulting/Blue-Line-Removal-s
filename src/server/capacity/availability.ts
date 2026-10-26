@@ -20,8 +20,6 @@ export interface CapacitySettings {
   bufferMinutes: number | null;
   moversPerDay: number | null;
   minNoticeHours: number | null;
-  maxDaysAhead: number | null;
-  autoConfirmMaxAud: number | null;
 }
 
 export interface CapacityTruck {
@@ -62,7 +60,7 @@ export interface JobRequest {
 }
 
 export type SlotUnavailableReason = "outside_working_hours" | "too_soon" | "no_truck" | "no_movers";
-export type DayUnavailableReason = "not_set_up" | "not_a_working_day" | "closed" | "too_far_ahead" | "in_the_past";
+export type DayUnavailableReason = "not_set_up" | "not_a_working_day" | "closed" | "in_the_past";
 
 export interface SlotResult {
   time: string;
@@ -123,8 +121,6 @@ export function checkAvailability(job: JobRequest, snap: CapacitySnapshot): Avai
   if (job.date < todayIso) return closedDay("in_the_past");
   if (!s.workingDays.includes(dayIndex(job.date))) return closedDay("not_a_working_day");
   if (snap.override?.closed) return closedDay("closed");
-  const daysAhead = (wallClockMinutes(job.date, "00:00") - wallClockMinutes(todayIso, "00:00")) / 1440;
-  if (s.maxDaysAhead !== null && daysAhead > s.maxDaysAhead) return closedDay("too_far_ahead");
 
   const buffer = s.bufferMinutes ?? 0;
   const dayEnd = toMinutes(s.dayEndTime);
@@ -179,9 +175,7 @@ export function checkAvailability(job: JobRequest, snap: CapacitySnapshot): Avai
   const blockedBy: string[] = [];
   if (!s.autoConfirm) blockedBy.push("auto_confirm_off");
   if (s.minNoticeHours === null) blockedBy.push("min_notice_not_set");
-  if (s.maxDaysAhead === null) blockedBy.push("max_days_ahead_not_set");
   if (s.bufferMinutes === null) blockedBy.push("buffer_not_set");
-  if (s.autoConfirmMaxAud !== null && job.amountAud > s.autoConfirmMaxAud) blockedBy.push("over_auto_confirm_limit");
 
   return { dayOpen: true, slots, instantConfirm: blockedBy.length === 0, instantConfirmBlockedBy: blockedBy };
 }

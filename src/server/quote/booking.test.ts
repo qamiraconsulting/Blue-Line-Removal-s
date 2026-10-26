@@ -49,8 +49,6 @@ const NOT_SET_UP: CapacitySettings = {
   bufferMinutes: null,
   moversPerDay: null,
   minNoticeHours: null,
-  maxDaysAhead: null,
-  autoConfirmMaxAud: null,
 };
 const READY: CapacitySettings = {
   autoConfirm: true,
@@ -60,8 +58,6 @@ const READY: CapacitySettings = {
   bufferMinutes: 30,
   moversPerDay: 4,
   minNoticeHours: 24,
-  maxDaysAhead: 60,
-  autoConfirmMaxAud: null,
 };
 
 function setup(stored: StoredQuote | null, settings: CapacitySettings = NOT_SET_UP, extraTrucks: CapacitySnapshot["trucks"] = []) {
@@ -224,8 +220,7 @@ describe("instant confirmation (switched on by the team, everything set up)", ()
     expect(row()!.bookingStatus).toBe("confirmed");
   });
 
-  it("over the instant-confirm limit, or in test mode, it becomes a request for the team", async () => {
-    expect(await ask(setup(soonQuote(), { ...READY, autoConfirmMaxAud: 500 }).deps, { arrivalTime: "07:30" })).toMatchObject({ ok: true, status: "requested", arrivalTime: "07:30" });
+  it("in test mode it becomes a request for the team", async () => {
     expect(await ask(setup(soonQuote({ rateCardStatus: "placeholder" }), READY).deps, { arrivalTime: "07:30" })).toMatchObject({ ok: true, status: "requested" });
   });
 });

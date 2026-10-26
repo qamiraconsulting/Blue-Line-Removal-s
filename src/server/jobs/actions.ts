@@ -232,7 +232,7 @@ export async function confirmAction(
     date,
     (capacity) => {
       // The team decides -- but say so if the calendar doesn't show room.
-      const check = checkAvailability(job, { ...capacity, nowLocal, settings: { ...capacity.settings, arrivalTimes: [arrivalTime], minNoticeHours: 0, maxDaysAhead: null } });
+      const check = checkAvailability(job, { ...capacity, nowLocal, settings: { ...capacity.settings, arrivalTimes: [arrivalTime], minNoticeHours: 0 } });
       const slot = check.slots.find((s) => s.time === arrivalTime);
       const capacityWarning = !check.dayOpen
         ? (check.dayReason ?? "not_set_up")

@@ -51,8 +51,6 @@ const actionSchema = z.discriminatedUnion("action", [
       bufferMinutes: count,
       moversPerDay: count,
       minNoticeHours: count,
-      maxDaysAhead: count,
-      autoConfirmMaxAud: z.number().int().min(0).max(100000).nullable(),
     }),
   }),
   z.object({
@@ -232,7 +230,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const b = body.booking;
         const check = checkAvailability(
           { date: b.date, truckType: b.truckType, movers: b.movers, estimatedMinutes: b.estimatedMinutes, amountAud: 0 },
-          { ...(await loadCapacity(b.date)), nowLocal: "1970-01-01T00:00", settings: { ...(await loadSettings()), arrivalTimes: [b.arrivalTime], minNoticeHours: 0, maxDaysAhead: null } },
+          { ...(await loadCapacity(b.date)), nowLocal: "1970-01-01T00:00", settings: { ...(await loadSettings()), arrivalTimes: [b.arrivalTime], minNoticeHours: 0 } },
         );
         const slot = check.slots[0];
         const id = await addBooking({

@@ -224,8 +224,10 @@ export const bookingSettings = pgTable("booking_settings", {
   bufferMinutes: integer("buffer_minutes"), // gap kept free after each job
   moversPerDay: integer("movers_per_day"),
   minNoticeHours: integer("min_notice_hours"),
+  // No longer used or shown (Ayesha, 2026-10-26: removed "Book up to" and the instant-confirmation
+  // limit). The columns are kept so older code and scripts keep working; they are always null.
   maxDaysAhead: integer("max_days_ahead"),
-  autoConfirmMaxAud: integer("auto_confirm_max_aud"), // null = no limit
+  autoConfirmMaxAud: integer("auto_confirm_max_aud"),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   updatedBy: text("updated_by"),
 });

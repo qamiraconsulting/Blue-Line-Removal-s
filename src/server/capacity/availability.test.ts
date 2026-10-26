@@ -10,8 +10,6 @@ const settings = {
   bufferMinutes: 30,
   moversPerDay: 6,
   minNoticeHours: 24,
-  maxDaysAhead: 60,
-  autoConfirmMaxAud: 2000,
 };
 const snap = (over: Partial<CapacitySnapshot> = {}): CapacitySnapshot => ({
   settings,
@@ -97,11 +95,14 @@ describe("checkAvailability", () => {
     expect(tomorrow.slots.map((s) => s.reason)).toEqual(["too_soon", undefined]); // 07:30 is < 24h away, 12:00 is > 24h
   });
 
-  it("closed days, non-working days, past days and dates too far ahead offer nothing", () => {
+  it("closed days, non-working days and past days offer nothing", () => {
     expect(checkAvailability(job, snap({ override: { closed: true, moversAvailable: null, trucksUnavailable: [] } }))).toMatchObject({ dayOpen: false, dayReason: "closed" });
     expect(checkAvailability({ ...job, date: "2026-10-18" }, snap())).toMatchObject({ dayOpen: false, dayReason: "not_a_working_day" }); // Sunday
     expect(checkAvailability({ ...job, date: "2026-10-01" }, snap())).toMatchObject({ dayOpen: false, dayReason: "in_the_past" });
-    expect(checkAvailability({ ...job, date: "2027-01-30" }, snap())).toMatchObject({ dayOpen: false, dayReason: "too_far_ahead" });
+  });
+
+  it("there is no limit on how far ahead a customer can book (Book up to was removed, 26 Oct)", () => {
+    expect(checkAvailability({ ...job, date: "2027-10-27" }, snap())).toMatchObject({ dayOpen: true }); // a Wednesday a year out
   });
 
   it("a truck taken off for the day, or fewer movers that day, reduces capacity", () => {
@@ -116,11 +117,11 @@ describe("checkAvailability", () => {
     expect(checkAvailability(job, snap({ settings: { ...settings, moversPerDay: null } }))).toMatchObject({ dayOpen: false, dayReason: "not_set_up" });
   });
 
-  it("instant confirmation needs the switch on, every rule set, and the estimate under the limit", () => {
+  it("instant confirmation needs the switch on and every rule set -- there is no price limit any more", () => {
     expect(checkAvailability(job, snap({ settings: { ...settings, autoConfirm: false } }))).toMatchObject({ instantConfirm: false, instantConfirmBlockedBy: ["auto_confirm_off"] });
     expect(checkAvailability(job, snap({ settings: { ...settings, minNoticeHours: null } })).instantConfirmBlockedBy).toContain("min_notice_not_set");
-    expect(checkAvailability({ ...job, amountAud: 2500 }, snap()).instantConfirmBlockedBy).toContain("over_auto_confirm_limit");
-    expect(checkAvailability(job, snap({ settings: { ...settings, autoConfirmMaxAud: null } })).instantConfirm).toBe(true);
+    expect(checkAvailability({ ...job, amountAud: 25000 }, snap())).toMatchObject({ instantConfirm: true, instantConfirmBlockedBy: [] });
+    expect(checkAvailability(job, snap({ settings: { ...settings } })).instantConfirm).toBe(true);
   });
 });
 

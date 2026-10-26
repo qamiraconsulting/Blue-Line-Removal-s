@@ -22,7 +22,7 @@ the "Meanwhile" column says: it never guesses.
 | Item | Question | Meanwhile |
 |---|---|---|
 | `booking-terms` | Approve the booking terms customers agree to in the chat (book on the estimate; team inspects on the move day and confirms final charges) | Draft terms shown word for word; exact text stored per booking |
-| `capacity-setup` | Fill in Settings on the dashboard (trucks, working days, arrival times, end of day, gap, movers, notice, days ahead, optional limit), keep phone bookings in the calendar, then decide on instant confirmation | Instant confirmation off; team confirms every booking |
+| `capacity-setup` | Fill in Settings on the dashboard (trucks, working days, arrival times, end of day, gap, movers, notice), keep phone bookings in the calendar, then decide on instant confirmation | Instant confirmation off; team confirms every booking |
 | `existing-booking-tool` | Is there another calendar/tool with bookings today? Enter them on the dashboard or we connect to it | Only dashboard bookings count |
 | `cancellation-policy` | Deposit and cancellation/rescheduling policy for the booking terms | No deposit; cancellations by phone |
 | `typical-hours-driving` | The "typical hours" are to load and unload (25 Oct), so the engine adds the real drive time. Worth a one-line confirmation from Blue Line | Drive time added on top |

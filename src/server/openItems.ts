@@ -117,7 +117,7 @@ export const openItems: OpenItem[] = [
     id: "capacity-setup",
     topic: "operations",
     question:
-      "Blue Line fills in Settings on the dashboard: trucks (size each), working days, arrival times offered, end of day, gap between jobs, movers per day, minimum notice, how far ahead, optional instant-confirm limit -- and keeps every phone booking in the calendar. Then decide whether to switch instant confirmation on.",
+      "Blue Line fills in Settings on the dashboard: trucks (size each), working days, arrival times offered, end of day, gap between jobs, movers per day, minimum notice -- and keeps every phone booking in the calendar. Then decide whether to switch instant confirmation on.",
     meanwhile: "Instant confirmation is off; every chat booking is a request the team confirms on the dashboard.",
     status: "to_ask",
   },

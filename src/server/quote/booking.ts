@@ -140,7 +140,6 @@ const DAY_CLOSED_WORDS: Record<string, string> = {
   not_set_up: "Online arrival times aren't set up yet -- take a booking request with their preferred time in notes.",
   not_a_working_day: "Blue Line doesn't take online bookings for that day of the week.",
   closed: "That date is closed for online bookings.",
-  too_far_ahead: "That date is too far ahead to book online.",
   in_the_past: "That date has passed.",
 };
 
@@ -395,7 +394,6 @@ const SLOT_PROBLEM: Record<string, string> = {
   not_set_up: "online arrival times aren't set up on the Settings page",
   not_a_working_day: "that day isn't a working day on the Settings page",
   closed: "that date is closed on the Settings page",
-  too_far_ahead: "that date is further ahead than online bookings allow",
   in_the_past: "the moving date has passed",
   outside_working_hours: "the arrival time is outside working hours",
   too_soon: "the arrival time is too soon",

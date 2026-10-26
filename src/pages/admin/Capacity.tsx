@@ -19,7 +19,6 @@ const missingForInstant = (s: Settings) =>
     !s.dayEndTime && "jobs must finish by",
     s.moversPerDay === null && "movers per day",
     s.minNoticeHours === null && "minimum notice",
-    s.maxDaysAhead === null && "book up to",
     s.bufferMinutes === null && "gap after each job",
   ].filter(Boolean) as string[];
 
@@ -97,8 +96,6 @@ export default function Capacity() {
               ["moversPerDay", "Movers available per day", "Total movers you have on a normal day, across all jobs."],
               ["bufferMinutes", "Gap after each job (minutes)", "Time kept free before the same truck can start its next job -- travel and overruns."],
               ["minNoticeHours", "Minimum notice (hours)", "How soon a job can be booked online. 48 = nothing for today or tomorrow."],
-              ["maxDaysAhead", "Book up to (days ahead)", "How far into the future customers can book online, e.g. 90."],
-              ["autoConfirmMaxAud", "Instant confirmation limit (AUD, optional)", "Estimates above this always go to you to confirm. Leave blank for no limit."],
             ] as const
           ).map(([key, label, hint]) => (
             <Field key={key} label={label} hint={hint}>
