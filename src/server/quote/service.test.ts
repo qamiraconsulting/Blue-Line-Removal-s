@@ -320,6 +320,15 @@ describe("full street addresses (so the driver can find the pick-up)", () => {
     expect(sent).toHaveLength(0);
   });
 
+  it("the website form's suburb and postcode (no street, no state) become one line, with the state from the postcode", async () => {
+    const { run, store } = setup();
+    const res = await run({ ...withoutText, fromAddress: { suburb: "Preston", postcode: "3072" }, toAddress: { suburb: "Brunswick", postcode: "3056" } });
+    expect(res.status).toBe(200);
+    expect(store!.rows[0]).toMatchObject({ fromText: "Preston VIC 3072", toText: "Brunswick VIC 3056" });
+    expect(await run({ ...withoutText, fromAddress: { suburb: "Preston", postcode: "0000" } })).toMatchObject({ status: 400, body: { error: expect.stringContaining("valid Australian postcode") } });
+    expect(await run({ ...withoutText, fromAddress: { suburb: "", postcode: "3072" } })).toMatchObject({ status: 400, body: { error: expect.stringContaining("suburb") } });
+  });
+
   it("a blank address box just means none was given, and the chat's one-line address still works", async () => {
     const { run, store } = setup();
     await run({ ...goodBody, from: "12 Station St, Preston VIC 3072", fromAddress: addr({ unitNumber: "", street: "", suburb: "", postcode: "" }) });

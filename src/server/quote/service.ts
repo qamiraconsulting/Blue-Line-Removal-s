@@ -18,7 +18,7 @@ import {
   type EmailContent,
   type QuoteDetails,
 } from "./emails.js";
-import { addressProblem, formatAddress, isBlankAddress } from "../../lib/address.js";
+import { addressProblem, AU_STATES, formatAddress, isBlankAddress, stateForPostcode } from "../../lib/address.js";
 import { MAX_JUNK_DETAILS, MAX_JUNK_PHOTOS } from "../../lib/junkPhotos.js";
 import { checkJunkPhotos, type EmailAttachment } from "./junkPhotos.js";
 import type { QuoteApiResult } from "../../lib/quoteContract.js";
@@ -63,10 +63,10 @@ const moverSchema = z.union(moverCounts.map((n) => z.literal(n)) as [z.ZodLitera
 // A full street address from the website form's separate fields; it is joined into the one
 // line of text everything else uses (src/lib/address.ts). The chat sends that line directly.
 const addressSchema = z.object({
-  unitNumber: z.string().trim().max(30),
-  street: z.string().trim().max(100),
+  unitNumber: z.string().trim().max(30).optional().default(""),
+  street: z.string().trim().max(100).optional().default(""),
   suburb: z.string().trim().max(60),
-  state: z.string().trim().max(3),
+  state: z.string().trim().max(3).optional().default(""),
   postcode: z.string().trim().max(4),
 });
 
@@ -233,9 +233,12 @@ export function resolveAddresses(req: QuoteRequest): { ok: true; data: QuoteRequ
     ["fromAddress", "pick-up address", "from"],
     ["toAddress", "drop-off address", "to"],
   ] as const) {
-    const parts = req[key];
-    if (!parts || isBlankAddress(parts)) continue;
-    const problem = addressProblem(parts, label);
+    const given = req[key];
+    if (!given || isBlankAddress(given)) continue;
+    // The website form sends only the suburb and postcode (26 Oct); a street, when sent, must be whole.
+    const needStreet = Boolean(given.unitNumber.trim() || given.street.trim());
+    const parts = { ...given, state: (AU_STATES as readonly string[]).includes(given.state) ? given.state : (stateForPostcode(given.postcode) ?? "") };
+    const problem = addressProblem(parts, label, { needStreet }) ?? (needStreet || parts.state ? null : `Enter a valid Australian postcode for the ${label}.`);
     if (problem) return { ok: false, error: problem };
     out[line] = formatAddress(parts);
   }

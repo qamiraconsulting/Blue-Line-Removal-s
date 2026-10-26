@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/Button";
 import { site } from "@/data/site";
 import { trackEvent } from "@/lib/analytics";
 import type { QuoteApiResult } from "@/lib/quoteContract";
-import { addressProblem, AU_STATES, blankAddress, isBlankAddress, type AddressParts } from "@/lib/address";
+import { addressProblem, isBlankAddress, type AddressParts } from "@/lib/address";
 import { MAX_JUNK_DETAILS, MAX_JUNK_PHOTOS, MAX_TOTAL_PHOTO_BYTES, PHOTO_ACCEPT } from "@/lib/junkPhotos";
 import { prepareJunkPhoto, type PreparedPhoto } from "@/lib/junkPhotosBrowser";
 
@@ -99,20 +99,20 @@ export function Quote() {
     setSubmitting(true);
 
     const data = new FormData(e.currentTarget);
+    // Suburb and postcode only (26 Oct); the server works out the state from the postcode.
     const address = (prefix: string): AddressParts => ({
-      unitNumber: String(data.get(`${prefix}_unit`) ?? ""),
-      street: String(data.get(`${prefix}_street`) ?? ""),
+      unitNumber: "",
+      street: "",
       suburb: String(data.get(`${prefix}_suburb`) ?? ""),
-      state: String(data.get(`${prefix}_state`) ?? "VIC"),
+      state: "",
       postcode: String(data.get(`${prefix}_postcode`) ?? ""),
     });
     const fromAddress = address("from");
     const toAddress = address("to");
     // The driver needs the whole address, so a half-filled one is sent back for fixing here.
     const problem =
-      addressProblem(fromAddress, "pick-up address") ??
-      (!isBlankAddress(toAddress) ? addressProblem(toAddress, "drop-off address") : null) ??
-      (need === "moving" && isBlankAddress(toAddress) ? "Add the drop-off address." : null);
+      addressProblem(fromAddress, "pick-up", { needStreet: false }) ??
+      (need === "moving" ? (addressProblem(toAddress, "drop-off", { needStreet: false }) ?? null) : null);
     if (problem) {
       setError(problem);
       setSubmitting(false);
@@ -129,7 +129,8 @@ export function Quote() {
       email: data.get("email"),
       need,
       fromAddress: isBlankAddress(fromAddress) ? undefined : fromAddress,
-      toAddress: !isBlankAddress(toAddress) ? toAddress : undefined,
+      // Junk Removal has no drop-off (26 Oct).
+      toAddress: need === "moving" && !isBlankAddress(toAddress) ? toAddress : undefined,
       date: data.get("date"),
       // Each service sends only its own fields.
       ...(need === "moving"
@@ -200,8 +201,9 @@ export function Quote() {
                     </div>
                   </div>
 
-                  <AddressFields prefix="from" title="Moving From" hint="The full pick-up address, so our driver can find you." required />
-                  <AddressFields prefix="to" title="Moving To" hint="The full drop-off address." defaultSuburb={prefilledTo} required={need === "moving"} />
+                  <AddressFields prefix="from" title="Moving From" required />
+                  {/* Junk Removal has no drop-off: hidden, not removed, so switching back keeps what was typed. */}
+                  <AddressFields prefix="to" title="Moving To" defaultSuburb={prefilledTo} required={need === "moving"} className={clsx(need === "junk" && "hidden")} />
                   <Field label="Preferred Date" id="date" type="date" icon={Calendar} min={minDate} required={need === "moving"} />
 
                   <div className={clsx("grid gap-5", need === "junk" && "hidden")}>
@@ -346,61 +348,35 @@ export function Quote() {
 
 export default Quote;
 
-// A full street address in separate boxes (Ayesha, 2026-10-17): unit/house number, street,
-// suburb, state and postcode, so the driver can reach the pick-up with no guessing.
+// Where from / to: just the suburb and postcode (Ayesha, 2026-10-26). The server works out the
+// state from the postcode; the team gets the street address when they call.
 function AddressFields({
   prefix,
   title,
-  hint,
   required,
   defaultSuburb,
+  className,
 }: {
   prefix: string;
   title: string;
-  hint: string;
   required?: boolean;
   defaultSuburb?: string;
+  className?: string;
 }) {
   const box = "w-full rounded-md border border-ink/15 bg-white py-2.5 px-3.5 text-sm text-ink outline-none focus:border-action";
   const label = "text-xs font-bold uppercase tracking-[0.06em] text-ink-dim";
-  const blank = blankAddress();
   return (
-    <fieldset className="grid gap-3">
+    <fieldset className={clsx("grid gap-3", className)}>
       <legend className="mb-1 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.06em] text-ink-dim">
         <MapPin className="h-4 w-4" aria-hidden="true" />
         {title}
       </legend>
-      <p className="-mt-1 text-xs text-ink-dim">{hint}</p>
-      <div className="grid grid-cols-3 gap-3">
-        <div className="grid gap-1.5">
-          <label htmlFor={`${prefix}_unit`} className={label}>
-            Unit / house no.
-          </label>
-          <input id={`${prefix}_unit`} name={`${prefix}_unit`} type="text" required={required} maxLength={30} placeholder="4/12" autoComplete="off" className={box} />
-        </div>
-        <div className="col-span-2 grid gap-1.5">
-          <label htmlFor={`${prefix}_street`} className={label}>
-            Street
-          </label>
-          <input id={`${prefix}_street`} name={`${prefix}_street`} type="text" required={required} maxLength={100} placeholder="Station St" autoComplete="off" className={box} />
-        </div>
-      </div>
-      <div className="grid grid-cols-[minmax(0,1fr)_5.25rem_6rem] gap-3">
+      <div className="grid grid-cols-[minmax(0,1fr)_6.5rem] gap-3">
         <div className="grid gap-1.5">
           <label htmlFor={`${prefix}_suburb`} className={label}>
             Suburb
           </label>
           <input id={`${prefix}_suburb`} name={`${prefix}_suburb`} type="text" required={required} maxLength={60} placeholder="Preston" defaultValue={defaultSuburb} autoComplete="off" className={box} />
-        </div>
-        <div className="grid gap-1.5">
-          <label htmlFor={`${prefix}_state`} className={label}>
-            State
-          </label>
-          <select id={`${prefix}_state`} name={`${prefix}_state`} defaultValue={blank.state} className={box}>
-            {AU_STATES.map((s) => (
-              <option key={s}>{s}</option>
-            ))}
-          </select>
         </div>
         <div className="grid gap-1.5">
           <label htmlFor={`${prefix}_postcode`} className={label}>
