@@ -9,13 +9,28 @@ import { servicesDetailed } from "@/data/content/home";
 import { images } from "@/data/content/images";
 
 // Same two photo cards as the homepage "Two Services" section (2026-10-26,
-// client request). The Moving card lists every moving page in the catalog
-// instead of the homepage's shortlist, and drops its "Explore Moving
-// Services" button (it would link to this page). The Junk card is the
-// homepage one as-is: its sub-items all go to the single junk-removal page
-// until they get pages of their own.
+// client request), but every item links to its own service page and
+// neither card has a bottom button (the homepage's would just point back
+// here or to the general junk page). Card titles, photos and the junk
+// items' wording come from the homepage data; the homepage itself keeps
+// its own links.
 const [homeMoving, homeJunk] = servicesDetailed.categories;
-const movingSlugs = ["home-removals", "office-removals", "interstate-removals", "packing-unpacking", "storage-solutions", "specialty-items"];
+const movingSlugs = [
+  "home-removals",
+  "apartment-unit-moves",
+  "office-removals",
+  "interstate-removals",
+  "packing-unpacking",
+  "storage-solutions",
+  "specialty-items",
+];
+const junkPages: Record<string, string> = {
+  "Furniture Removal": "/services/furniture-removal",
+  "Rubbish Removal": "/services/rubbish-removal",
+  "Green Waste Removal": "/services/green-waste-removal",
+  "Garage & Shed Clear Outs": "/services/garage-shed-clear-outs",
+  "End of Lease Clean Outs": "/services/end-of-lease-clean-outs",
+};
 
 const categories: ServiceCategory[] = [
   {
@@ -26,7 +41,11 @@ const categories: ServiceCategory[] = [
       return service ? [{ icon: service.icon, title: service.title, body: service.listBody, href: `/services/${service.slug}` }] : [];
     }),
   },
-  homeJunk,
+  {
+    ...homeJunk,
+    cta: undefined,
+    items: homeJunk.items.map((item) => ({ ...item, href: junkPages[item.title] ?? item.href })),
+  },
 ];
 
 export function Services() {
@@ -44,7 +63,9 @@ export function Services() {
             <span aria-hidden="true" className="mx-auto mt-3 block h-1 w-14 rounded-full bg-action" />
           </Reveal>
 
-          <RevealGroup className="mt-12 grid gap-8 md:grid-cols-2">
+          {/* items-start: the junk card is shorter, so it ends after its last
+              item instead of stretching to match with an empty white block. */}
+          <RevealGroup className="mt-12 grid gap-8 md:grid-cols-2 md:items-start">
             {categories.map((category) => (
               <ServiceCategoryCard key={category.key} category={category} titleAs="h2" />
             ))}

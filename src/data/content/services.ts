@@ -8,7 +8,7 @@
 export type Service = {
   slug: string;
   title: string;
-  icon: "home" | "building" | "truck" | "trash" | "package" | "warehouse" | "armchair";
+  icon: "home" | "apartment" | "building" | "truck" | "trash" | "package" | "warehouse" | "armchair" | "leaf" | "key";
   listBody: string;
   listAccent?: string; // orange highlight line shown above listBody (Junk Removal only, per sample)
   ecoFriendly?: boolean;
@@ -26,8 +26,6 @@ export type Service = {
   // pages without them render exactly as before.
   seo?: { title: string; description: string }; // own <title>/meta description; otherwise the site-wide defaults
   checklistHeading?: string; // small label above the checklist, e.g. "What we take"
-  steps?: { title: string; body: string }[]; // "How it works" section
-  faqs?: { question: string; answer: string }[];
 };
 
 export const services: Service[] = [
@@ -51,6 +49,37 @@ export const services: Service[] = [
       "Free no-obligation quote",
     ],
     ctaHeading: "Ready to Move?",
+    ctaBody: "Get your free quote today.",
+  },
+  // Same design as Home Removals (2026-10-26); copy drafted for Melbourne,
+  // photos are reused placeholders until new branded ones are made.
+  {
+    slug: "apartment-unit-moves",
+    title: "Apartment & Unit Moves",
+    icon: "apartment",
+    listBody: "Apartments, units and townhouses, planned around your building.",
+    category: "Apartment & Unit Moves",
+    headline: "Lifts, Stairs, Sorted.",
+    headlineAccent: "Sorted.",
+    intro:
+      "Apartment moves come with their own hurdles: lifts to book, tight corridors, stairwells and nowhere to park the truck. We plan the move around your building, from the CBD towers to a walk-up unit in the suburbs, so your things get in and out safely.",
+    image: "hero",
+    ctaImage: "homeRemovals",
+    checklistHeading: "What's included",
+    checklist: [
+      "Studio to 3-bedroom apartments",
+      "Units & townhouses",
+      "Moves planned around lift bookings",
+      "Stairs & tight-access handling",
+      "Furniture wrapped & protected",
+      "Free no-obligation quote",
+    ],
+    seo: {
+      title: "Apartment & Unit Removalists Melbourne | Blue Line Removals",
+      description:
+        "Apartment, unit and townhouse moves across Melbourne, planned around lifts, stairs and parking. Careful handling and a free, no-obligation quote.",
+    },
+    ctaHeading: "Moving Apartments?",
     ctaBody: "Get your free quote today.",
   },
   {
@@ -123,13 +152,14 @@ export const services: Service[] = [
     },
     ctaHeading: "Got Junk? Let's Remove It!",
     ctaBody: "Get your free quote today.",
-    ctaImage: "serviceJunk",
+    ctaImage: "teamTrust",
   },
-  // Per-service junk pages (2026-10-26). Copy is drafted for Melbourne and
-  // kept to what the site already promises elsewhere (free quote, no
-  // call-out fee, same-day most days, recycle/donate first); the "can't
-  // take" list in the FAQs is standard industry practice -- confirm with
-  // the client before launch.
+  // Per-service junk pages (2026-10-26), same design as Junk Removal. Copy
+  // is drafted for Melbourne and kept to what the site already promises
+  // elsewhere (free quote, no call-out fee, same-day most days,
+  // recycle/donate first); the "What we take" lists should be confirmed
+  // with the client. Photos are reused placeholders until new branded ones
+  // are made -- see the image list in the 2026-10-26 handover.
   {
     slug: "rubbish-removal",
     title: "Rubbish Removal",
@@ -156,33 +186,6 @@ export const services: Service[] = [
       heading: "Sorted Before It's Dumped",
       body: "Cardboard, metal and anything still usable is pulled out for recycling or donation first. Landfill is the last stop, not the first.",
     },
-    steps: [
-      { title: "Send us a photo", body: "Snap the pile and send it through the quote form or by email. A rough idea of the size of the job is all we need." },
-      { title: "Get your price", body: "You'll have a free quote before anything is lifted, with no call-out fee just to find out the cost." },
-      { title: "We do the lifting", body: "Our crew carries it all out from wherever it's sitting and loads it onto the truck. No need to drag anything to the kerb." },
-      { title: "Sorted, not just dumped", body: "Recyclables and anything worth donating are separated first, and the rest is disposed of properly." },
-    ],
-    faqs: [
-      {
-        question: "Do I need to bag everything or carry it out first?",
-        answer:
-          "No. Bagging loose rubbish helps, but our crew does the lifting and carrying, so you don't need to move anything to the kerb or the driveway yourself.",
-      },
-      {
-        question: "Can you take just a small load?",
-        answer: "Yes. Whether it's a few bags or a garage full, send a photo and we'll quote for what's actually there.",
-      },
-      {
-        question: "How is this different from council hard rubbish?",
-        answer:
-          "Council hard rubbish runs on the council's schedule and usually limits what and how much you can put out. We come when it suits you, often the same day, and take it straight from your property, so nothing sits on the nature strip waiting.",
-      },
-      {
-        question: "Is there anything you can't take?",
-        answer:
-          "We can't take hazardous waste such as asbestos, chemicals, paint, gas bottles or medical waste. If you're not sure about something, mention it when you ask for a quote.",
-      },
-    ],
     seo: {
       title: "Rubbish Removal Melbourne | Blue Line Removals",
       description:
@@ -190,6 +193,142 @@ export const services: Service[] = [
     },
     ctaHeading: "Ready to Clear the Rubbish?",
     ctaBody: "Send a photo for a free, no-obligation quote.",
+  },
+  {
+    slug: "furniture-removal",
+    title: "Furniture Removal",
+    icon: "armchair",
+    listBody: "Sofas, beds, wardrobes and more, carried out for you.",
+    ecoFriendly: true,
+    category: "Junk Removal",
+    headline: "Old Furniture Out, Room to Breathe.",
+    headlineAccent: "Room to Breathe.",
+    intro:
+      "Upgrading the lounge, emptying a spare room or sorting out a family home? We carry unwanted furniture out of any room and take it away, so you're not stuck with a couch you can't shift on your own or a wardrobe that won't fit in the car.",
+    image: "officeRemovals",
+    ctaImage: "hero",
+    checklistHeading: "What we take",
+    checklist: [
+      "Sofas, couches & armchairs",
+      "Beds, bases & mattresses",
+      "Wardrobes, dressers & drawers",
+      "Dining tables & chairs",
+      "Desks, shelving & bookcases",
+      "Outdoor & patio furniture",
+    ],
+    ecoCallout: {
+      heading: "Good Pieces Get a Second Life",
+      body: "Furniture in usable condition is set aside for donation where possible, and timber and metal go to recycling before anything heads to landfill.",
+    },
+    seo: {
+      title: "Furniture Removal Melbourne | Blue Line Removals",
+      description:
+        "Old sofas, beds, wardrobes and tables carried out and taken away across Melbourne. Free quote, no call-out fee, donated or recycled where possible.",
+    },
+    ctaHeading: "Furniture Taking Up Space?",
+    ctaBody: "Send a photo for a free, no-obligation quote.",
+  },
+  {
+    slug: "green-waste-removal",
+    title: "Green Waste Removal",
+    icon: "leaf",
+    listBody: "Branches, clippings and garden clean-up waste.",
+    ecoFriendly: true,
+    category: "Junk Removal",
+    headline: "Garden Cleared, Green Waste Gone.",
+    headlineAccent: "Green Waste Gone.",
+    intro:
+      "Pruned branches, a pile of lawn clippings or everything left over from a weekend in the garden? We load green waste straight from your yard and take it away, so you're not waiting weeks for the green bin to catch up or the next council collection.",
+    image: "teamTrust",
+    ctaImage: "hero",
+    checklistHeading: "What we take",
+    checklist: [
+      "Branches & tree prunings",
+      "Hedge & shrub clippings",
+      "Lawn clippings & leaves",
+      "Weeds & pulled-out plants",
+      "Old garden beds & timber edging",
+      "Bagged garden waste",
+    ],
+    ecoCallout: {
+      heading: "Green Waste, Kept Green",
+      body: "Garden waste goes for mulching or composting wherever Melbourne's facilities allow, rather than being buried in landfill.",
+    },
+    seo: {
+      title: "Green Waste Removal Melbourne | Blue Line Removals",
+      description:
+        "Branches, prunings, lawn clippings and garden clean-up waste removed across Melbourne. Free quote, no call-out fee, same-day pickups most days.",
+    },
+    ctaHeading: "Garden Clean-Up Done?",
+    ctaBody: "Send a photo of the pile for a free, no-obligation quote.",
+  },
+  {
+    slug: "garage-shed-clear-outs",
+    title: "Garage & Shed Clear Outs",
+    icon: "warehouse",
+    listBody: "Tools, boxes and clutter cleared from garages and sheds.",
+    ecoFriendly: true,
+    category: "Junk Removal",
+    headline: "Park in Your Garage Again.",
+    headlineAccent: "Garage Again.",
+    intro:
+      "Years of boxes, broken tools and things you'll fix one day can fill a garage or shed faster than you'd think. Show us what's going and what's staying, and our crew does the carrying, leaving the space clear and ready to use again.",
+    image: "before",
+    ctaImage: "hero",
+    checklistHeading: "What we take",
+    checklist: [
+      "Old tools & hardware",
+      "Boxes & stored household items",
+      "Broken bikes & sporting gear",
+      "Old appliances & e-waste",
+      "Shelving, benches & cabinets",
+      "Garden tools & equipment",
+    ],
+    ecoCallout: {
+      heading: "Sorted As We Go",
+      body: "Metal, e-waste and anything still usable is separated for recycling or donation while we clear, so less of your garage ends up in landfill.",
+    },
+    seo: {
+      title: "Garage & Shed Clear Outs Melbourne | Blue Line Removals",
+      description:
+        "Garage and shed clean-outs across Melbourne. We carry out old tools, boxes, appliances and clutter. Free quote, no call-out fee, recycled first.",
+    },
+    ctaHeading: "Ready to Reclaim the Garage?",
+    ctaBody: "Send a photo for a free, no-obligation quote.",
+  },
+  {
+    slug: "end-of-lease-clean-outs",
+    title: "End of Lease Clean Outs",
+    icon: "key",
+    listBody: "Rental clear-outs for tenants, landlords and agents.",
+    ecoFriendly: true,
+    category: "Junk Removal",
+    headline: "Moving Out? Leave It Empty.",
+    headlineAccent: "Leave It Empty.",
+    intro:
+      "Moving out with furniture, rubbish and odds and ends you don't want to take? We clear rentals across Melbourne before the final inspection, for tenants, landlords and property managers. It's a clear-out, not a clean, so the place is empty and ready for your cleaners.",
+    image: "after",
+    ctaImage: "teamTrust",
+    checklistHeading: "What we take",
+    checklist: [
+      "Unwanted furniture & mattresses",
+      "Rubbish & leftover household items",
+      "Items left by previous tenants",
+      "Garden & outdoor leftovers",
+      "Broken appliances & e-waste",
+      "Boxes & packing waste",
+    ],
+    ecoCallout: {
+      heading: "Not Everything Goes to the Tip",
+      body: "Usable furniture and household items are set aside for donation where possible, and recyclables are sorted out before the rest is disposed of.",
+    },
+    seo: {
+      title: "End of Lease Clean Outs Melbourne | Blue Line Removals",
+      description:
+        "Rental clear-outs across Melbourne for tenants, landlords and property managers. Furniture and rubbish removed before the final inspection.",
+    },
+    ctaHeading: "Final Inspection Coming Up?",
+    ctaBody: "Send a few photos for a free, no-obligation quote.",
   },
   {
     slug: "packing-unpacking",

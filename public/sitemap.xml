@@ -16,6 +16,11 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://www.bluelineremovals.com.au/services/apartment-unit-moves</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://www.bluelineremovals.com.au/services/office-removals</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
@@ -32,6 +37,26 @@
   </url>
   <url>
     <loc>https://www.bluelineremovals.com.au/services/rubbish-removal</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://www.bluelineremovals.com.au/services/furniture-removal</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://www.bluelineremovals.com.au/services/green-waste-removal</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://www.bluelineremovals.com.au/services/garage-shed-clear-outs</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://www.bluelineremovals.com.au/services/end-of-lease-clean-outs</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
