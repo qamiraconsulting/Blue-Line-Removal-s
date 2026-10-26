@@ -21,6 +21,13 @@ export type Service = {
   ecoCallout?: { heading: string; body: string };
   ctaHeading: string;
   ctaBody: string;
+  ctaImage?: string; // key into data/content/images.ts for the bottom banner; defaults to `image`
+  // Optional extras (added 2026-10-26 for the per-service junk pages) --
+  // pages without them render exactly as before.
+  seo?: { title: string; description: string }; // own <title>/meta description; otherwise the site-wide defaults
+  checklistHeading?: string; // small label above the checklist, e.g. "What we take"
+  steps?: { title: string; body: string }[]; // "How it works" section
+  faqs?: { question: string; answer: string }[];
 };
 
 export const services: Service[] = [
@@ -116,6 +123,73 @@ export const services: Service[] = [
     },
     ctaHeading: "Got Junk? Let's Remove It!",
     ctaBody: "Get your free quote today.",
+    ctaImage: "serviceJunk",
+  },
+  // Per-service junk pages (2026-10-26). Copy is drafted for Melbourne and
+  // kept to what the site already promises elsewhere (free quote, no
+  // call-out fee, same-day most days, recycle/donate first); the "can't
+  // take" list in the FAQs is standard industry practice -- confirm with
+  // the client before launch.
+  {
+    slug: "rubbish-removal",
+    title: "Rubbish Removal",
+    icon: "trash",
+    listBody: "Household and general rubbish, loaded and taken away.",
+    ecoFriendly: true,
+    category: "Junk Removal",
+    headline: "Rubbish Gone, Without the Tip Run.",
+    headlineAccent: "Without the Tip Run.",
+    intro:
+      "Bags piling up after a clean-out, a renovation or just a busy month? We load household and general rubbish from anywhere on your Melbourne property and take it away. No trailer hire, no queue at the tip, no waiting weeks for the council's hard rubbish collection.",
+    image: "junkRemoval",
+    ctaImage: "teamTrust",
+    checklistHeading: "What we take",
+    checklist: [
+      "Bagged household rubbish",
+      "Cardboard boxes & packaging",
+      "Broken homewares & bric-a-brac",
+      "Old clothes, linen & soft furnishings",
+      "Light DIY & renovation offcuts",
+      "Clutter from rooms, cupboards & yards",
+    ],
+    ecoCallout: {
+      heading: "Sorted Before It's Dumped",
+      body: "Cardboard, metal and anything still usable is pulled out for recycling or donation first. Landfill is the last stop, not the first.",
+    },
+    steps: [
+      { title: "Send us a photo", body: "Snap the pile and send it through the quote form or by email. A rough idea of the size of the job is all we need." },
+      { title: "Get your price", body: "You'll have a free quote before anything is lifted, with no call-out fee just to find out the cost." },
+      { title: "We do the lifting", body: "Our crew carries it all out from wherever it's sitting and loads it onto the truck. No need to drag anything to the kerb." },
+      { title: "Sorted, not just dumped", body: "Recyclables and anything worth donating are separated first, and the rest is disposed of properly." },
+    ],
+    faqs: [
+      {
+        question: "Do I need to bag everything or carry it out first?",
+        answer:
+          "No. Bagging loose rubbish helps, but our crew does the lifting and carrying, so you don't need to move anything to the kerb or the driveway yourself.",
+      },
+      {
+        question: "Can you take just a small load?",
+        answer: "Yes. Whether it's a few bags or a garage full, send a photo and we'll quote for what's actually there.",
+      },
+      {
+        question: "How is this different from council hard rubbish?",
+        answer:
+          "Council hard rubbish runs on the council's schedule and usually limits what and how much you can put out. We come when it suits you, often the same day, and take it straight from your property, so nothing sits on the nature strip waiting.",
+      },
+      {
+        question: "Is there anything you can't take?",
+        answer:
+          "We can't take hazardous waste such as asbestos, chemicals, paint, gas bottles or medical waste. If you're not sure about something, mention it when you ask for a quote.",
+      },
+    ],
+    seo: {
+      title: "Rubbish Removal Melbourne | Blue Line Removals",
+      description:
+        "Household and general rubbish removal across Melbourne. Free quote, no call-out fee, same-day pickups most days, and recycled before landfill.",
+    },
+    ctaHeading: "Ready to Clear the Rubbish?",
+    ctaBody: "Send a photo for a free, no-obligation quote.",
   },
   {
     slug: "packing-unpacking",
