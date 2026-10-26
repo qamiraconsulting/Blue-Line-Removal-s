@@ -117,7 +117,7 @@ export const openItems: OpenItem[] = [
     id: "capacity-setup",
     topic: "operations",
     question:
-      "Blue Line fills in Bookings & capacity on the dashboard: trucks (size each), working days, arrival times offered, end of day, gap between jobs, movers per day, minimum notice, how far ahead, optional instant-confirm limit -- and keeps every phone booking in the calendar. Then decide whether to switch instant confirmation on.",
+      "Blue Line fills in Settings on the dashboard: trucks (size each), working days, arrival times offered, end of day, gap between jobs, movers per day, minimum notice, how far ahead, optional instant-confirm limit -- and keeps every phone booking in the calendar. Then decide whether to switch instant confirmation on.",
     meanwhile: "Instant confirmation is off; every chat booking is a request the team confirms on the dashboard.",
     status: "to_ask",
   },
@@ -284,7 +284,7 @@ export const openItems: OpenItem[] = [
   {
     id: "driver-details",
     topic: "operations",
-    question: "Enter each driver's name, mobile and email under Bookings & capacity > Drivers, and give every truck its usual driver. Drivers are emailed the job (date, time, pick-up, drop-off, customer details) when a booking is confirmed.",
+    question: "Enter each driver's name, mobile and email under Settings > Drivers, and give every truck its usual driver. Drivers are emailed the job (date, time, pick-up, drop-off, customer details) when a booking is confirmed.",
     meanwhile: "A truck with no usual driver, or a driver with no email, means nobody is told; the dashboard says so next to the trip.",
     status: "internal",
   },
@@ -292,7 +292,7 @@ export const openItems: OpenItem[] = [
     id: "cron-secret",
     topic: "operations",
     question: "Add CRON_SECRET (any long random string) in Vercel for Production. The hourly job (vercel.json) that sends the day-before driver and customer emails needs it, and Vercel only runs cron jobs on the live deployment.",
-    meanwhile: "Without it no day-before email is sent on the live site (nothing runs). On the test link use Truck trips > Send due emails now.",
+    meanwhile: "Without it no day-before email is sent on the live site (nothing runs). On the test link use Booking and trucks > Send due emails now.",
     status: "internal",
   },
   {

@@ -392,9 +392,9 @@ export type PaidBookingOutcome =
   | { outcome: "needs_team"; problem: string };
 
 const SLOT_PROBLEM: Record<string, string> = {
-  not_set_up: "online arrival times aren't set up on the Bookings & capacity page",
-  not_a_working_day: "that day isn't a working day on the Bookings & capacity page",
-  closed: "that date is closed on the Bookings & capacity page",
+  not_set_up: "online arrival times aren't set up on the Settings page",
+  not_a_working_day: "that day isn't a working day on the Settings page",
+  closed: "that date is closed on the Settings page",
   too_far_ahead: "that date is further ahead than online bookings allow",
   in_the_past: "the moving date has passed",
   outside_working_hours: "the arrival time is outside working hours",

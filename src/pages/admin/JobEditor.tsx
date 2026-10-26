@@ -108,7 +108,7 @@ export function JobEditor({ job, mode, onDone, onCancel }: { job: Job; mode: "co
       const out = await res.json();
       if (!res.ok) throw new Error(out.error ?? "That didn't work");
       const how = out.emailed ? (out.via === "pdf" ? " -- PDF quote emailed" : " -- emailed (plain email: the PDF couldn't be made)") : notify ? " -- NOT emailed (test figures, or email failed)" : "";
-      const warn = out.capacityWarning ? ` Note: the calendar didn't show room (${String(out.capacityWarning).replace(/_/g, " ")}) -- check Bookings & capacity.` : "";
+      const warn = out.capacityWarning ? ` Note: the calendar didn't show room (${String(out.capacityWarning).replace(/_/g, " ")}) -- check Settings.` : "";
       const driver = out.driverMessage ? ` ${out.driverMessage}` : "";
       onDone(`${job.reference} ${mode === "confirm" ? "booked" : "quoted"} at ${aud(out.total)}${how}.${warn}${driver}`);
     } catch (err) {

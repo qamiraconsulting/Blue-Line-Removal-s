@@ -3,13 +3,14 @@ import { Link } from "react-router";
 import clsx from "clsx";
 import { shortDay } from "../../lib/noticeTiming";
 import { describeProblem, statusAt, time12, toMinutes, tripEnd, tripProblem, truckDay } from "../../lib/truckTrips";
+import AddBooking from "./AddBooking";
 import { box, button, Field, input, SectionHeader, useCapacity, type Booking, type CapacityData } from "./capacityShared";
 
-// "Truck trips": which truck goes out when, who drives it and who the customer is. A trip is
-// a booking in the same calendar the chat reads (Bookings & capacity), so assigning, editing
+// "Booking and trucks": which truck goes out when, who drives it and who the customer is. A trip is
+// a booking in the same calendar the chat reads (Settings), so assigning, editing
 // or cancelling one changes what the chat offers straight away. The same truck -- or the
 // same driver -- can't be on two trips at overlapping times. Each truck's usual driver is set
-// on Bookings & capacity. The driver's "New job" email and the customer's booking email go out
+// on Settings. The driver's "New job" email and the customer's booking email go out
 // the DAY BEFORE the move (straight away if the move is today or tomorrow); a change or a
 // cancellation before then simply changes what is sent. After they have gone, changes are emailed at once.
 
@@ -42,13 +43,13 @@ export default function TruckTrips() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="font-display text-2xl font-bold text-navy">Truck trips</h2>
+        <h2 className="font-display text-2xl font-bold text-navy">Booking and trucks</h2>
         <p className="mt-1 text-sm text-slate-600">
           Which truck goes out when, who drives it and who the customer is. A truck on a trip shows as <strong>Assigned / Engaged</strong> for that time and{" "}
           <strong>Available</strong> the rest of the day. The chat reads the same trips, so it only offers customers times when a truck is free. Trucks and
           booking settings are on{" "}
           <Link to="/admin/capacity" className="font-bold text-navy underline">
-            Bookings &amp; capacity
+            Settings
           </Link>
           .
         </p>
@@ -83,6 +84,8 @@ export default function TruckTrips() {
             : Promise.resolve(null)
         }
       />
+      {/* A job booked another way (phone, Airtasker, Moval...) -- after the trip form, at the bottom. */}
+      <AddBooking trucks={data.trucks} busy={busy} onAdd={(booking, notifyCustomer) => post({ action: "addBooking", booking, notifyCustomer }, "Booking added.")} />
     </div>
   );
 }
@@ -215,7 +218,7 @@ function TripsDay(props: {
           <p className="mt-4 text-sm text-slate-500">
             No trucks yet -- add them under{" "}
             <Link to="/admin/capacity" className="font-bold text-navy underline">
-              Bookings &amp; capacity &gt; Trucks
+              Settings &gt; Trucks
             </Link>
             , e.g. &quot;Baby Blue&quot;.
           </p>
@@ -310,7 +313,7 @@ function TripsDay(props: {
             ))}
             {noDriver.length > 0 && (
               <li className="text-amber-700">
-                <strong>No driver yet</strong>: {noDriver.map((b) => `${time12(b.arrivalTime)} ${truckName(b.truckId)}`).join(" · ")} -- give the truck a usual driver on Bookings &amp; capacity, or use Edit to pick one for the trip.
+                <strong>No driver yet</strong>: {noDriver.map((b) => `${time12(b.arrivalTime)} ${truckName(b.truckId)}`).join(" · ")} -- give the truck a usual driver on Settings, or use Edit to pick one for the trip.
               </li>
             )}
           </ul>
@@ -350,7 +353,7 @@ function TripsDay(props: {
                   </option>
                 ))}
             </select>
-            {f.truckId && chosenDriver && !chosenDriver.email && <span className="mt-1 block text-xs font-bold text-amber-700">{chosenDriver.name} has no email -- add one on Bookings &amp; capacity so they get the job.</span>}
+            {f.truckId && chosenDriver && !chosenDriver.email && <span className="mt-1 block text-xs font-bold text-amber-700">{chosenDriver.name} has no email -- add one on Settings so they get the job.</span>}
           </Field>
           <Field label="Movers" hint="Crew on this trip, driver included.">
             <input type="number" min={1} className={clsx(input, "w-20")} value={f.movers} onChange={set("movers")} />

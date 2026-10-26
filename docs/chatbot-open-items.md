@@ -22,7 +22,7 @@ the "Meanwhile" column says: it never guesses.
 | Item | Question | Meanwhile |
 |---|---|---|
 | `booking-terms` | Approve the booking terms customers agree to in the chat (book on the estimate; team inspects on the move day and confirms final charges) | Draft terms shown word for word; exact text stored per booking |
-| `capacity-setup` | Fill in Bookings & capacity on the dashboard (trucks, working days, arrival times, end of day, gap, movers, notice, days ahead, optional limit), keep phone bookings in the calendar, then decide on instant confirmation | Instant confirmation off; team confirms every booking |
+| `capacity-setup` | Fill in Settings on the dashboard (trucks, working days, arrival times, end of day, gap, movers, notice, days ahead, optional limit), keep phone bookings in the calendar, then decide on instant confirmation | Instant confirmation off; team confirms every booking |
 | `existing-booking-tool` | Is there another calendar/tool with bookings today? Enter them on the dashboard or we connect to it | Only dashboard bookings count |
 | `cancellation-policy` | Deposit and cancellation/rescheduling policy for the booking terms | No deposit; cancellations by phone |
 | `typical-hours-driving` | The "typical hours" are to load and unload (25 Oct), so the engine adds the real drive time. Worth a one-line confirmation from Blue Line | Drive time added on top |
@@ -49,8 +49,8 @@ the "Meanwhile" column says: it never guesses.
 | `quote-form-fields` | Form: home size + optional truck (4.5T/6-8T/10T) + 2-4 movers + inspect + access notes; new Property Size options (awaited from Ayesha) | Form sends home size + optional notes; result says "estimate" |
 | `hourly-rate-disclosure` | The PDF quote shows rate x hours (15 Oct). Should the chat also answer hourly-rate questions? | PDF shows the breakdown; the chat never states a rate |
 | `stripe-setup` | Vercel STRIPE_SECRET_KEY + STRIPE_WEBHOOK_SECRET, Stripe webhook to /api/stripe/webhook, Vercel protection bypass on previews; test keys now, live at go-live | No payment page; team sends a link |
-| `driver-details` | Enter each driver's name, mobile and email (Bookings & capacity > Drivers) and set every truck's usual driver | Nobody is told about a job on a truck with no driver or a driver with no email; the dashboard flags it |
-| `cron-secret` | Add CRON_SECRET in Vercel (Production) so the hourly job can send the day-before driver and customer emails | No day-before emails on the live site; on the test link use Send due emails now |
+| `driver-details` | Enter each driver's name, mobile and email (Settings > Drivers) and set every truck's usual driver | Nobody is told about a job on a truck with no driver or a driver with no email; the dashboard flags it |
+| `cron-secret` | Add CRON_SECRET in Vercel (Production) so the hourly job can send the day-before driver and customer emails | No day-before emails on the live site; on the test link use Send due emails now (Booking and trucks) |
 | `quote-form-apartment` | Website form doesn't ask apartment / parking distance per end, so it leaves out the long carry at apartments; add the questions to the form | Only the chat adds the long carry; website apartment estimates are lower |
 | `risky-items-note-pdf` | Add the risky/breakable-item note to the PDF quote template and decide on the booking terms | In the estimate email and the chat only |
 | `driver-sms` | Optional: SMS / WhatsApp for driver and customer notices | Email only |

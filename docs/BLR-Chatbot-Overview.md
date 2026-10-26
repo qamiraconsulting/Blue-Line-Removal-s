@@ -20,7 +20,7 @@ Blue does **not** work out prices itself. It sends the details to the same price
 - **Read the details back** and wait for the customer to confirm before getting a price.
 - **Give one estimate for the whole job** (GST included), with what's included, the reference number, the "valid until" date and Blue Line's required estimate wording. A copy is emailed to the customer.
 - **Apply the first-order discount** (10% off) once per email or phone number, and explain politely when it has already been used.
-- **Show free arrival times** on the moving date (from the Bookings & capacity page in the admin).
+- **Show free arrival times** on the moving date (from the Settings page in the admin).
 - **Take a booking request**, but only after showing the booking terms word for word and getting a clear "yes".
 - **Answer basic facts:** what Blue Line does (house and office moves, junk removal across Melbourne), phone 03 9494 1070, email hello@bluelineremovals.com.au.
 - **Hand the chat to a person** (see section 4).

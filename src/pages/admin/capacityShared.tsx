@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import clsx from "clsx";
 import { useAdminApi } from "./useAdminApi";
 
-// What the "Bookings & capacity" and "Truck trips" tabs share: the data from
+// What the "Settings" and "Booking and trucks" tabs share: the data from
 // /api/admin/capacity, how they save, and the form building blocks.
 
 export const TRUCK_TYPES = ["4.5T", "6-8T", "10T"] as const;
@@ -89,6 +89,9 @@ export interface CapacityData {
 export type Range = { from?: string; to?: string; tripDay?: string };
 
 export const num = (v: string) => (v.trim() === "" ? null : Number(v));
+
+/** Blank is fine (the email is optional); otherwise it must look like an email address. */
+export const looksLikeEmail = (v: string | null) => !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
 
 export const box = "rounded-lg border border-slate-200 bg-white p-5 shadow-sm";
 export const input = "rounded border border-slate-300 px-2 py-1 text-sm focus:border-action focus:outline-none";

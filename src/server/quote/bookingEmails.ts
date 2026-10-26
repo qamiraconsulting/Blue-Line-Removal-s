@@ -239,7 +239,7 @@ export function renderBookingTeamEmail(input: BookingEmailInput & { phone: strin
     BOOKING_TERMS,
     "",
     input.autoConfirmed
-      ? "Nothing to do -- it's in the calendar. Cancel it on the dashboard (Bookings & capacity) if anything's wrong."
+      ? "Nothing to do -- it's in the calendar. Cancel it on the dashboard (Booking and trucks) if anything's wrong."
       : "Check it on the dashboard under Booking requests -- you can change the details or the amount (with a note to the customer) before confirming. The customer gets the PDF quote when you confirm.",
   ].join("\n");
   return {

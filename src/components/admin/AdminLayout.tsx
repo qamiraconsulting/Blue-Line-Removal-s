@@ -49,15 +49,16 @@ export default function AdminLayout() {
       </Show>
       <Show when="signed-in">
         <div className="min-h-screen bg-slate-50">
-          <header className="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-4">
+          {/* Frozen: stays at the top of the screen while the page scrolls. */}
+          <header className="sticky top-0 z-40 flex items-center justify-between border-b border-slate-200 bg-white px-6 py-4 shadow-sm">
             <div className="flex flex-wrap items-center gap-6">
               <h1 className="font-display text-lg font-bold text-navy">Blue Line Removals</h1>
               <nav className="flex gap-4 text-sm">
                 {[
                   ["/admin/overview", "Overview"],
                   ["/admin", "Lead review"],
-                  ["/admin/capacity", "Bookings & capacity"],
-                  ["/admin/trips", "Truck trips"],
+                  ["/admin/capacity", "Settings"],
+                  ["/admin/trips", "Booking and trucks"],
                 ].map(([to, label]) => (
                   <NavLink key={to} to={to!} end className={({ isActive }) => (isActive ? "font-bold text-action" : "text-slate-600 hover:text-navy")}>
                     {label}
