@@ -1,5 +1,5 @@
-import { Navigate, useParams } from "react-router";
-import { Check, Leaf } from "lucide-react";
+import { Link, Navigate, useParams } from "react-router";
+import { ArrowLeft, Check, Leaf } from "lucide-react";
 import type { Route } from "./+types/ServiceDetail";
 import { Container } from "@/components/ui/Container";
 import { Section } from "@/components/ui/Section";
@@ -8,7 +8,7 @@ import { Reveal } from "@/components/ui/Reveal";
 import { CTABanner } from "@/components/ui/CTABanner";
 import { TrustIconsRow } from "@/components/ui/TrustIconsRow";
 import { TrustBar } from "@/components/sections/home/TrustBar";
-import { getServiceBySlug, trustIcons } from "@/data/content/services";
+import { backToServicesHref, getServiceBySlug, trustIcons } from "@/data/content/services";
 import { images } from "@/data/content/images";
 import { pageMeta } from "@/lib/seo";
 
@@ -27,6 +27,7 @@ export function ServiceDetail() {
   const [headlineLead] = service.headline.split(service.headlineAccent);
   const image = images[service.image as keyof typeof images];
   const ctaImage = images[(service.ctaImage ?? service.image) as keyof typeof images];
+  const backHref = backToServicesHref(service.slug);
 
   return (
     <>
@@ -35,6 +36,17 @@ export function ServiceDetail() {
         <Container>
           <div className="grid gap-10 lg:grid-cols-2 lg:items-center lg:gap-16">
             <Reveal>
+              {backHref && (
+                <Link
+                  to={backHref}
+                  className="group mb-5 flex w-fit items-center gap-2.5 font-display text-sm font-bold text-action transition-colors hover:text-action-dim"
+                >
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-navy text-white shadow-sm transition-colors group-hover:bg-action">
+                    <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+                  </span>
+                  Back to Services
+                </Link>
+              )}
               <Eyebrow className="mb-4">{service.category}</Eyebrow>
               <h1 className="max-w-[16ch] text-3xl leading-[1.1] sm:text-4xl">
                 {headlineLead}

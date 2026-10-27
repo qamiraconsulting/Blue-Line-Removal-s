@@ -8,34 +8,17 @@ import { Section } from "@/components/ui/Section";
 import { Eyebrow } from "@/components/ui/Eyebrow";
 import { Reveal } from "@/components/ui/Reveal";
 import { CTABanner } from "@/components/ui/CTABanner";
-import { services, type Service } from "@/data/content/services";
+import { serviceGroups, services, type Service, type ServiceGroupKey } from "@/data/content/services";
 import { images } from "@/data/content/images";
 
-// /services redesign (2026-10-26, client spec): navy hero with a Moving /
+// /services redesign (2026-10-26/27, client spec): compact header with a Moving /
 // Junk toggle, then one grid of detailed service cards for the selected
 // type. Every card's copy comes from its own service entry -- the one-line
 // `listBody` and the first three checklist points -- so nothing here is
 // new wording. The homepage "Two Services" cards are unaffected.
-const groups = {
-  moving: {
-    label: "Moving Services",
-    slugs: [
-      "home-removals",
-      "apartment-unit-moves",
-      "office-removals",
-      "interstate-removals",
-      "packing-unpacking",
-      "storage-solutions",
-      "specialty-items",
-    ],
-  },
-  junk: {
-    label: "Junk Removal",
-    slugs: ["furniture-removal", "rubbish-removal", "green-waste-removal", "garage-shed-clear-outs", "end-of-lease-clean-outs"],
-  },
-} as const;
+const groups = serviceGroups;
 
-type GroupKey = keyof typeof groups;
+type GroupKey = ServiceGroupKey;
 
 // Same three promises as the Quote page's trust row.
 const trustLine = ["Fully insured", "No hidden fees", "2hr response"];
@@ -44,14 +27,27 @@ function groupServices(key: GroupKey) {
   return groups[key].slugs.flatMap((slug) => services.filter((s) => s.slug === slug));
 }
 
+// The whole card opens the service page: the title link is stretched over
+// the card (after:absolute inset-0), and "Get quote" sits above it (z-10)
+// so it still goes to the quote form. Hover effects only apply on devices
+// that can hover (Tailwind v4 default), so a tap on mobile just opens it.
 function ServiceCard({ service }: { service: Service }) {
   return (
-    <li className="flex w-full flex-col overflow-hidden rounded-xl border border-ink/10 bg-white shadow-sm md:w-[calc(50%-0.75rem)] lg:w-[calc(33.333%-1rem)]">
+    <li className="group relative flex w-full flex-col overflow-hidden rounded-xl border border-ink/10 bg-white shadow-sm transition duration-300 ease-out hover:shadow-lg has-[.card-link:focus-visible]:outline has-[.card-link:focus-visible]:outline-2 has-[.card-link:focus-visible]:outline-offset-2 has-[.card-link:focus-visible]:outline-action motion-safe:hover:-translate-y-1 md:w-[calc(50%-0.75rem)] lg:w-[calc(33.333%-1rem)]">
       <div className="aspect-[16/10] overflow-hidden bg-paper-2">
-        <img src={images[service.image as keyof typeof images]} alt="" className="h-full w-full object-cover" loading="lazy" />
+        <img
+          src={images[service.image as keyof typeof images]}
+          alt=""
+          className="h-full w-full object-cover transition-transform duration-500 ease-out motion-safe:group-hover:scale-105"
+          loading="lazy"
+        />
       </div>
       <div className="flex flex-1 flex-col p-5">
-        <h3 className="text-lg">{service.title}</h3>
+        <h3 className="text-lg">
+          <Link to={`/services/${service.slug}`} className="card-link outline-none after:absolute after:inset-0 after:content-['']">
+            {service.title}
+          </Link>
+        </h3>
         <p className="mt-1 text-sm text-ink-dim">{service.listBody}</p>
         <ul className="mt-4 grid gap-2">
           {service.checklist.slice(0, 3).map((point) => (
@@ -62,18 +58,15 @@ function ServiceCard({ service }: { service: Service }) {
           ))}
         </ul>
         <div className="mt-auto flex items-center justify-between gap-3 pt-5">
-          <Link
-            to={`/services/${service.slug}`}
-            aria-label={`Learn more about ${service.title}`}
-            className="group inline-flex items-center gap-1.5 font-display text-sm font-bold text-navy transition-colors hover:text-action"
-          >
+          {/* Visual cue only -- the card itself is the link. */}
+          <span aria-hidden="true" className="inline-flex items-center gap-1.5 font-display text-sm font-bold text-navy transition-colors group-hover:text-action">
             Learn more
-            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
-          </Link>
+            <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
+          </span>
           <Link
             to="/quote"
             aria-label={`Get a quote for ${service.title}`}
-            className="inline-flex items-center rounded-md bg-action px-3.5 py-2 font-display text-xs font-bold uppercase tracking-[0.02em] text-white shadow-[0_4px_14px_rgba(255,107,26,0.25)] transition-colors hover:bg-action-bright"
+            className="relative z-10 inline-flex items-center rounded-md bg-action px-3.5 py-2 font-display text-xs font-bold uppercase tracking-[0.02em] text-white shadow-[0_4px_14px_rgba(255,107,26,0.25)] transition-colors hover:bg-action-bright"
           >
             Get quote
           </Link>

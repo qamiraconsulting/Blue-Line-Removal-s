@@ -402,6 +402,37 @@ export function getServiceBySlug(slug: string | undefined) {
   return services.find((s) => s.slug === slug);
 }
 
+// The two groups on the /services page toggle, in display order. Also
+// decides each service page's "Back to Services" link: moving pages go
+// back to /services, junk pages to its Junk view. The general Junk Removal
+// page is in neither group, so it has no back link.
+export const serviceGroups = {
+  moving: {
+    label: "Moving Services",
+    slugs: [
+      "home-removals",
+      "apartment-unit-moves",
+      "office-removals",
+      "interstate-removals",
+      "packing-unpacking",
+      "storage-solutions",
+      "specialty-items",
+    ],
+  },
+  junk: {
+    label: "Junk Removal",
+    slugs: ["furniture-removal", "rubbish-removal", "green-waste-removal", "garage-shed-clear-outs", "end-of-lease-clean-outs"],
+  },
+} as const;
+
+export type ServiceGroupKey = keyof typeof serviceGroups;
+
+export function backToServicesHref(slug: string) {
+  if ((serviceGroups.moving.slugs as readonly string[]).includes(slug)) return "/services";
+  if ((serviceGroups.junk.slugs as readonly string[]).includes(slug)) return "/services?type=junk";
+  return undefined;
+}
+
 export const trustIcons = [
   { icon: "badge-dollar", label: "Upfront Pricing" },
   { icon: "clock", label: "On-Time, Every Time" },
