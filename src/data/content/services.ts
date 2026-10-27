@@ -52,7 +52,7 @@ export const services: Service[] = [
     ctaBody: "Get your free quote today.",
   },
   // Same design as Home Removals (2026-10-26); copy drafted for Melbourne,
-  // photos are reused placeholders until new branded ones are made.
+  // photos are the 2026-10-27 branded set.
   {
     slug: "apartment-unit-moves",
     title: "Apartment & Unit Moves",
@@ -63,8 +63,7 @@ export const services: Service[] = [
     headlineAccent: "Sorted.",
     intro:
       "Apartment moves come with their own hurdles: lifts to book, tight corridors, stairwells and nowhere to park the truck. We plan the move around your building, from the CBD towers to a walk-up unit in the suburbs, so your things get in and out safely.",
-    image: "hero",
-    ctaImage: "homeRemovals",
+    image: "apartmentMoves",
     checklistHeading: "What's included",
     checklist: [
       "Studio to 3-bedroom apartments",
@@ -152,14 +151,13 @@ export const services: Service[] = [
     },
     ctaHeading: "Got Junk? Let's Remove It!",
     ctaBody: "Get your free quote today.",
-    ctaImage: "teamTrust",
+    ctaImage: "junkRemovalBanner",
   },
   // Per-service junk pages (2026-10-26), same design as Junk Removal. Copy
   // is drafted for Melbourne and kept to what the site already promises
   // elsewhere (free quote, no call-out fee, same-day most days,
   // recycle/donate first); the "What we take" lists should be confirmed
-  // with the client. Photos are reused placeholders until new branded ones
-  // are made -- see the image list in the 2026-10-26 handover.
+  // with the client. Each has its own branded photo (2026-10-27).
   {
     slug: "rubbish-removal",
     title: "Rubbish Removal",
@@ -171,8 +169,7 @@ export const services: Service[] = [
     headlineAccent: "Without the Tip Run.",
     intro:
       "Bags piling up after a clean-out, a renovation or just a busy month? We load household and general rubbish from anywhere on your Melbourne property and take it away. No trailer hire, no queue at the tip, no waiting weeks for the council's hard rubbish collection.",
-    image: "junkRemoval",
-    ctaImage: "teamTrust",
+    image: "rubbishRemoval",
     checklistHeading: "What we take",
     checklist: [
       "Bagged household rubbish",
@@ -205,8 +202,7 @@ export const services: Service[] = [
     headlineAccent: "Room to Breathe.",
     intro:
       "Upgrading the lounge, emptying a spare room or sorting out a family home? We carry unwanted furniture out of any room and take it away, so you're not stuck with a couch you can't shift on your own or a wardrobe that won't fit in the car.",
-    image: "officeRemovals",
-    ctaImage: "hero",
+    image: "furnitureRemoval",
     checklistHeading: "What we take",
     checklist: [
       "Sofas, couches & armchairs",
@@ -239,8 +235,7 @@ export const services: Service[] = [
     headlineAccent: "Green Waste Gone.",
     intro:
       "Pruned branches, a pile of lawn clippings or everything left over from a weekend in the garden? We load green waste straight from your yard and take it away, so you're not waiting weeks for the green bin to catch up or the next council collection.",
-    image: "teamTrust",
-    ctaImage: "hero",
+    image: "greenWasteRemoval",
     checklistHeading: "What we take",
     checklist: [
       "Branches & tree prunings",
@@ -273,8 +268,7 @@ export const services: Service[] = [
     headlineAccent: "Garage Again.",
     intro:
       "Years of boxes, broken tools and things you'll fix one day can fill a garage or shed faster than you'd think. Show us what's going and what's staying, and our crew does the carrying, leaving the space clear and ready to use again.",
-    image: "before",
-    ctaImage: "hero",
+    image: "garageShedClearOuts",
     checklistHeading: "What we take",
     checklist: [
       "Old tools & hardware",
@@ -307,8 +301,7 @@ export const services: Service[] = [
     headlineAccent: "Leave It Empty.",
     intro:
       "Moving out with furniture, rubbish and odds and ends you don't want to take? We clear rentals across Melbourne before the final inspection, for tenants, landlords and property managers. It's a clear-out, not a clean, so the place is empty and ready for your cleaners.",
-    image: "after",
-    ctaImage: "teamTrust",
+    image: "endOfLeaseCleanOuts",
     checklistHeading: "What we take",
     checklist: [
       "Unwanted furniture & mattresses",
