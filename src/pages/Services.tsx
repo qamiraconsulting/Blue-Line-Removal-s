@@ -112,25 +112,22 @@ export function Services() {
 
   return (
     <>
-      <section className="relative overflow-hidden bg-navy pb-16 pt-32 text-white sm:pb-20 sm:pt-40">
-        <div aria-hidden="true" className="absolute inset-y-0 right-0 w-full lg:w-3/5">
-          <img src={images.hero} alt="" className="h-full w-full object-cover opacity-25 lg:opacity-45" />
-          <div className="absolute inset-0 bg-gradient-to-r from-navy via-navy/85 to-navy/30" />
-        </div>
-
-        <Container className="relative">
-          <Reveal className="max-w-xl">
-            <Eyebrow tone="white" className="mb-4">
+      {/* Compact header (2026-10-27): same light background as the cards, so
+          the cards start right below the toggle. */}
+      <Section tone="paper" className="pt-28 sm:pt-32">
+        <Container>
+          <Reveal className="mx-auto max-w-2xl text-center">
+            <Eyebrow center className="mb-3 justify-center">
               Our Services
             </Eyebrow>
-            <h1 className="text-4xl leading-[1.1] text-white sm:text-5xl">
-              Moving or clearing out? <span className="text-action">We handle it&nbsp;all.</span>
+            <h1 className="text-3xl leading-[1.15] sm:text-4xl">
+              Moving or clearing out? <span className="text-action sm:block">We handle it&nbsp;all.</span>
             </h1>
-            <p className="mt-5 max-w-[52ch] text-lg text-white/75">
+            <p className="mx-auto mt-3 max-w-[52ch] text-base text-ink-dim sm:text-lg">
               Home and office moves, packing, storage and junk clear-outs across Melbourne, all with one trusted team.
             </p>
 
-            <div role="group" aria-label="Show services for" className="mt-8 inline-flex rounded-lg border border-white/15 bg-white/5 p-1">
+            <div role="group" aria-label="Show services for" className="mt-6 inline-flex rounded-xl border border-ink/10 bg-white p-1 shadow-sm">
               {(Object.keys(groups) as GroupKey[]).map((key) => (
                 <button
                   key={key}
@@ -139,8 +136,8 @@ export function Services() {
                   aria-controls="service-cards"
                   onClick={() => select(key)}
                   className={clsx(
-                    "rounded-md px-4 py-2.5 font-display text-sm font-bold uppercase tracking-[0.02em] transition-colors duration-200 sm:px-6",
-                    active === key ? "bg-action text-white shadow-[0_4px_14px_rgba(255,107,26,0.35)]" : "text-white/75 hover:text-white",
+                    "rounded-lg px-4 py-2.5 font-display text-sm font-bold uppercase tracking-[0.02em] transition-colors duration-200 sm:px-6",
+                    active === key ? "bg-action text-white shadow-[0_4px_14px_rgba(255,107,26,0.3)]" : "text-navy hover:bg-paper",
                   )}
                 >
                   {groups[key].label}
@@ -148,19 +145,27 @@ export function Services() {
               ))}
             </div>
 
-            <p className="mt-4 text-sm text-white/60">{trustLine.join(" · ")}</p>
+            <p className="mt-3 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-sm text-ink-dim sm:gap-x-2">
+              {trustLine.map((item, i) => (
+                <span key={item} className="inline-flex items-center gap-1">
+                  {i > 0 && (
+                    <span aria-hidden="true" className="mr-1 hidden sm:inline">
+                      ·
+                    </span>
+                  )}
+                  <Check className="h-3.5 w-3.5 text-action" aria-hidden="true" />
+                  {item}
+                </span>
+              ))}
+            </p>
           </Reveal>
-        </Container>
-      </section>
 
-      <Section tone="paper">
-        <Container>
           <h2 className="sr-only">{groups[active].label}</h2>
           <AnimatePresence mode="wait" initial={false}>
             <motion.ul
               key={active}
               id="service-cards"
-              className="flex flex-wrap justify-center gap-6"
+              className="mt-10 flex flex-wrap justify-center gap-6"
               initial={{ opacity: 0, y: reduceMotion ? 0 : 12 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: reduceMotion ? 0 : -8 }}
