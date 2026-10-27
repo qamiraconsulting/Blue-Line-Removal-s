@@ -39,12 +39,11 @@ export function ServiceDetail() {
               {backHref && (
                 <Link
                   to={backHref}
-                  className="group mb-5 flex w-fit items-center gap-2.5 font-display text-sm font-bold text-action transition-colors hover:text-action-dim"
+                  aria-label="Back to Services"
+                  title="Back to Services"
+                  className="mb-5 flex h-8 w-8 items-center justify-center rounded-full bg-navy text-white shadow-sm transition-colors hover:bg-action"
                 >
-                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-navy text-white shadow-sm transition-colors group-hover:bg-action">
-                    <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-                  </span>
-                  Back to Services
+                  <ArrowLeft className="h-4 w-4" aria-hidden="true" />
                 </Link>
               )}
               <Eyebrow className="mb-4">{service.category}</Eyebrow>
