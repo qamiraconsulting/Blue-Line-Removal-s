@@ -1,75 +1,176 @@
+import { useEffect, useState } from "react";
+import { Link, useSearchParams } from "react-router";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import clsx from "clsx";
+import { ArrowRight, Check } from "lucide-react";
 import { Container } from "@/components/ui/Container";
 import { Section } from "@/components/ui/Section";
 import { Eyebrow } from "@/components/ui/Eyebrow";
-import { Reveal, RevealGroup } from "@/components/ui/Reveal";
+import { Reveal } from "@/components/ui/Reveal";
 import { CTABanner } from "@/components/ui/CTABanner";
-import { ServiceCategoryCard, type ServiceCategory } from "@/components/ui/ServiceCategoryCard";
-import { services } from "@/data/content/services";
-import { servicesDetailed } from "@/data/content/home";
+import { services, type Service } from "@/data/content/services";
 import { images } from "@/data/content/images";
 
-// Same two photo cards as the homepage "Two Services" section (2026-10-26,
-// client request), but every item links to its own service page and
-// neither card has a bottom button (the homepage's would just point back
-// here or to the general junk page). Card titles, photos and the junk
-// items' wording come from the homepage data; the homepage itself keeps
-// its own links.
-const [homeMoving, homeJunk] = servicesDetailed.categories;
-const movingSlugs = [
-  "home-removals",
-  "apartment-unit-moves",
-  "office-removals",
-  "interstate-removals",
-  "packing-unpacking",
-  "storage-solutions",
-  "specialty-items",
-];
-const junkPages: Record<string, string> = {
-  "Furniture Removal": "/services/furniture-removal",
-  "Rubbish Removal": "/services/rubbish-removal",
-  "Green Waste Removal": "/services/green-waste-removal",
-  "Garage & Shed Clear Outs": "/services/garage-shed-clear-outs",
-  "End of Lease Clean Outs": "/services/end-of-lease-clean-outs",
-};
+// /services redesign (2026-10-26, client spec): navy hero with a Moving /
+// Junk toggle, then one grid of detailed service cards for the selected
+// type. Every card's copy comes from its own service entry -- the one-line
+// `listBody` and the first three checklist points -- so nothing here is
+// new wording. The homepage "Two Services" cards are unaffected.
+const groups = {
+  moving: {
+    label: "Moving Services",
+    slugs: [
+      "home-removals",
+      "apartment-unit-moves",
+      "office-removals",
+      "interstate-removals",
+      "packing-unpacking",
+      "storage-solutions",
+      "specialty-items",
+    ],
+  },
+  junk: {
+    label: "Junk Removal",
+    slugs: ["furniture-removal", "rubbish-removal", "green-waste-removal", "garage-shed-clear-outs", "end-of-lease-clean-outs"],
+  },
+} as const;
 
-const categories: ServiceCategory[] = [
-  {
-    ...homeMoving,
-    cta: undefined,
-    items: movingSlugs.flatMap((slug) => {
-      const service = services.find((s) => s.slug === slug);
-      return service ? [{ icon: service.icon, title: service.title, body: service.listBody, href: `/services/${service.slug}` }] : [];
-    }),
-  },
-  {
-    ...homeJunk,
-    cta: undefined,
-    items: homeJunk.items.map((item) => ({ ...item, href: junkPages[item.title] ?? item.href })),
-  },
-];
+type GroupKey = keyof typeof groups;
+
+// Same three promises as the Quote page's trust row.
+const trustLine = ["Fully insured", "No hidden fees", "2hr response"];
+
+function groupServices(key: GroupKey) {
+  return groups[key].slugs.flatMap((slug) => services.filter((s) => s.slug === slug));
+}
+
+function ServiceCard({ service }: { service: Service }) {
+  return (
+    <li className="flex w-full flex-col overflow-hidden rounded-xl border border-ink/10 bg-white shadow-sm md:w-[calc(50%-0.75rem)] lg:w-[calc(33.333%-1rem)]">
+      <div className="aspect-[16/10] overflow-hidden bg-paper-2">
+        <img src={images[service.image as keyof typeof images]} alt="" className="h-full w-full object-cover" loading="lazy" />
+      </div>
+      <div className="flex flex-1 flex-col p-5">
+        <h3 className="text-lg">{service.title}</h3>
+        <p className="mt-1 text-sm text-ink-dim">{service.listBody}</p>
+        <ul className="mt-4 grid gap-2">
+          {service.checklist.slice(0, 3).map((point) => (
+            <li key={point} className="flex items-start gap-2 text-sm text-ink">
+              <Check className="mt-0.5 h-4 w-4 shrink-0 text-action" aria-hidden="true" />
+              {point}
+            </li>
+          ))}
+        </ul>
+        <div className="mt-auto flex items-center justify-between gap-3 pt-5">
+          <Link
+            to={`/services/${service.slug}`}
+            aria-label={`Learn more about ${service.title}`}
+            className="group inline-flex items-center gap-1.5 font-display text-sm font-bold text-navy transition-colors hover:text-action"
+          >
+            Learn more
+            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+          </Link>
+          <Link
+            to="/quote"
+            aria-label={`Get a quote for ${service.title}`}
+            className="inline-flex items-center rounded-md bg-action px-3.5 py-2 font-display text-xs font-bold uppercase tracking-[0.02em] text-white shadow-[0_4px_14px_rgba(255,107,26,0.25)] transition-colors hover:bg-action-bright"
+          >
+            Get quote
+          </Link>
+        </div>
+      </div>
+    </li>
+  );
+}
 
 export function Services() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const reduceMotion = useReducedMotion() ?? false;
+
+  // The page is prerendered without a query string, so the first render
+  // always matches that HTML (Moving); ?type=junk is applied right after
+  // hydration instead of causing a hydration mismatch.
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => setHydrated(true), []);
+  const active: GroupKey = hydrated && searchParams.get("type") === "junk" ? "junk" : "moving";
+
+  // Updates the URL (so ?type=junk can be shared/bookmarked) without a
+  // reload, a new history entry, or a jump back to the top.
+  function select(key: GroupKey) {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (key === "junk") next.set("type", "junk");
+        else next.delete("type");
+        return next;
+      },
+      { replace: true, preventScrollReset: true },
+    );
+  }
+
+  const fade = { duration: reduceMotion ? 0 : 0.25, ease: "easeOut" as const };
+
   return (
     <>
-      <Section tone="paper" className="pt-32 sm:pt-40">
-        <Container>
-          <Reveal className="text-center">
-            <Eyebrow center className="mb-4 justify-center">
+      <section className="relative overflow-hidden bg-navy pb-16 pt-32 text-white sm:pb-20 sm:pt-40">
+        <div aria-hidden="true" className="absolute inset-y-0 right-0 w-full lg:w-3/5">
+          <img src={images.hero} alt="" className="h-full w-full object-cover opacity-25 lg:opacity-45" />
+          <div className="absolute inset-0 bg-gradient-to-r from-navy via-navy/85 to-navy/30" />
+        </div>
+
+        <Container className="relative">
+          <Reveal className="max-w-xl">
+            <Eyebrow tone="white" className="mb-4">
               Our Services
             </Eyebrow>
-            <h1 className="text-3xl sm:text-4xl">
-              We Handle <span className="text-action">It All</span>
+            <h1 className="text-4xl leading-[1.1] text-white sm:text-5xl">
+              Moving or clearing out? <span className="text-action">We handle it&nbsp;all.</span>
             </h1>
-            <span aria-hidden="true" className="mx-auto mt-3 block h-1 w-14 rounded-full bg-action" />
-          </Reveal>
+            <p className="mt-5 max-w-[52ch] text-lg text-white/75">
+              Home and office moves, packing, storage and junk clear-outs across Melbourne, all with one trusted team.
+            </p>
 
-          {/* items-start: the junk card is shorter, so it ends after its last
-              item instead of stretching to match with an empty white block. */}
-          <RevealGroup className="mt-12 grid gap-8 md:grid-cols-2 md:items-start">
-            {categories.map((category) => (
-              <ServiceCategoryCard key={category.key} category={category} titleAs="h2" />
-            ))}
-          </RevealGroup>
+            <div role="group" aria-label="Show services for" className="mt-8 inline-flex rounded-lg border border-white/15 bg-white/5 p-1">
+              {(Object.keys(groups) as GroupKey[]).map((key) => (
+                <button
+                  key={key}
+                  type="button"
+                  aria-pressed={active === key}
+                  aria-controls="service-cards"
+                  onClick={() => select(key)}
+                  className={clsx(
+                    "rounded-md px-4 py-2.5 font-display text-sm font-bold uppercase tracking-[0.02em] transition-colors duration-200 sm:px-6",
+                    active === key ? "bg-action text-white shadow-[0_4px_14px_rgba(255,107,26,0.35)]" : "text-white/75 hover:text-white",
+                  )}
+                >
+                  {groups[key].label}
+                </button>
+              ))}
+            </div>
+
+            <p className="mt-4 text-sm text-white/60">{trustLine.join(" · ")}</p>
+          </Reveal>
+        </Container>
+      </section>
+
+      <Section tone="paper">
+        <Container>
+          <h2 className="sr-only">{groups[active].label}</h2>
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.ul
+              key={active}
+              id="service-cards"
+              className="flex flex-wrap justify-center gap-6"
+              initial={{ opacity: 0, y: reduceMotion ? 0 : 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: reduceMotion ? 0 : -8 }}
+              transition={fade}
+            >
+              {groupServices(active).map((service) => (
+                <ServiceCard key={service.slug} service={service} />
+              ))}
+            </motion.ul>
+          </AnimatePresence>
         </Container>
       </Section>
 
