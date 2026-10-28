@@ -47,13 +47,10 @@ export const trustStats = [
 
 // Homepage "Two Services. One Trusted Team." section (2026-08-12, from
 // client-supplied reference screenshot of the sample site's services
-// block). Each category card lists 5 sub-services -- the Moving items map
-// to existing /services/:slug pages where one exists (Apartment & Unit
-// Moves doesn't have its own page yet, so it links to the /services list).
-// The Junk Removal sub-items are a new, more granular breakdown than the
-// single junk-removal page's own checklist in data/content/services.ts --
-// "Rubbish Removal" and "End of Lease Clean Outs" are new here, straight
-// from the client's reference image.
+// block). Each category card lists 5 sub-services, each linking to its own
+// /services/:slug page (2026-10-28: Apartment and the five junk items got
+// pages of their own). "Explore Moving Services" opens /services and
+// "Explore Junk Removal" opens its Junk view (/services?type=junk).
 export const servicesDetailed = {
   eyebrow: "What We Do",
   heading: "Two Services. One Trusted Team.",
@@ -69,7 +66,7 @@ export const servicesDetailed = {
       cta: { label: "Explore Moving Services", href: "/services" },
       items: [
         { icon: "home", title: "Home Removals", body: "Moving to a new home? We'll take care of everything.", href: "/services/home-removals" },
-        { icon: "apartment", title: "Apartment & Unit Moves", body: "Perfect for apartments, townhouses and high-rise living.", href: "/services" },
+        { icon: "apartment", title: "Apartment & Unit Moves", body: "Perfect for apartments, townhouses and high-rise living.", href: "/services/apartment-unit-moves" },
         { icon: "building", title: "Office & Commercial Moves", body: "Minimise disruption and keep your business moving.", href: "/services/office-removals" },
         { icon: "package", title: "Packing & Unpacking", body: "Professional packing to protect what matters most.", href: "/services/packing-unpacking" },
         { icon: "truck", title: "Local & Interstate Moves", body: "Moving across town or across the country, we've got you covered.", href: "/services/interstate-removals" },
@@ -82,13 +79,13 @@ export const servicesDetailed = {
       title: "Junk Gone. Space Won.",
       body: "We remove the unwanted so you can enjoy a clean, clutter-free space.",
       image: "junkRemoval" as const,
-      cta: { label: "Explore Junk Removal", href: "/services/junk-removal" },
+      cta: { label: "Explore Junk Removal", href: "/services?type=junk" },
       items: [
-        { icon: "armchair", title: "Furniture Removal", body: "Old furniture taking up space? We'll take it away.", href: "/services/junk-removal" },
-        { icon: "trash", title: "Rubbish Removal", body: "General rubbish, household waste and clutter — gone.", href: "/services/junk-removal" },
-        { icon: "leaf", title: "Green Waste Removal", body: "Garden waste, branches, leaves and more.", href: "/services/junk-removal" },
-        { icon: "warehouse", title: "Garage & Shed Clear Outs", body: "Clear the clutter and get your space back.", href: "/services/junk-removal" },
-        { icon: "key", title: "End of Lease Clean Outs", body: "We help real estate agents, tenants and landlords.", href: "/services/junk-removal" },
+        { icon: "armchair", title: "Furniture Removal", body: "Old furniture taking up space? We'll take it away.", href: "/services/furniture-removal" },
+        { icon: "trash", title: "Rubbish Removal", body: "General rubbish, household waste and clutter — gone.", href: "/services/rubbish-removal" },
+        { icon: "leaf", title: "Green Waste Removal", body: "Garden waste, branches, leaves and more.", href: "/services/green-waste-removal" },
+        { icon: "warehouse", title: "Garage & Shed Clear Outs", body: "Clear the clutter and get your space back.", href: "/services/garage-shed-clear-outs" },
+        { icon: "key", title: "End of Lease Clean Outs", body: "We help real estate agents, tenants and landlords.", href: "/services/end-of-lease-clean-outs" },
       ],
     },
   ],
