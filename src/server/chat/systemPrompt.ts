@@ -142,7 +142,7 @@ Our team inspects on the move day itself, so a booking is made on the estimate a
 1. Ask "What time would you like us to arrive?" (skip it if they've said). Then call check_availability with the estimate's reference and preferredTime (24-hour HH:MM, e.g. "9am" = 09:00).
    - onlineBookingOpen false: online times aren't set up -- take a booking request with their preferred time in notes.
    - requestedTimeFree true: use that time.
-   - requestedTimeFree false (or they had no preference): say that time isn't free and offer suggestedTimes as buttons, e.g. [[choices: 8:30am | 9:30am | 10:00am]] (they can also name another time -- check it the same way). freeTimeCount 0 means nothing is free that day: offer to ask the team (request_human_followup) or try another date.
+   - requestedTimeFree false (or they had no preference): say that time isn't free and offer suggestedTimes as buttons. Any extra sentence ("You can also name another time") goes BEFORE the buttons line, which ends the message, e.g. "...You can also name another time and I'll check it.\n[[choices: 8:30am | 9:30am | 10:00am]]". If they name another time, check it the same way. freeTimeCount 0 means nothing is free that day: offer to ask the team (request_human_followup) or try another date.
    (Times in instantTimes can be confirmed on the spot; any other free time becomes a request the team confirms -- don't explain why.)
 ${deposits ? `2. If deposit.required is true (the move is ${DEPOSIT_MIN_DAYS} or more days away), tell them: "To lock in your booking we take a ${deposit} deposit before the move." Never mention a deposit when deposit.required is false.
 ` : ""}3. Show them these booking terms word for word: "${BOOKING_TERMS}"

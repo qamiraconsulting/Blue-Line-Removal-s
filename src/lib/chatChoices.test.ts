@@ -14,6 +14,14 @@ describe("chat tap-to-reply buttons", () => {
     expect(splitChoices("[[choices: A | B]] then more text").choices).toEqual([]);
   });
 
+  it("a marker on its own line with a sentence after it still gives buttons, and keeps the sentence", () => {
+    const reply = "Sorry, 9:00am isn't free. These arrival times are free:\n\n[[choices: 7:30am | 12:00pm]]\n\nYou can also name another time and I'll check it.";
+    expect(splitChoices(reply)).toEqual({
+      text: "Sorry, 9:00am isn't free. These arrival times are free:\n\nYou can also name another time and I'll check it.",
+      choices: ["7:30am", "12:00pm"],
+    });
+  });
+
   it("drops empty options", () => {
     expect(splitChoices("Pick one [[choices: Card |  | Bank transfer ]]").choices).toEqual(["Card", "Bank transfer"]);
   });
