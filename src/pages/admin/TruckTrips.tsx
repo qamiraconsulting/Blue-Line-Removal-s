@@ -21,7 +21,7 @@ import { useJobs } from "./useJobs";
 // cancellation before then simply changes what is sent. After they have gone, changes are emailed at once.
 
 const DAY_START = "06:00";
-const DAY_END = "20:00";
+const DAY_END = "21:00"; // Blue Line works 7am-9pm (28 Oct)
 const shortDate = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "long" });
 
 interface TripForm {
@@ -245,7 +245,7 @@ function TripsDay(props: {
         <section className={clsx(box, needDriver.some((b) => driverOverdue(b.date, data.today)) && "ring-2 ring-red-300")}>
           <SectionHeader
             title="Jobs with no driver yet"
-            intro={`Pick a driver for each job at least ${DRIVER_NEEDED_DAYS_BEFORE} days before the move. Red = the move is ${DRIVER_NEEDED_DAYS_BEFORE} days away or less: the team has been emailed.`}
+            intro={`Pick a driver for each job at least ${DRIVER_NEEDED_DAYS_BEFORE} days before the move. Red = the move is ${DRIVER_NEEDED_DAYS_BEFORE} days away or less: the team is emailed.`}
           />
           <ul className="mt-3 space-y-1 text-sm">
             {needDriver.map((b) => {

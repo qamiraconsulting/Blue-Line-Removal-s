@@ -74,7 +74,7 @@ export type DriverNoticeResult =
 
 export const NOTICE_WHY: Record<string, string> = {
   no_truck: "no truck is assigned yet",
-  no_driver: "the truck has no driver",
+  no_driver: "no driver picked yet",
   driver_has_no_email: "the driver has no email address on file",
   driver_inactive: "the driver is marked inactive",
   test_mode: "test booking (not sent to real drivers)",
