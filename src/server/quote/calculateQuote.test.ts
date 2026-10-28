@@ -160,7 +160,7 @@ describe("what the customer is allowed to see", () => {
 
   it("keeps the cost breakdown on the internal side only", () => {
     const out = price();
-    expect(Object.keys(out.customer).sort()).toEqual(["amountAud", "firstMoveApplied", "includes", "validDays"]);
+    expect(Object.keys(out.customer).sort()).toEqual(["amountAud", "discountAud", "firstMoveApplied", "includes", "validDays"]);
     expect(out.internal.crewRateAudPerHour).toBe(145);
   });
 });

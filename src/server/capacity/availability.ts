@@ -12,6 +12,8 @@
 //    still offered, but never confirmed instantly: the team decides;
 //  - the movers on all jobs overlapping the window, plus this one, fit the day's movers.
 
+import { NO_FINISH_TIME } from "../../lib/startTimes.js";
+
 export interface CapacitySettings {
   autoConfirm: boolean;
   workingDays: number[]; // 0 = Sunday
@@ -123,7 +125,8 @@ export function checkAvailability(job: JobRequest, snap: CapacitySnapshot): Avai
   if (snap.override?.closed) return closedDay("closed");
 
   const buffer = s.bufferMinutes ?? 0;
-  const dayEnd = toMinutes(s.dayEndTime);
+  // "24:00" = no finish time (a 24/7 business): a job may run past midnight.
+  const dayEnd = s.dayEndTime === NO_FINISH_TIME ? Number.POSITIVE_INFINITY : toMinutes(s.dayEndTime);
   const moversCap = snap.override?.moversAvailable ?? s.moversPerDay;
   const offToday = new Set(snap.override?.trucksUnavailable ?? []);
 

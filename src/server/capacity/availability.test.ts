@@ -25,6 +25,13 @@ const snap = (over: Partial<CapacitySnapshot> = {}): CapacitySnapshot => ({
 const job: JobRequest = { date: "2026-10-14", truckType: "6-8T", movers: 2, estimatedMinutes: 270, amountAud: 720 };
 
 describe("checkAvailability", () => {
+  it("'no finish time' (24/7): a late start that runs past midnight is still offered", () => {
+    const late = { ...settings, arrivalTimes: ["20:00"], dayEndTime: "24:00" };
+    expect(checkAvailability({ ...job, estimatedMinutes: 600 }, snap({ settings: late })).slots[0]).toMatchObject({ time: "20:00", available: true });
+    // with a finish time the same job is refused
+    expect(checkAvailability({ ...job, estimatedMinutes: 600 }, snap({ settings: { ...late, dayEndTime: "23:00" } })).slots[0]).toMatchObject({ available: false, reason: "outside_working_hours" });
+  });
+
   it("offers every set-up arrival time, in order, with the truck that would go", () => {
     const out = checkAvailability(job, snap());
     expect(out).toMatchObject({ dayOpen: true, instantConfirm: true, instantConfirmBlockedBy: [] });

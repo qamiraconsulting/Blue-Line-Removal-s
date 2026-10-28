@@ -72,7 +72,7 @@ describe("toolNote", () => {
     expect(note).toContain("get_quote ran (reference BLR-1, estimate 720 dollars, outcome priced)");
     expect(note).toContain("request_booking ran (reference BLR-1, outcome booking_requested)");
     expect(note).not.toContain("stripe");
-    expect(note).not.toContain("request_human_followup");
+    expect(note).toContain("request_human_followup ran (outcome flagged)"); // a hand-off it can see, it won't deny
     expect(toModelMessages([{ role: "user", content: "a" }, { role: "assistant", content: "b", toolCalls: [] }])[1]!.content).toBe("b");
   });
 });
@@ -95,7 +95,7 @@ describe("runAgentTurn", () => {
       role: "user",
       content: [{ type: "tool_result", tool_use_id: "tu_1", content: JSON.stringify(priced(850).result), is_error: false }],
     });
-    expect(calls[0]!.tools!.map((t) => (t as Anthropic.Beta.Messages.BetaTool).name)).toEqual(["get_quote", "request_personal_quote", "check_availability", "request_booking", "request_human_followup"]);
+    expect(calls[0]!.tools!.map((t) => (t as Anthropic.Beta.Messages.BetaTool).name)).toEqual(["get_quote", "request_personal_quote", "check_availability", "request_booking", "email_estimate", "request_human_followup"]);
   });
 
   it("replaces a reply containing a price the engine didn't produce", async () => {

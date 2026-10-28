@@ -73,11 +73,12 @@ const quoteInput = {
 };
 
 describe("get_quote uses the same engine and flow as the website form", () => {
-  it("prices the job identically to the form, records it as a chat quote, and emails the customer", async () => {
+  it("prices the job identically to the form, records it as a chat quote -- and doesn't email the customer (28 Oct)", async () => {
     const { runTool, rows, sent, leadCalls } = setup();
     const run = await runTool("get_quote", quoteInput);
 
-    expect(run.result).toMatchObject({ ok: true, kind: "price", amountAud: 720, reference: "BLR-CHAT-1", emailed: true });
+    expect(run.result).toMatchObject({ ok: true, kind: "price", amountAud: 720, reference: "BLR-CHAT-1", emailed: false });
+    expect(sent.find((e) => e.kind === "customer")).toBeUndefined();
     expect(run.record).toEqual({ name: "get_quote", quoteReference: "BLR-CHAT-1", quotedAmountAud: 720, outcome: "priced" });
     expect(rows[0]).toMatchObject({ source: "chatbot", conversationId: "conv-1", propertySize: "2_bed", truck: null, movers: null, amountAud: 720 });
     expect(sent.find((e) => e.kind === "team")!.text).toContain("Via: website chat");
@@ -288,12 +289,12 @@ describe("request_human_followup", () => {
 });
 
 describe("tool and prompt wording", () => {
-  it("offers exactly five tools", () => {
-    expect(chatTools.map((t) => t.name)).toEqual(["get_quote", "request_personal_quote", "check_availability", "request_booking", "request_human_followup"]);
+  it("offers exactly six tools", () => {
+    expect(chatTools.map((t) => t.name)).toEqual(["get_quote", "request_personal_quote", "check_availability", "request_booking", "email_estimate", "request_human_followup"]);
   });
 
   it("the prompt states today's Melbourne date and the flat-price rules, and quotes no figure but the deposit", () => {
-    const prompt = buildSystemPrompt(new Date("2026-10-06T15:30:00Z"), fixtureRateCard); // already 7 Oct in Melbourne
+    const prompt = buildSystemPrompt(new Date("2026-10-06T15:30:00Z"), fixtureRateCard, true); // already 7 Oct in Melbourne; deposits on
     expect(prompt).toContain("2026-10-07");
     expect(prompt).toContain("Always call it an estimate");
     // the move type comes first, from buttons, and each type gets only its own questions
@@ -304,7 +305,7 @@ describe("tool and prompt wording", () => {
     expect(prompt).toContain(ESTIMATE_DISCLAIMER);
     // the first-customer discount is worked out, never asked
     expect(prompt).toContain("Never ask whether this is their first move with us");
-    expect(prompt).toContain("10% first-move discount has been applied");
+    expect(prompt).toContain("10% first-booking discount of $<discountAud> has been taken off");
     // Blue Line's long-carry rule (25 Oct 2026): always at an apartment end, and over 50 m for a house
     expect(prompt).toContain("a long-carry charge ALWAYS applies at that end");
     expect(prompt).toContain("within 50 metres of the door");
@@ -334,7 +335,22 @@ describe("tool and prompt wording", () => {
     expect(prompt).toContain("The remaining payment can be made by card, bank transfer or cash on the day of the move.");
     expect(prompt).toContain("never give out bank account details");
     expect(prompt).not.toContain("Card (secure link)");
-    expect(prompt).toContain("4.5 tonne truck, 6-8 tonne truck, 10 tonne truck");
+    // 28 Oct feedback: plain truck sizes with "Suggest one" first, and say what we'd send
+    expect(prompt).toContain("[[choices: Suggest one | I'll choose | Team checks on the day]]");
+    expect(prompt).toContain("[[choices: Small (4.5 tonne) | Medium (6-8 tonne) | Large (10 tonne)]]");
+    expect(prompt).toContain("tell them straight away what we'd usually send");
+    // one question per message; the customer names the time; heavy items listed; a copy only on request
+    expect(prompt).toContain("ONE QUESTION PER MESSAGE");
+    expect(prompt).toContain('Ask "What time would you like us to arrive?"');
+    expect(prompt).toContain("Heavy items noted:");
+    expect(prompt).toContain("Would you like a copy of this estimate by email?");
+    expect(prompt).toContain("Don't say it has been emailed");
+
+    // with deposits off (the launch), no deposit anywhere and payment isn't "remaining"
+    const noDeposits = buildSystemPrompt(new Date("2026-10-06T15:30:00Z"), fixtureRateCard, false);
+    expect(noDeposits.replace("No deposit is taken: never mention one.", "").replace('Never call it the "remaining" payment unless a deposit was paid.', "")).not.toMatch(/deposit/i);
+    expect(noDeposits).toContain("Payment for your move can be made by card, bank transfer or cash on the day.");
+    expect([...noDeposits.matchAll(/\$(\d+)/g)]).toHaveLength(0);
     expect([...prompt.matchAll(/\$(\d+)/g)].every((m) => m[1] === "100")).toBe(true);
   });
 });

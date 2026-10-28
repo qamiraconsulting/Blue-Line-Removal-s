@@ -5,7 +5,7 @@ import { getDb } from "../db/client.js";
 import { conversations, leads, messages } from "../db/schema.js";
 import { dbBookingStore } from "../quote/booking.js";
 import { buildQuoteDeps } from "../quote/deps.js";
-import { DEFAULT_EFFORT, runAgentTurn, type StoredTurn } from "./agent.js";
+import { DEFAULT_EFFORT, quotedFigures, runAgentTurn, type StoredTurn } from "./agent.js";
 import { dbLeadStore } from "./leadStore.js";
 import { buildSystemPrompt, GREETING } from "./systemPrompt.js";
 import { createToolRunner, type ToolRecord } from "./tools.js";
@@ -14,9 +14,12 @@ import { createToolRunner, type ToolRecord } from "./tools.js";
 // `messages` table; tool activity (quote reference, amount) and token usage are kept on the
 // assistant row so "you told me $X" and "what does the chat cost" can both be answered.
 
-const HISTORY_LIMIT = 40;
 // Cost and abuse ceiling: a real enquiry never needs this many messages.
 export const MAX_CUSTOMER_MESSAGES = 60;
+// The whole chat goes to the model (both sides, plus the greeting). With one question per message
+// (28 Oct) an estimate takes ~20 questions; the old limit of 40 dropped the addresses and the date
+// from a long chat, and it asked for them again.
+const HISTORY_LIMIT = MAX_CUSTOMER_MESSAGES * 2 + 2;
 export const LIMIT_REPLY = `We've covered a lot in this chat! To keep going, please call us on ${site.phone.display} or start a new chat.`;
 
 export type ClientRole = "user" | "assistant" | "team";
@@ -115,7 +118,7 @@ export async function postMessage(conversationId: string, userMessage: string): 
 
   // Every amount quoted earlier in this chat (the guard allows repeating those).
   const previouslyQuoted = rows.flatMap((r) =>
-    ((r.toolCalls as ToolRecord[] | null) ?? []).flatMap((t) => (t.quotedAmountAud === undefined ? [] : [t.quotedAmountAud])),
+    ((r.toolCalls as ToolRecord[] | null) ?? []).flatMap(quotedFigures),
   );
 
   const turn = await runAgentTurn({

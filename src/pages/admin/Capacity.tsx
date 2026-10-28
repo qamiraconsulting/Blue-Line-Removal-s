@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import clsx from "clsx";
+import { NO_FINISH_TIME, startTimesBetween, startTimesSummary } from "../../lib/startTimes";
 import { box, button, Field, input, looksLikeEmail, num, SectionHeader, TRUCK_TYPES, useCapacity, type Driver, type Override, type Settings, type Truck } from "./capacityShared";
 
 // "Settings": what the chat uses to offer free arrival times and -- only when
@@ -80,16 +81,19 @@ export default function Capacity() {
               ))}
             </div>
           </div>
-          <Field label="Arrival times offered" hint="Start times the chat offers customers -- 24-hour, separated by commas, e.g. 07:30, 12:00.">
-            <input
-              className={clsx(input, "w-full")}
-              placeholder="07:30, 12:00"
-              defaultValue={settings.arrivalTimes.join(", ")}
-              onBlur={(e) => setSettings({ ...settings, arrivalTimes: e.target.value.split(",").map((t) => t.trim()).filter((t) => /^\d{2}:\d{2}$/.test(t)) })}
-            />
-          </Field>
+          <StartTimes settings={settings} onChange={setSettings} />
           <Field label="Jobs must finish by" hint="End of your working day. A time isn't offered if the job would run past it.">
-            <input type="time" className={input} value={settings.dayEndTime ?? ""} onChange={(e) => setSettings({ ...settings, dayEndTime: e.target.value || null })} />
+            <label className="mb-1 flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={settings.dayEndTime === NO_FINISH_TIME}
+                onChange={(e) => setSettings({ ...settings, dayEndTime: e.target.checked ? NO_FINISH_TIME : null })}
+              />
+              No finish time (we work 24/7)
+            </label>
+            {settings.dayEndTime !== NO_FINISH_TIME && (
+              <input type="time" className={input} value={settings.dayEndTime ?? ""} onChange={(e) => setSettings({ ...settings, dayEndTime: e.target.value || null })} />
+            )}
           </Field>
           {(
             [
@@ -176,6 +180,45 @@ export default function Capacity() {
         </ul>
       </section>
 
+    </div>
+  );
+}
+
+/**
+ * Arrival times as "every N minutes from the first start to the last start" (Ayesha, 2026-10-28).
+ * The chat asks the customer what time suits them and books it if it is one of these and free;
+ * otherwise it offers the nearest free ones.
+ */
+function StartTimes({ settings, onChange }: { settings: Settings; onChange: (s: Settings) => void }) {
+  const saved = startTimesSummary(settings.arrivalTimes);
+  const [first, setFirst] = useState(saved.first);
+  const [last, setLast] = useState(saved.last);
+  const [every, setEvery] = useState(saved.everyMinutes);
+  const apply = (f: string, l: string, e: number) => onChange({ ...settings, arrivalTimes: startTimesBetween(f, l, e) });
+  const count = settings.arrivalTimes.length;
+  return (
+    <div className="text-sm">
+      <span className="block text-xs font-bold uppercase text-slate-600">Arrival times</span>
+      <span className="mb-1 block text-xs text-slate-500">
+        Times the crew can arrive. The chat asks the customer what time suits them, and offers the nearest free times if it doesn&apos;t. For 24/7, use 00:00 to 23:30.
+      </span>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs text-slate-600">From</span>
+        <input type="time" className={input} value={first} onChange={(e) => (setFirst(e.target.value), apply(e.target.value, last, every))} aria-label="First arrival time" />
+        <span className="text-xs text-slate-600">to</span>
+        <input type="time" className={input} value={last} onChange={(e) => (setLast(e.target.value), apply(first, e.target.value, every))} aria-label="Last arrival time" />
+        <span className="text-xs text-slate-600">every</span>
+        <select className={input} value={every} onChange={(e) => (setEvery(Number(e.target.value)), apply(first, last, Number(e.target.value)))} aria-label="Minutes between arrival times">
+          {[15, 30, 60].map((m) => (
+            <option key={m} value={m}>
+              {m} min
+            </option>
+          ))}
+        </select>
+      </div>
+      <span className={clsx("mt-1 block text-xs", count ? "text-slate-500" : "text-amber-700")}>
+        {count ? `${count} arrival times, ${settings.arrivalTimes[0]} to ${settings.arrivalTimes[count - 1]}.` : "No arrival times yet -- the chat can only take booking requests."}
+      </span>
     </div>
   );
 }

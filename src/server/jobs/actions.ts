@@ -8,7 +8,7 @@ import { calendarSource } from "../quote/booking.js";
 import type { InternalBreakdown } from "../quote/calculateQuote.js";
 import { esc, firstName, shell } from "../quote/emails.js";
 import { truckIds, type RateCard } from "../quote/rateCard.js";
-import { customerRecipient, melbourneToday, type DriverNotifier } from "../quote/service.js";
+import { customerRecipient, melbourneToday, type CustomerNotifier, type DriverNotifier } from "../quote/service.js";
 import { site } from "../../data/site.js";
 import type { DriverNoticeResult } from "../notify/driverNotice.js";
 import { linesFromEstimate, teamQuote, type QuoteLines } from "./lines.js";
@@ -52,6 +52,8 @@ export interface JobDeps extends SendQuoteDeps {
   rateCard: RateCard;
   /** Emails the truck's driver after the calendar changes (confirm, cancel). */
   notifyDriver?: DriverNotifier;
+  /** Emails the customer their booking details the day before the move. */
+  notifyCustomer?: CustomerNotifier;
   now?: () => Date;
 }
 
@@ -254,6 +256,8 @@ export async function confirmAction(
           customerName: q.customerName,
           phone: q.phone,
           customerEmail: q.email,
+          // The customer gets the day-before email with their booking details (Ayesha, 2026-10-28).
+          customerNoticeWanted: Boolean(q.email),
           fromText: (patch.fromText !== undefined ? patch.fromText : q.fromText) ?? null,
           toText: (patch.toText !== undefined ? patch.toText : q.toText) ?? null,
           notes: q.bookingNotes,
@@ -281,8 +285,9 @@ export async function confirmAction(
   const sent = input.notifyCustomer
     ? await sendCustomerQuote(quoteJob(q, lines, { ...patch, movingDate: date }, "booked", deps.rateCard, { arrivalTime, validUntil: null }), deps)
     : { emailed: false, via: null };
-  // The truck's driver gets the job's details (never throws, never undoes the booking).
+  // The truck's driver gets the job's details, the customer the day-before email (never throws, never undoes the booking).
   const driver = await deps.notifyDriver?.({ quoteReference: q.reference }).catch(() => undefined);
+  await deps.notifyCustomer?.({ quoteReference: q.reference }).catch(() => undefined);
   return { ok: true, status: "booked", emailed: sent.emailed, via: sent.via, total: lines.total, capacityWarning: booked.capacityWarning, driverNotice: driver };
 }
 

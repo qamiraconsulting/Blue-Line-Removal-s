@@ -255,6 +255,11 @@ export interface QuoteRequestContext {
    * description, and acknowledge it.
    */
   personalQuote?: { reason: PersonalQuoteReason; description: string };
+  /**
+   * Chat: don't email the priced estimate (Ayesha, 2026-10-28) -- the customer sees it in the
+   * chat, and gets a copy only if they ask (email_estimate). The team email still goes.
+   */
+  skipCustomerEstimate?: boolean;
 }
 
 export const personalQuoteReasons = [
@@ -473,7 +478,7 @@ export async function handleQuoteRequest(
 
   // Placeholder prices are never emailed to a customer -- in a preview they can go to the
   // team's test inbox instead.
-  const customerTo = customerRecipient(req.email, testMode, deps.testEmailTo);
+  const customerTo = priced && context.skipCustomerEstimate ? null : customerRecipient(req.email, testMode, deps.testEmailTo);
   const customerContent: EmailContent | null = !customerTo
     ? null
     : priced
@@ -525,6 +530,7 @@ export async function handleQuoteRequest(
         amountAud: priced.amountAud,
         includes: priced.customer.includes,
         firstMoveApplied: priced.customer.firstMoveApplied,
+        discountAud: priced.customer.discountAud,
         firstMoveDenied: false, // returning customers simply get the standard price
         validUntil,
         emailed: customerSent,

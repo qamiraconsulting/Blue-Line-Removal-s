@@ -63,6 +63,8 @@ export interface CustomerQuoteView {
   /** Plain-language inclusions. Never contains a rate. */
   includes: string[];
   firstMoveApplied: boolean;
+  /** What the first-booking discount took off, GST included, whole dollars (0 when none). */
+  discountAud: number;
   validDays: number;
 }
 
@@ -179,6 +181,7 @@ export function calculateQuote(inputs: QuoteInputs, rateCard: RateCard, options:
         "GST included",
       ],
       firstMoveApplied,
+      discountAud: Math.round(discount * (1 + gstRate)),
       validDays: rateCard.validityDays,
     },
     internal: {

@@ -38,9 +38,12 @@ export interface StoredTurn {
  * no payment link, no rates.
  */
 export function toolNote(records: readonly ToolRecord[] | null | undefined): string {
-  const parts = (records ?? [])
-    .filter((r) => r.quoteReference)
-    .map((r) => `${r.name} ran (reference ${r.quoteReference}${r.quotedAmountAud !== undefined ? `, estimate ${r.quotedAmountAud} dollars` : ""}, outcome ${r.outcome})`);
+  // Every tool, not only the ones with a reference: a hand-off it doesn't see, it later denies
+  // having made (test chat, 28 Oct).
+  const parts = (records ?? []).map(
+    (r) =>
+      `${r.name} ran (${r.quoteReference ? `reference ${r.quoteReference}, ` : ""}${r.quotedAmountAud !== undefined ? `estimate ${r.quotedAmountAud} dollars, ` : ""}${r.discountAud ? `discount ${r.discountAud} dollars, ` : ""}outcome ${r.outcome.slice(0, 160)})`,
+  );
   return parts.length ? `
 
 [Private record for you, never mention it to the customer: ${parts.join("; ")}.]` : "";
@@ -79,6 +82,12 @@ export function toModelMessages(history: StoredTurn[]): Anthropic.Beta.Messages.
   }
   return out;
 }
+
+/** The dollar figures a tool returned that the chat may repeat: the estimate and its discount. */
+export const quotedFigures = (r: ToolRecord): number[] => [
+  ...(r.quotedAmountAud === undefined ? [] : [r.quotedAmountAud]),
+  ...(r.discountAud ? [r.discountAud] : []),
+];
 
 /**
  * The model never types the long Stripe link itself: it writes DEPOSIT_LINK_MARKER and the
@@ -158,7 +167,7 @@ export async function runAgentTurn(params: {
 
   if (!text) return { reply: FALLBACK_REPLY, toolRecords, blocked: null, declined: false, usage };
 
-  const quoted = [...params.previouslyQuoted, ...toolRecords.flatMap((r) => (r.quotedAmountAud === undefined ? [] : [r.quotedAmountAud]))];
+  const quoted = [...params.previouslyQuoted, ...toolRecords.flatMap(quotedFigures)];
   // The model's own words are checked first (any link it typed is refused); the booking's
   // payment link -- from our tool, never the model -- is put in afterwards.
   const guarded = guardReply(text, quoted);

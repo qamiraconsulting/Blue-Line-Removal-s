@@ -46,7 +46,7 @@ const actionSchema = z.discriminatedUnion("action", [
     settings: z.object({
       autoConfirm: z.boolean(),
       workingDays: z.array(z.number().int().min(0).max(6)).max(7),
-      arrivalTimes: z.array(time).max(12),
+      arrivalTimes: z.array(time).max(96),
       dayEndTime: time.nullable(),
       bufferMinutes: count,
       moversPerDay: count,

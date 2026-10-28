@@ -4,6 +4,10 @@ import type { BookingStore, StoredQuote } from "../quote/booking.js";
 import { fixtureRateCard } from "../quote/rateCard.fixture.js";
 import type { OutgoingEmail } from "../quote/service.js";
 import { depositCheckoutFor, siteUrlFrom, type DepositPaid, type DepositStore } from "./depositPayment.js";
+
+// The deposit tests need deposits switched on (they're off unless DEPOSITS_ENABLED=true, 28 Oct).
+process.env.DEPOSITS_ENABLED = "true";
+
 import { handleStripeEvent } from "./depositWebhook.js";
 import { createDepositCheckout, isTestKey, stripeConfigFrom, verifyStripeSignature, type CheckoutSessionEvent } from "./stripe.js";
 

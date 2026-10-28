@@ -8,6 +8,8 @@ export type QuoteApiResult =
       amountAud: number;
       includes: string[];
       firstMoveApplied: boolean;
+      /** What the first-booking discount took off, GST included, whole dollars. */
+      discountAud?: number;
       /** They asked for the first-move offer but it has already been used with these details. */
       firstMoveDenied: boolean;
       /** yyyy-mm-dd */

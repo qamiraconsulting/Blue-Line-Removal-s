@@ -1,12 +1,17 @@
 import { describe, expect, it } from "vitest";
 import type { CapacitySettings, CapacitySnapshot } from "../capacity/availability.js";
 import type { NewCalendarBooking } from "../capacity/store.js";
-import { availabilityForQuote, confirmPaidBooking, requestBooking, type BookingStore, type StoredQuote } from "./booking.js";
+import { availabilityForQuote, confirmPaidBooking, emailEstimateCopy, requestBooking, type BookingStore, type StoredQuote } from "./booking.js";
+import { startTimesBetween } from "../../lib/startTimes.js";
 import type { DepositPaymentDeps } from "../payments/depositPayment.js";
 import type { DepositCheckoutRequest } from "../payments/stripe.js";
-import { BOOKING_TERMS, BOOKING_TERMS_VERSION } from "./bookingEmails.js";
+import { BOOKED_DAY_NOTE, BOOKING_TERMS, BOOKING_TERMS_VERSION } from "./bookingEmails.js";
 import { fixtureRateCard } from "./rateCard.fixture.js";
 import type { DriverNotifier, OutgoingEmail } from "./service.js";
+
+// The deposit tests need deposits switched on (they're off unless DEPOSITS_ENABLED=true, 28 Oct).
+process.env.DEPOSITS_ENABLED = "true";
+
 
 const NOW = new Date("2026-10-12T02:00:00Z"); // Mon 12 Oct, 13:00 in Melbourne
 
@@ -158,7 +163,8 @@ describe("instant confirmation (switched on by the team, everything set up)", ()
     expect(customer.subject).toContain("Your move is booked");
     expect(customer.text).toContain("arrival 7:30am");
     expect(customer.text).toContain("Total (GST included): $720");
-    expect(customer.text).toContain(BOOKING_TERMS); // final charges still confirmed on the day
+    expect(customer.text).toContain(BOOKED_DAY_NOTE); // final charges still confirmed on the day (if needed)
+    expect(customer.text).not.toContain(BOOKING_TERMS); // the short note, not the full terms
     expect(sent.find((e) => e.kind === "team")!.subject).toMatch(/^Booked:/);
   });
 
@@ -222,6 +228,49 @@ describe("instant confirmation (switched on by the team, everything set up)", ()
 
   it("in test mode it becomes a request for the team", async () => {
     expect(await ask(setup(soonQuote({ rateCardStatus: "placeholder" }), READY).deps, { arrivalTime: "07:30" })).toMatchObject({ ok: true, status: "requested" });
+  });
+});
+
+describe("28 Oct feedback: the customer names a time; the day-before email; a copy of the estimate on request", () => {
+  const soon = () => quote({ movingDate: "2026-10-16" }); // 4 days away: no deposit
+  const everyHalfHour = { ...READY, arrivalTimes: startTimesBetween("07:00", "12:00", 30) };
+
+  it("a time that is free is said to be free; with many free times the chat gets 3 suggestions, not the whole list", async () => {
+    const { deps } = setup(soon(), everyHalfHour);
+    const out = await availabilityForQuote({ reference: "BLR-20261012-ABC123", conversationId: "conv-1", preferredTime: "09:00" }, deps);
+    expect(out).toMatchObject({ ok: true, requestedTime: "09:00", requestedTimeFree: true, freeTimeCount: 11, availableTimes: [], suggestedTimes: ["08:30", "09:00", "09:30"] });
+  });
+
+  it("a time that isn't an arrival time gets the nearest free ones", async () => {
+    const { deps } = setup(soon(), everyHalfHour);
+    const out = await availabilityForQuote({ reference: "BLR-20261012-ABC123", conversationId: "conv-1", preferredTime: "09:15" }, deps);
+    expect(out).toMatchObject({ requestedTimeFree: false, suggestedTimes: ["08:30", "09:00", "09:30"] });
+    expect(await ask(deps, { arrivalTime: "09:15" })).toMatchObject({ ok: false, reason: "time_unavailable", availableTimes: ["08:30", "09:00", "09:30"] });
+  });
+
+  it("a booking confirmed on the spot is set for the customer's day-before email", async () => {
+    const { deps, calendar } = setup(soon(), everyHalfHour);
+    expect(await ask(deps, { arrivalTime: "09:00" })).toMatchObject({ ok: true, status: "confirmed" });
+    expect(calendar[0]).toMatchObject({ arrivalTime: "09:00", customerNoticeWanted: true });
+  });
+
+  it("emails a copy of the estimate only when asked, and only for an estimate from this chat", async () => {
+    const { deps, sent } = setup(quote());
+    expect(await emailEstimateCopy({ reference: "BLR-20261012-ABC123", conversationId: "conv-1" }, deps)).toEqual({ ok: true, emailed: true });
+    const copy = sent.find((e) => e.kind === "customer")!;
+    expect(copy.to).toBe("jane@example.com");
+    expect(copy.text).toContain("BLR-20261012-ABC123");
+    expect(await emailEstimateCopy({ reference: "BLR-20261012-ABC123", conversationId: "someone-else" }, deps)).toMatchObject({ ok: false, reason: "not_found" });
+  });
+
+  it("with deposits off, a move weeks away takes no deposit and is confirmed on the spot", async () => {
+    process.env.DEPOSITS_ENABLED = "false";
+    try {
+      const { deps } = setup(quote(), everyHalfHour); // 9 days away
+      expect(await ask(deps, { arrivalTime: "09:00" })).toMatchObject({ ok: true, status: "confirmed", deposit: { required: false } });
+    } finally {
+      process.env.DEPOSITS_ENABLED = "true";
+    }
   });
 });
 

@@ -8,6 +8,9 @@ import { esc, firstName, formatAud, formatDateLabel, NAVY, ORANGE, shell, type E
 // and its version are stored with the booking.
 
 export const BOOKING_TERMS_VERSION = "2026-10-12";
+/** In the "your move is booked" email, in place of the full terms (Ayesha, 2026-10-28). */
+export const BOOKED_DAY_NOTE = "On the day, before we start, our team will check what's being moved and the access, and confirm the final charges with you (if needed).";
+
 export const BOOKING_TERMS =
   "Your booking is made on the estimate above. On the day of your move, before we start, our team will inspect what's being moved, the access and the parking, and confirm the final charges with you. The final price may vary depending on the actual hours worked, inventory, access, stairs, parking and any special requirements.";
 
@@ -203,7 +206,7 @@ export function renderManualBookingEmail(input: {
     ["Reference", input.reference ?? ""],
   ] as [string, string][]).filter(([, v]) => Boolean(v));
   const greeting = input.name ? `Hi ${firstName(input.name)},` : "Hi,";
-  const opening = input.kind === "confirmed" ? "Your move with us is booked. Here are the details:" : "Your booking has been updated. Here are the new details:";
+  const opening = input.kind === "confirmed" ? "A reminder of your move with us. Here are the details:" : "Your booking has been updated. Here are the new details:";
   const text = [greeting, "", opening, "", ...rows.map(([k, v]) => `${k}: ${v}`), "", `Call us on ${site.phone.display}.`, "", site.name].join("\n");
   const table = rows
     .map(([k, v]) => `<tr><td style="padding:3px 14px 3px 0;color:#5b6b7c">${esc(k)}</td><td style="padding:3px 0"><strong>${esc(v)}</strong></td></tr>`)
@@ -214,7 +217,7 @@ export function renderManualBookingEmail(input: {
 <table style="border-collapse:collapse;margin:0 0 14px;font-size:14px">${table}</table>
 <p style="margin:0">Call us on <a href="${esc(site.phone.href)}" style="color:${ORANGE};font-weight:bold">${esc(site.phone.display)}</a>.</p>`);
   return {
-    subject: input.kind === "confirmed" ? `Your move is booked: ${formatDateLabel(input.date)}, ${formatArrivalTime(input.arrivalTime)}` : `Your booking has been updated: ${formatDateLabel(input.date)}, ${formatArrivalTime(input.arrivalTime)}`,
+    subject: input.kind === "confirmed" ? `Reminder: your move on ${formatDateLabel(input.date)}, ${formatArrivalTime(input.arrivalTime)}` : `Your booking has been updated: ${formatDateLabel(input.date)}, ${formatArrivalTime(input.arrivalTime)}`,
     text,
     html,
   };

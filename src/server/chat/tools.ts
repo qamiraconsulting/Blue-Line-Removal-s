@@ -2,7 +2,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { hasPostcode, looksLikeFullAddress } from "../../lib/address.js";
 import { handleQuoteRequest, personalQuoteReasons, propertySizeIds, truckChoices, type QuoteServiceDeps } from "../quote/service.js";
-import { availabilityForQuote, requestBooking, type BookingStore } from "../quote/booking.js";
+import { availabilityForQuote, emailEstimateCopy, requestBooking, type BookingStore } from "../quote/booking.js";
 import { renderHandoffEmail } from "./handoffEmail.js";
 import type { LeadStore } from "./leadStore.js";
 
@@ -92,6 +92,11 @@ export const requestHumanFollowupInput = z.object({
 
 export const checkAvailabilityInput = z.object({
   quoteReference: z.string().min(4).describe("The reference get_quote returned for the estimate."),
+  preferredTime: z
+    .string()
+    .regex(/^\d{2}:\d{2}$/)
+    .optional()
+    .describe("HH:MM, 24-hour: the arrival time the customer asked for (e.g. 09:00). The result says whether it's free and suggests the nearest free times."),
 });
 
 export const requestBookingInput = z.object({
@@ -100,11 +105,15 @@ export const requestBookingInput = z.object({
     .string()
     .regex(/^\d{2}:\d{2}$/)
     .optional()
-    .describe("HH:MM -- only one of the availableTimes check_availability returned. Leave out if none were offered."),
+    .describe("HH:MM -- a time check_availability said is free (the requested time when requestedTimeFree is true, or one of suggestedTimes / availableTimes). Leave out if online times aren't open."),
   agreedToTerms: z
     .literal(true)
     .describe("Only true after you showed the customer the booking terms word for word and they clearly said yes."),
   notes: z.string().max(500).optional().describe("Anything they asked for -- e.g. a preferred arrival time when no times were offered."),
+});
+
+export const emailEstimateInput = z.object({
+  quoteReference: z.string().min(4).describe("The reference get_quote returned for the estimate."),
 });
 
 const tool = (name: string, description: string, schema: z.ZodType): Anthropic.Beta.Messages.BetaTool => ({
@@ -116,7 +125,7 @@ const tool = (name: string, description: string, schema: z.ZodType): Anthropic.B
 export const chatTools: Anthropic.Beta.Messages.BetaTool[] = [
   tool(
     "get_quote",
-    "Works out Blue Line's estimate for a job and emails it to the customer. Call this ONLY after you " +
+    "Works out Blue Line's estimate for a job (it is NOT emailed -- use email_estimate if they want a copy). Call this ONLY after you " +
       "have every field, have read the details back to the customer and they have confirmed them. Call it again " +
       "if they change any detail. The amountAud in its result is the ONLY dollar figure you may ever give.",
     getQuoteInput,
@@ -144,6 +153,12 @@ export const chatTools: Anthropic.Beta.Messages.BetaTool[] = [
     requestBookingInput,
   ),
   tool(
+    "email_estimate",
+    "Emails the customer a copy of an estimate get_quote gave in this chat. Call it only when they say yes to a copy " +
+      "(offer one when they don't book straight away).",
+    emailEstimateInput,
+  ),
+  tool(
     "request_human_followup",
     "Flags this chat for a Blue Line team member. Call when the customer asks for a person, pushes back on " +
       "price, doesn't agree to the booking terms, wants a call back, wants packing, mentions anything you can't " +
@@ -164,6 +179,8 @@ export interface ToolRecord {
   name: string;
   quoteReference?: string;
   quotedAmountAud?: number;
+  /** get_quote: the first-booking discount in dollars -- the chat may say it too. */
+  discountAud?: number;
   /** request_booking: the booking's deposit payment page, swapped in for [[deposit_link]]. */
   paymentLink?: string;
   outcome: string;
@@ -232,7 +249,7 @@ export function createToolRunner(deps: ChatToolDeps) {
         return { result: UNAVAILABLE, isError: false, record: { name, outcome: "service_unavailable" } };
       }
 
-      const res = await handleQuoteRequest(input, deps.quoteDeps, { source: "chatbot", conversationId: deps.conversationId });
+      const res = await handleQuoteRequest(input, deps.quoteDeps, { source: "chatbot", conversationId: deps.conversationId, skipCustomerEstimate: true });
       if (!res.body.ok) {
         return { result: { ok: false, error: res.body.error }, isError: false, record: { name, outcome: `error_${res.status}` } };
       }
@@ -247,7 +264,13 @@ export function createToolRunner(deps: ChatToolDeps) {
       return {
         result: { ok: true, ...quote },
         isError: false,
-        record: { name, quoteReference: quote.reference, quotedAmountAud: quote.amountAud, outcome: quote.testMode ? "priced_test" : "priced" },
+        record: {
+          name,
+          quoteReference: quote.reference,
+          quotedAmountAud: quote.amountAud,
+          ...(quote.discountAud ? { discountAud: quote.discountAud } : {}),
+          outcome: quote.testMode ? "priced_test" : "priced",
+        },
       };
     }
 
@@ -293,13 +316,26 @@ export function createToolRunner(deps: ChatToolDeps) {
         };
       }
       const availability = await availabilityForQuote(
-        { reference: parsed.data.quoteReference, conversationId: deps.conversationId },
+        { reference: parsed.data.quoteReference, preferredTime: parsed.data.preferredTime, conversationId: deps.conversationId },
         { ...deps.quoteDeps, bookings: deps.bookings },
       );
       return {
         result: availability,
         isError: false,
         record: { name, quoteReference: parsed.data.quoteReference, outcome: availability.ok ? (availability.onlineBookingOpen ? "times_offered" : "no_online_times") : availability.reason },
+      };
+    }
+
+    if (name === "email_estimate") {
+      const parsed = emailEstimateInput.safeParse(rawInput);
+      if (!parsed.success || !deps.bookings || !deps.quoteDeps) {
+        return { result: { ok: false, error: "A copy can't be emailed right now. The estimate and reference are in this chat." }, isError: false, record: { name, outcome: "not_available" } };
+      }
+      const sent = await emailEstimateCopy({ reference: parsed.data.quoteReference, conversationId: deps.conversationId }, { ...deps.quoteDeps, bookings: deps.bookings });
+      return {
+        result: sent,
+        isError: false,
+        record: { name, quoteReference: parsed.data.quoteReference, outcome: sent.ok ? (sent.emailed ? "estimate_emailed" : "estimate_not_emailed") : sent.reason },
       };
     }
 

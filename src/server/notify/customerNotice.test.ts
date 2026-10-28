@@ -51,8 +51,8 @@ describe("the customer's booking email", () => {
       expect(text).not.toContain("just call us");
       expect(text).not.toContain("If anything needs to change");
     }
-    expect(email.subject).toBe("Your move is booked: Tuesday 20 October 2026, 8:00am");
-    expect(email.text).toContain("Your move with us is booked. Here are the details:");
+    expect(email.subject).toBe("Reminder: your move on Tuesday 20 October 2026, 8:00am");
+    expect(email.text).toContain("A reminder of your move with us. Here are the details:");
     expect(email.text).toContain("Call us on 03 9494 1070.");
     expect(email.html).toContain("Call us on");
     expect(email.html).toContain("03 9494 1070");
@@ -68,7 +68,7 @@ describe("it goes out the day before the move (Melbourne time)", () => {
     expect(await syncCustomerNotice({ bookingId: "b-1" }, { ...deps, now: () => NINE_AM_19TH }, { mode: "cron" })).toEqual({ status: "sent", kind: "confirmed" });
     expect(sent).toHaveLength(1);
     expect(sent[0]).toMatchObject({ to: "jane@example.com", kind: "customer" });
-    expect(sent[0]!.subject).toContain("Your move is booked: Tuesday 20 October 2026, 8:00am");
+    expect(sent[0]!.subject).toContain("Reminder: your move on Tuesday 20 October 2026, 8:00am");
     expect(sent[0]!.text).toContain("4/12 Station St, Preston VIC 3072");
     expect(await syncCustomerNotice({ bookingId: "b-1" }, { ...deps, now: () => NINE_AM_19TH }, { mode: "cron" })).toEqual({ status: "unchanged" });
     expect(sent).toHaveLength(1);

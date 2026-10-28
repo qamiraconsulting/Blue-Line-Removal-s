@@ -5,7 +5,7 @@ import { Footer } from "@/components/layout/Footer";
 import { BackToTop } from "@/components/layout/BackToTop";
 import { ContactWidget } from "@/components/layout/ContactWidget";
 import { ScrollToTop } from "@/components/layout/ScrollToTop";
-import { ChatWidget } from "@/components/chat/ChatWidget";
+import { ChatGate } from "@/components/chat/ChatGate";
 import { site } from "@/data/site";
 import { serviceAreaRegions } from "@/data/content/serviceAreas";
 
@@ -44,7 +44,7 @@ export function Layout() {
       <Footer />
       <BackToTop />
       <ContactWidget />
-      <ChatWidget />
+      <ChatGate />
     </>
   );
 }

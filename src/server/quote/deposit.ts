@@ -12,6 +12,17 @@ export const DEPOSIT_AUD = 100;
 export const DEPOSIT_MIN_DAYS = 7;
 
 export const FINAL_PAYMENT_TEXT = "The remaining payment can be made by card, bank transfer or cash on the day of the move.";
+/** When no deposit was taken (Ayesha, 2026-10-28: "remaining" is wrong when nothing was paid). */
+export const PAY_ON_THE_DAY_TEXT = "Payment for your move can be made by card, bank transfer or cash on the day.";
+
+/**
+ * Deposits are taken only when DEPOSITS_ENABLED is "true" (Vercel environment variable). Off by
+ * default: the launch takes no deposits (Ayesha, 2026-10-28) -- the chat, the form and the emails
+ * then never mention one. Turn it on together with the Stripe keys.
+ */
+export function depositsEnabled(env: Record<string, string | undefined> | undefined = typeof process === "undefined" ? undefined : process.env): boolean {
+  return env?.DEPOSITS_ENABLED === "true";
+}
 
 export interface DepositInfo {
   required: boolean;
@@ -33,14 +44,15 @@ const utcDay = (iso: string) => {
   return Date.UTC(y, m - 1, d);
 };
 
-export function depositFor(movingDate: string | null, today: string, paymentLink: string | null | undefined): DepositInfo {
+export function depositFor(movingDate: string | null, today: string, paymentLink: string | null | undefined, enabled: boolean = depositsEnabled()): DepositInfo {
   const daysUntilMove = movingDate ? Math.round((utcDay(movingDate) - utcDay(today)) / 86_400_000) : null;
+  const required = enabled && daysUntilMove !== null && daysUntilMove >= DEPOSIT_MIN_DAYS;
   return {
-    required: daysUntilMove !== null && daysUntilMove >= DEPOSIT_MIN_DAYS,
+    required,
     amountAud: DEPOSIT_AUD,
     daysUntilMove,
     paymentLink: paymentLink || null,
-    finalPayment: FINAL_PAYMENT_TEXT,
+    finalPayment: required ? FINAL_PAYMENT_TEXT : PAY_ON_THE_DAY_TEXT,
   };
 }
 

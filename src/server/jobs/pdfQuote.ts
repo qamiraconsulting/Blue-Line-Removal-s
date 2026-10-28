@@ -1,5 +1,5 @@
 import { site } from "../../data/site.js";
-import { BOOKING_TERMS, formatArrivalTime } from "../quote/bookingEmails.js";
+import { BOOKED_DAY_NOTE, formatArrivalTime } from "../quote/bookingEmails.js";
 import { esc, firstName, formatAud, NAVY, shell, type EmailContent } from "../quote/emails.js";
 import type { QuoteLines } from "./lines.js";
 
@@ -71,8 +71,9 @@ export function introLines(job: PdfQuoteJob): string[] {
       ? `Good news -- your move is booked for ${when}. Your confirmed quote is attached (reference ${job.reference}).`
       : `Your quote from ${site.name} is attached (reference ${job.reference}${job.validUntil ? `, valid until ${pdfDate(job.validUntil)}` : ""}).`,
     ...(job.note ? [`A note from our team: ${job.note}`] : []),
-    // Booked on the estimate: the final charges are still confirmed at the move-day inspection.
-    ...(job.kind === "booked" ? [BOOKING_TERMS] : []),
+    // Booked on the estimate: the final charges are still confirmed at the move-day inspection
+    // (a short note, Ayesha 2026-10-28; the full terms are what the customer agreed to in the chat).
+    ...(job.kind === "booked" ? [BOOKED_DAY_NOTE] : []),
   ];
 }
 

@@ -15,10 +15,11 @@ import {
 } from "./bookingEmails.js";
 import type { InternalBreakdown, PropertySizeId } from "./calculateQuote.js";
 import { formatDateLabel, type QuoteDetails } from "./emails.js";
+import { nearestTimes } from "../../lib/startTimes.js";
 import { depositFor, type DepositInfo } from "./deposit.js";
 import { DEPOSIT_LINK_HOURS, depositCheckoutFor, type DepositPaymentDeps } from "../payments/depositPayment.js";
 import type { RateCard } from "./rateCard.js";
-import { customerRecipient, melbourneToday, SIZE_LABEL, type DriverNotifier, type OutgoingEmail } from "./service.js";
+import { customerRecipient, melbourneToday, SIZE_LABEL, type CustomerNotifier, type DriverNotifier, type OutgoingEmail } from "./service.js";
 
 // Booking on an estimate -- from the chat or the website form. The team inspects on the move
 // day itself, so the customer books on the estimate and the final charges are confirmed on the
@@ -99,6 +100,8 @@ export interface BookingDeps {
   demoDepositLink?: (reference: string) => string;
   /** Emails the truck's driver once the booking is on the calendar. */
   notifyDriver?: DriverNotifier;
+  /** Emails the customer their booking details the day before the move. */
+  notifyCustomer?: CustomerNotifier;
   now?: () => Date;
 }
 
@@ -128,7 +131,15 @@ export type AvailabilityToolResult =
       /** The team has set up arrival times and this day can take online bookings. */
       onlineBookingOpen: boolean;
       why?: string;
+      /** Every free arrival time -- only when there are a few; otherwise use suggestedTimes. */
       availableTimes: string[];
+      /** How many arrival times are free that day. */
+      freeTimeCount: number;
+      /** The time the customer asked for, and whether it is free. */
+      requestedTime?: string;
+      requestedTimeFree?: boolean;
+      /** Up to 3 free times to offer: the nearest to the one asked for, or a spread across the day. */
+      suggestedTimes: string[];
       /** The available times that would be confirmed on the spot (the rest: the team confirms). */
       instantTimes: string[];
       /** Whether booking this date needs the $100 deposit. */
@@ -197,6 +208,8 @@ function calendarRow(q: StoredQuote, job: JobRequest, arrivalTime: string, truck
     customerName: q.customerName,
     phone: q.phone,
     customerEmail: q.email,
+    // The customer gets the day-before email with their booking details (Ayesha, 2026-10-28).
+    customerNoticeWanted: Boolean(q.email),
     fromText: q.fromText,
     toText: q.toText,
     notes,
@@ -227,7 +240,10 @@ async function bookableQuote(
 }
 
 /** Chat: which arrival times are free for this estimate's date, truck and crew. */
-export async function availabilityForQuote(input: { reference: string } & BookingAuth, deps: BookingDeps): Promise<AvailabilityToolResult> {
+/** More free times than this and the chat gets suggestions instead of the whole list. */
+const LIST_ALL_UP_TO = 6;
+
+export async function availabilityForQuote(input: { reference: string; preferredTime?: string } & BookingAuth, deps: BookingDeps): Promise<AvailabilityToolResult> {
   const checked = await bookableQuote(input.reference, input, deps);
   if (!checked.ok) return checked;
   const { q, nowLocal } = checked;
@@ -235,12 +251,17 @@ export async function availabilityForQuote(input: { reference: string } & Bookin
   if (!job) return { ok: false, reason: "no_estimate", error: "This estimate can't be booked online; the team will arrange it." };
 
   const result = checkAvailability(job, { ...(await deps.bookings.loadCapacity(job.date)), nowLocal });
+  const free = result.slots.filter((s) => s.available).map((s) => s.time);
+  const wanted = input.preferredTime && /^\d{2}:\d{2}$/.test(input.preferredTime) ? input.preferredTime : undefined;
   return {
     ok: true,
     date: job.date,
     onlineBookingOpen: result.dayOpen,
     why: result.dayOpen ? undefined : DAY_CLOSED_WORDS[result.dayReason ?? "not_set_up"],
-    availableTimes: result.slots.filter((s) => s.available).map((s) => s.time),
+    availableTimes: free.length <= LIST_ALL_UP_TO ? free : [],
+    freeTimeCount: free.length,
+    ...(wanted ? { requestedTime: wanted, requestedTimeFree: free.includes(wanted) } : {}),
+    suggestedTimes: nearestTimes(free, wanted),
     // A booking with a deposit is never confirmed on the spot: the team confirms once it's paid.
     instantTimes: result.dayOpen && result.instantConfirm && !depositFor(job.date, nowLocal.slice(0, 10), null).required ? result.slots.filter((s) => s.available && !s.substituteTruckType).map((s) => s.time) : [],
     deposit: depositFor(job.date, nowLocal.slice(0, 10), null),
@@ -277,7 +298,7 @@ export async function requestBooking(
       const slot = check.slots.find((s) => s.time === arrivalTime);
       const availableTimes = check.slots.filter((s) => s.available).map((s) => s.time);
       if (!slot?.available) {
-        return { ok: false, reason: "time_unavailable", error: "That arrival time isn't available -- offer one of the available times.", availableTimes };
+        return { ok: false, reason: "time_unavailable", error: "That arrival time isn't available -- offer one of these free times instead.", availableTimes: nearestTimes(availableTimes, arrivalTime) };
       }
 
       if (slot.substituteTruckType) {
@@ -308,8 +329,8 @@ export async function requestBooking(
         return {
           ok: false,
           reason: "time_unavailable",
-          error: "That arrival time was just taken -- offer one of the available times.",
-          availableTimes: fresh.slots.filter((s) => s.available).map((s) => s.time),
+          error: "That arrival time was just taken -- offer one of these free times instead.",
+          availableTimes: nearestTimes(fresh.slots.filter((s) => s.available).map((s) => s.time), arrivalTime),
         };
       }
     }
@@ -368,9 +389,46 @@ async function sendBookedNotices(q: StoredQuote, date: string, arrivalTime: stri
       deps,
     ),
   ]);
-  // The truck's driver gets the job's details (never throws, never undoes the booking).
+  // The truck's driver gets the job's details, and the customer the day-before email (both wait
+  // for the day before the move; never throw, never undo the booking).
   await deps.notifyDriver?.({ quoteReference: q.reference }).catch(() => undefined);
+  await deps.notifyCustomer?.({ quoteReference: q.reference }).catch(() => undefined);
   return customer.emailed;
+}
+
+/**
+ * Chat: emails the customer a copy of an estimate from this chat (the branded PDF quote, or a
+ * plain email). The chat no longer emails every estimate (Ayesha, 2026-10-28): the customer sees
+ * it in the chat, and the booked email repeats it with the PDF. It offers a copy when they don't
+ * book there and then.
+ */
+export async function emailEstimateCopy(input: { reference: string } & BookingAuth, deps: BookingDeps): Promise<{ ok: true; emailed: boolean } | { ok: false; reason: Problem; error: string }> {
+  const checked = await bookableQuote(input.reference, input, deps);
+  if (!checked.ok) return checked;
+  const { q } = checked;
+  const card = q.rateCardSnapshot as Pick<RateCard, "gst" | "trucks">;
+  const lines = linesFromEstimate(q.internalBreakdown as InternalBreakdown, q.amountAud!, card);
+  const sent = await sendCustomerQuote(
+    {
+      kind: "quote",
+      to: q.email,
+      reference: q.reference,
+      customerName: q.customerName,
+      email: q.email,
+      phone: q.phone,
+      movingDate: q.movingDate,
+      arrivalTime: null,
+      from: q.fromText ?? "",
+      toAddress: q.toText ?? "",
+      lines,
+      truckLabel: lines.truck ? (card.trucks?.[lines.truck]?.label ?? lines.truck) : null,
+      note: null,
+      validUntil: q.validUntil,
+      testMode: q.rateCardStatus !== "confirmed",
+    },
+    deps,
+  );
+  return { ok: true, emailed: sent.emailed };
 }
 
 export type PaidBookingOutcome =
