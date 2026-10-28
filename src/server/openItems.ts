@@ -187,9 +187,9 @@ export const openItems: OpenItem[] = [
   {
     id: "sign-off",
     topic: "pricing",
-    question: "Blue Line signs off the complete rate card; then flip its status to 'confirmed'.",
-    meanwhile: "Figures only appear in preview test mode and are never emailed to customers.",
-    status: "to_ask",
+    question: "Blue Line signs off the complete rate card; then flip its status to 'confirmed'. Approved 28 Oct (Ayesha sent Blue Line the price summary).",
+    meanwhile: "Status is 'confirmed': real prices. On the test link customer emails still go to the test inbox only.",
+    status: "answered",
   },
   {
     id: "call-out-fee",

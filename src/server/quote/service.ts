@@ -541,8 +541,12 @@ export async function handleQuoteRequest(
   };
 }
 
-/** Where a customer email goes: the customer -- or, for test figures, the preview's test inbox (or nowhere). */
+/**
+ * Where a customer email goes: the customer -- or, for test figures, the preview's test inbox (or nowhere).
+ * testEmailTo is only ever set on previews, and there every customer email goes to it, real prices
+ * included: the test link never emails a real customer.
+ */
 export function customerRecipient(email: string, testMode: boolean, testEmailTo: string | null | undefined): string | null {
-  if (!testMode) return email;
-  return testEmailTo || null;
+  if (testEmailTo) return testEmailTo;
+  return testMode ? null : email;
 }

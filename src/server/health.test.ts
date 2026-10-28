@@ -36,7 +36,7 @@ describe("/api/health", () => {
       email: true,
       chatAssistant: false,
       adminDashboard: false, // a Clerk key alone isn't enough without ADMIN_USER_IDS
-      rateCard: { status: "placeholder" },
+      rateCard: { status: "confirmed" }, // Blue Line approved the prices (28 Oct)
     });
     expect(JSON.stringify(body)).not.toMatch(/re_secret_value|sk_secret|quotes@example\.com/);
   });

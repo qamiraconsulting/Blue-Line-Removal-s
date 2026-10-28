@@ -30,7 +30,6 @@ the "Meanwhile" column says: it never guesses.
 | `stripe-account` | Blue Line opens a Stripe account (ABN, owner ID, payout BSB + account), requests PayTo, switches on receipts, gives Qamira Developer access. Plain bank transfer dropped (16 Oct) | Testing on Qamira's Stripe test account; no keys = team sends a link |
 | `junk-removal-pricing` | Junk removal: always a personal quote, or a price list? | Goes to the team |
 | `commercial-moves` | Office moves: always a personal quote? | Goes to the team |
-| `sign-off` | Blue Line signs off the complete rate card (then status → confirmed) | Test figures only, never emailed |
 | `whatsapp-alerts` | WhatsApp Business Platform/Cloud API (for automatic alerts), or just the app? | Email alerts + dashboard |
 | `admin-users` | Who at Blue Line needs dashboard access? | Only listed user IDs get in |
 | `faq-facts` | Insurance, deposit/payment, cancellation, working hours | Chat hands to the team |
@@ -62,6 +61,7 @@ the "Meanwhile" column says: it never guesses.
 
 | Item | Answer | Handling |
 |---|---|---|
+| `sign-off` | Blue Line approved the price summary (28 Oct) | Rate card status is "confirmed": real prices. On the test link customer emails still go to the test inbox only |
 | `call-out-fee` | No call-out is charged by the chatbot or the website estimate (Ayesha's manager, 28 Oct) | No call-out line or charge; nothing in Settings. Matt's own quotes keep his sheet's call-out |
 | `part-a-confirm` | Blue Line accepted Part A (25 Oct); the call-out point is settled (28 Oct) | In the rate card; the final sign-off is `sign-off` |
 | `long-carry-distance` | Long carry ($40) always applies at an apartment pick-up and drop-off, and at any end where the truck can't park within 50 m of the door; once per end (Blue Line reply 25 Oct, replaces the 100 m rule of 16 Oct) | The server adds it (chat asks apartment per end and parking over 50 m for houses) |

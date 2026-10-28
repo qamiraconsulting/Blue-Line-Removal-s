@@ -103,12 +103,12 @@ export type RateCard = z.infer<typeof rateCardSchema>;
  *  - B6 free wrapping of furniture (bubble wrap, shrink wrap, blankets); boxes are charged
  *
  * Call-out: never charged by the chatbot or the website estimate (Ayesha's manager, 28 Oct).
- * `status` stays "placeholder" (test figures only) until Blue Line signs the card off.
+ * Blue Line approved the price summary (Ayesha, 28 Oct), so `status` is "confirmed": real prices.
  * Still open (src/server/openItems.ts): the heavy-items list (B3) and the WhatsApp number (B8).
  */
 export const blrRateCard: RateCard = {
   version: "blr-email-2026-10-25",
-  status: "placeholder",
+  status: "confirmed",
 
   trucks: {
     "4.5T": { label: "4.5 tonne truck", hourlyRateAud: 130 },

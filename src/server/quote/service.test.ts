@@ -273,14 +273,16 @@ describe("personal quote straight from the chat (the team prices it)", () => {
 describe("placeholder rate card in dev/preview", () => {
   const placeholder: RateCard = { ...card, status: "placeholder" };
 
-  it("Blue Line's real card, still on test status: a TEST price on screen only, never emailed to the customer; in production it goes to a person", async () => {
-    const test = setup({ rateCard: blrRateCard, allowPlaceholderRateCard: true });
-    expect(result(await test.run(goodBody))).toMatchObject({ kind: "price", testMode: true, emailed: false });
-    expect(test.sent.filter((e) => e.kind === "customer")).toHaveLength(0);
-
+  it("Blue Line's real card is confirmed (28 Oct): a real price, emailed to the customer", async () => {
     const live = setup({ rateCard: blrRateCard });
-    expect(result(await live.run(goodBody)).kind).toBe("manual");
-    expect(live.sent.find((e) => e.kind === "team")!.text).toContain("rate_card_not_confirmed");
+    expect(result(await live.run(goodBody))).toMatchObject({ kind: "price", testMode: false, emailed: true });
+    expect(live.sent.find((e) => e.kind === "customer")!.to).toBe("jane@example.com");
+  });
+
+  it("on the test link (a test inbox is set) a real price is still only emailed to the test inbox", async () => {
+    const preview = setup({ rateCard: blrRateCard, testEmailTo: "tester@example.com" });
+    expect(result(await preview.run(goodBody))).toMatchObject({ kind: "price", testMode: false });
+    expect(preview.sent.filter((e) => e.kind === "customer").map((e) => e.to)).toEqual(["tester@example.com"]);
   });
 
   it("refuses to price unless explicitly allowed", async () => {

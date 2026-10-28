@@ -237,8 +237,8 @@ describe("Blue Line's real rate card (Ayesha's email of 12 Oct 2026, Part A)", (
     expect(blrRateCard.serviceArea).toMatchObject({ maxPickupFromDepotKm: 120, maxMoveKm: 120 });
   });
 
-  it("stays on test status until Blue Line signs the numbers off", () => {
-    expect(blrRateCard.status).toBe("placeholder");
+  it("is confirmed: Blue Line approved the price summary (28 Oct)", () => {
+    expect(blrRateCard.status).toBe("confirmed");
   });
 
   it("prices hand-checked jobs on the real card (test mode)", () => {
@@ -262,9 +262,9 @@ describe("Blue Line's real rate card (Ayesha's email of 12 Oct 2026, Part A)", (
     expect(run({ propertySize: "2_bed", access: { ...base.access, pickupLongCarry: true } }).amountAud).toBe(540);
   });
 
-  it("is still refused without the test-mode allowance (never prices in production)", () => {
+  it("prices in production too, now that it's confirmed (no test-mode allowance needed)", () => {
     const out = calculateQuote({ ...base, propertySize: "2_bed" }, getActiveRateCard());
-    expect(out.kind).toBe("manual");
+    expect(out).toMatchObject({ kind: "price", amountAud: 500 });
   });
 
   it("sends moves beyond 120 km to the team", () => {
@@ -275,10 +275,8 @@ describe("Blue Line's real rate card (Ayesha's email of 12 Oct 2026, Part A)", (
     expect(far({ depotToPickup: { km: 120, minutes: 90 }, pickupToDropoff: { km: 120, minutes: 90 } }).kind).toBe("price");
   });
 
-  it("all of Part B is now filled in, so the card can estimate in test mode -- but never counts as confirmed", () => {
-    expect(manual({}, blrRateCard)).toBe("rate_card_not_confirmed"); // production: refused
-    const out = calculateQuote(base, blrRateCard, { allowPlaceholderRateCard: true });
-    expect(out.kind).toBe("price");
+  it("all of Part B is filled in and signed off, so the card estimates without any allowance", () => {
+    expect(calculateQuote(base, blrRateCard).kind).toBe("price");
   });
 });
 
@@ -293,7 +291,7 @@ describe("placeholder rate card safety latch", () => {
     expect(calculateQuote(base, placeholder, { allowPlaceholderRateCard: true }).kind).toBe("price");
   });
 
-  it("the shipped card is not yet signed off", () => {
-    expect(blrRateCard.status).toBe("placeholder");
+  it("a card set back to placeholder would be refused again (the latch still works)", () => {
+    expect(manual({}, { ...blrRateCard, status: "placeholder" })).toBe("rate_card_not_confirmed");
   });
 });
