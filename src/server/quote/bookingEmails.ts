@@ -7,12 +7,16 @@ import { esc, firstName, formatAud, formatDateLabel, NAVY, ORANGE, shell, type E
 // must agree to BOOKING_TERMS in the chat before a booking request is taken; the exact text
 // and its version are stored with the booking.
 
-export const BOOKING_TERMS_VERSION = "2026-10-12";
+export const BOOKING_TERMS_VERSION = "2026-10-28";
 /** In the "your move is booked" email, in place of the full terms (Ayesha, 2026-10-28). */
 export const BOOKED_DAY_NOTE = "On the day, before we start, our team will check what's being moved and the access, and confirm the final charges with you (if needed).";
 
+/** Blue Line, 28 Oct: cancellations only by phone, at least 72 hours before the move day. */
+export const CANCELLATION_POLICY = "To cancel or change your booking, please call us at least 72 hours before your move day. Cancellations are only taken by phone.";
+
 export const BOOKING_TERMS =
-  "Your booking is made on the estimate above. On the day of your move, before we start, our team will inspect what's being moved, the access and the parking, and confirm the final charges with you. The final price may vary depending on the actual hours worked, inventory, access, stairs, parking and any special requirements.";
+  "Your booking is made on the estimate above. On the day of your move, before we start, our team will inspect what's being moved, the access and the parking, and confirm the final charges with you. The final price may vary depending on the actual hours worked, inventory, access, stairs, parking and any special requirements. " +
+  CANCELLATION_POLICY;
 
 export interface BookingEmailInput {
   name: string;

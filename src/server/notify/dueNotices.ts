@@ -5,15 +5,18 @@ import { getDb } from "../db/client.js";
 import { bookings } from "../db/schema.js";
 import { syncCustomerNoticeSafely, type CustomerNoticeDeps } from "./customerNotice.js";
 import { syncDriverNoticeSafely, type DriverNoticeDeps } from "./driverNotice.js";
+import { sendNoDriverAlerts, type NoDriverAlertDeps } from "./noDriverAlert.js";
 
 // The hourly job (api/cron/notices.ts) and the dashboard's "Send due emails now" button: finds
 // the confirmed bookings whose driver or customer email hasn't gone out yet and whose day-before
 // has come, and sends them. Safe to run as often as you like -- an email already sent is never
-// repeated (see driverNotice.ts / customerNotice.ts).
+// repeated (see driverNotice.ts / customerNotice.ts). Also emails the team about jobs that still
+// have no driver 2 days before the move (noDriverAlert.ts).
 
 export interface DueNoticeDeps {
   driver: DriverNoticeDeps;
   customer: CustomerNoticeDeps;
+  noDriver?: NoDriverAlertDeps;
   now?: () => Date;
 }
 
@@ -21,6 +24,8 @@ export interface DueNoticeSummary {
   checked: number;
   driverEmails: number;
   customerEmails: number;
+  /** Jobs the team was just told have no driver yet. */
+  noDriverJobs: number;
 }
 
 export async function sendDueNotices(deps: DueNoticeDeps): Promise<DueNoticeSummary> {
@@ -40,12 +45,19 @@ export async function sendDueNotices(deps: DueNoticeDeps): Promise<DueNoticeSumm
       ),
     );
 
-  const summary: DueNoticeSummary = { checked: pending.length, driverEmails: 0, customerEmails: 0 };
+  const summary: DueNoticeSummary = { checked: pending.length, driverEmails: 0, customerEmails: 0, noDriverJobs: 0 };
   for (const { id } of pending) {
     const d = await syncDriverNoticeSafely({ bookingId: id }, { ...deps.driver, now: deps.now }, { mode: "cron" });
     if (d.status === "sent") summary.driverEmails += 1;
     const c = await syncCustomerNoticeSafely({ bookingId: id }, { ...deps.customer, now: deps.now }, { mode: "cron" });
     if (c.status === "sent") summary.customerEmails += 1;
+  }
+  if (deps.noDriver) {
+    try {
+      summary.noDriverJobs = await sendNoDriverAlerts(deps.noDriver, today, now);
+    } catch (err) {
+      console.error("No-driver alert failed:", err instanceof Error ? err.message : "unknown error");
+    }
   }
   return summary;
 }

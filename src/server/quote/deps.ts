@@ -6,6 +6,7 @@ import { dbDriverNoticeStore, syncDriverNoticeSafely } from "../notify/driverNot
 import { sendDueNotices } from "../notify/dueNotices.js";
 import { demoDepositLinkFor } from "../payments/demoLink.js";
 import { dbDepositStore, siteUrlFrom } from "../payments/depositPayment.js";
+import { dbNoDriverStore, DEFAULT_DISPATCH_ALERT_EMAIL } from "../notify/noDriverAlert.js";
 import { stripeConfigFrom } from "../payments/stripe.js";
 import { getActiveRateCard } from "./rateCard.js";
 import { melbourneToday, type OutgoingEmail, type QuoteServiceDeps } from "./service.js";
@@ -67,11 +68,18 @@ export function buildQuoteDeps(env: Env = process.env): QuoteServiceDeps | null 
   const nonProduction = env.VERCEL_ENV !== "production";
   const driverNotice = { store: dbDriverNoticeStore, sendEmail, replyTo: site.email, testEmailTo, nonProduction };
   const customerNotice = { store: dbCustomerNoticeStore, sendEmail, replyTo: site.email, testEmailTo, nonProduction };
+  // A job with no driver 2 days before the move (Blue Line, 28 Oct). Previews alert the test inbox.
+  const noDriver = {
+    store: dbNoDriverStore,
+    sendEmail,
+    to: (nonProduction && testEmailTo) || env.DISPATCH_ALERT_EMAIL || DEFAULT_DISPATCH_ALERT_EMAIL,
+    dashboardUrl: `${siteUrlFrom(env)}/admin/trips`,
+  };
 
   return {
     notifyDriver: databaseConfigured ? (target) => syncDriverNoticeSafely(target, driverNotice) : undefined,
     notifyCustomer: databaseConfigured ? (target) => syncCustomerNoticeSafely(target, customerNotice) : undefined,
-    sendDueNotices: databaseConfigured ? () => sendDueNotices({ driver: driverNotice, customer: customerNotice }) : undefined,
+    sendDueNotices: databaseConfigured ? () => sendDueNotices({ driver: driverNotice, customer: customerNotice, noDriver }) : undefined,
     rateCard: getActiveRateCard(),
     allowPlaceholderRateCard,
     routes: env.GOOGLE_MAPS_SERVER_KEY ? { apiKey: env.GOOGLE_MAPS_SERVER_KEY } : null,

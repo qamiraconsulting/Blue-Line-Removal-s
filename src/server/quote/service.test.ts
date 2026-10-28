@@ -111,9 +111,32 @@ describe("a normal quote", () => {
   it("accepts a chosen truck and crew as the form sends them (strings)", async () => {
     const { run, store } = setup();
     // 2 bed + 4 movers = $1510; 10T = $920 (hand-checked in the engine tests)
-    expect(result(await run({ ...goodBody, movers: "4" }))).toMatchObject({ kind: "price", amountAud: 1510 });
+    expect(result(await run({ ...goodBody, truck: "6-8T", movers: "4" }))).toMatchObject({ kind: "price", amountAud: 1510 });
     expect(result(await run({ ...goodBody, email: "b@x.com", truck: "10T" }))).toMatchObject({ kind: "price", amountAud: 920 });
-    expect(store!.rows[0]).toMatchObject({ propertySize: "2_bed", movers: 4, truck: null });
+    expect(store!.rows[0]).toMatchObject({ propertySize: "2_bed", movers: 4, truck: "6-8T" });
+  });
+
+  it("Blue Line's crews (28 Oct): a truck gets its set crew, and a crew it doesn't come with is refused", async () => {
+    const { run, store } = setup({ rateCard: blrRateCard });
+    // a large truck on its own comes with 3 movers
+    expect(result(await run({ ...goodBody, truck: "10T" }))).toMatchObject({ kind: "price" });
+    expect(store!.rows[0]).toMatchObject({ truck: "10T", movers: 3 });
+    // 3 movers with the small or medium truck isn't offered; movers without a truck neither
+    for (const body of [{ truck: "4.5T", movers: 3 }, { truck: "6-8T", movers: 3 }, { movers: 3 }]) {
+      const out = await run({ ...goodBody, email: "c@x.com", ...body });
+      expect(out.status).toBe(400);
+      expect(JSON.stringify(out.body)).toContain("We offer: 4.5 tonne truck with 2 movers, 6-8 tonne truck with 2 movers, 10 tonne truck with 3 movers");
+    }
+  });
+
+  it("each heavy item the customer names is charged at the heavy-item price (Blue Line, 28 Oct)", async () => {
+    const { run } = setup();
+    const plain = result(await run(goodBody));
+    const heavy = result(await run({ ...goodBody, email: "h@x.com", heavyItems: 2 }));
+    if (plain.kind !== "price" || heavy.kind !== "price") throw new Error("expected prices");
+    // 2 x $80, plus GST, rounded to $10
+    expect(heavy.amountAud - plain.amountAud).toBeGreaterThanOrEqual(170);
+    expect(heavy.amountAud - plain.amountAud).toBeLessThanOrEqual(180);
   });
 
   it("'let the team inspect' is estimated on the guide and stored as an inspection request", async () => {

@@ -48,9 +48,9 @@ export const openItems: OpenItem[] = [
   {
     id: "heavy-items",
     topic: "pricing",
-    question: "Which items count as heavy ($80)? Are there any items Blue Line won't move? Reply 25 Oct: only 'marble table (100 kg)' so far; Lovejeet is to share the full list with the team.",
-    meanwhile: "Heavy items are only captured in the customer's free-text access notes; not priced.",
-    status: "asked",
+    question: "Which items count as heavy ($80)? Answered 28 Oct (Blue Line): no list -- whatever the customer says is heavy counts, and the chat charges it.",
+    meanwhile: "The chat asks about heavy items and charges $80 for each one the customer names (heavyItems); the items are listed in the access notes.",
+    status: "answered",
     ref: "Reply 25 Oct, B3 (list to follow from Lovejeet)",
   },
   {
@@ -81,8 +81,8 @@ export const openItems: OpenItem[] = [
     id: "whatsapp-number",
     topic: "operations",
     question: "A WhatsApp Business number to show on the website.",
-    meanwhile: "Website shows phone only.",
-    status: "asked",
+    meanwhile: "Parked by Blue Line (28 Oct) -- to add later. The website shows the phone only.",
+    status: "answered",
     ref: "Email 12 Oct, B8",
   },
   {
@@ -110,30 +110,29 @@ export const openItems: OpenItem[] = [
     topic: "legal",
     question:
       "Approve the booking terms the customer agrees to in the chat (bookingEmails.ts BOOKING_TERMS): booking on the estimate, team inspects on the move day before starting and confirms the final charges.",
-    meanwhile: "The chat shows the draft terms word for word and stores the exact text each customer agreed to.",
+    meanwhile: "The chat shows the terms word for word and stores the exact text each customer agreed to. 28 Oct: Blue Line's cancellation rule added (call at least 72 hours before; by phone only); the rest of the wording wasn't commented on.",
     status: "to_ask",
   },
   {
     id: "capacity-setup",
     topic: "operations",
-    question:
-      "Blue Line fills in Settings on the dashboard: trucks (size each), working days, arrival times offered, end of day, gap between jobs, movers per day, minimum notice -- and keeps every phone booking in the calendar. Then decide whether to switch instant confirmation on.",
-    meanwhile: "Instant confirmation is off; every chat booking is a request the team confirms on the dashboard.",
-    status: "to_ask",
+    question: "Blue Line's normal day for Settings. Answered 28 Oct: 7am to 9pm every day; the team keeps every booking (manual ones too) in the system.",
+    meanwhile: "Settings: every day, start times from 7:00am every 30 minutes, jobs must finish by 9pm; instant confirmation on.",
+    status: "answered",
   },
   {
     id: "existing-booking-tool",
     topic: "operations",
-    question: "Does Blue Line keep bookings in another calendar or tool today? If so, either enter them on the dashboard too, or we connect to it -- otherwise instant confirmation could double-book.",
-    meanwhile: "Only bookings in the dashboard calendar count.",
-    status: "to_ask",
+    question: "Does Blue Line keep bookings in another calendar or tool today? Answered 28 Oct: the team will make sure every booking, manual ones included, is in the system.",
+    meanwhile: "Only bookings on the dashboard count -- the team adds phone and other bookings on Booking and trucks.",
+    status: "answered",
   },
   {
     id: "cancellation-policy",
     topic: "legal",
-    question: "Deposit and cancellation/rescheduling policy for bookings (needed in the booking terms, especially before instant confirmation).",
-    meanwhile: "No deposit is taken; cancellations are handled by phone; the customer isn't emailed when the team cancels.",
-    status: "to_ask",
+    question: "Cancellation/rescheduling policy. Answered 28 Oct: call at least 72 hours before the booking day; cancellations only by phone.",
+    meanwhile: "In the booking terms, the booked email and the chat (CANCELLATION_POLICY). The chat can't cancel; it gives the phone number.",
+    status: "answered",
   },
   {
     id: "truck-gps",
@@ -152,9 +151,9 @@ export const openItems: OpenItem[] = [
   {
     id: "crew-choice-hours",
     topic: "pricing",
-    question: "If a customer picks a different truck or more/fewer movers than the guide, should the hours change (e.g. 4 movers finish faster)?",
-    meanwhile: "The guide's hours are used whatever truck/crew the customer picks.",
-    status: "to_ask",
+    question: "If a customer picks a different truck or crew than the guide, do the hours change? Answered 28 Oct: the crew isn't a choice -- 3 movers only with the 10T truck; the 4.5T and 6-8T come with 2.",
+    meanwhile: "Rate card allowedMovers: 4.5T and 6-8T = 2 movers, 10T = 3. The chat only offers those and explains if asked for another crew; the server refuses others. The guide's hours are used.",
+    status: "answered",
   },
   {
     id: "deposit-terms",
@@ -216,15 +215,15 @@ export const openItems: OpenItem[] = [
   {
     id: "admin-users",
     topic: "operations",
-    question: "Who at Blue Line needs dashboard access? Each person signs in once, then their Clerk user ID goes in ADMIN_USER_IDS.",
-    meanwhile: "Only user IDs listed in ADMIN_USER_IDS can open the dashboard.",
-    status: "to_ask",
+    question: "Who at Blue Line needs dashboard access? Answered 28 Oct: Irfan, Ayesha, Lovejeet, Lovepreet and Juned full access; Matt limited (bookings, trucks, drivers per job, cancel -- no Settings). Matt's email still to come.",
+    meanwhile: "Access by verified email: ADMIN_EMAILS (full) and ADMIN_LIMITED_EMAILS (Matt) in Vercel; ADMIN_USER_IDS still works. The server refuses Settings changes from limited users.",
+    status: "answered",
   },
   {
     id: "faq-facts",
     topic: "content",
     question: "Facts the chat may share: insurance cover, deposit/payment terms, cancellation policy, working hours/days.",
-    meanwhile: "The chat says it will get the team to confirm and hands over.",
+    meanwhile: "Cancellations (72 hours, by phone) and working hours (7am-9pm daily) are known now; for insurance and anything else the chat says it will get the team to confirm and hands over.",
     status: "to_ask",
   },
   {
@@ -284,8 +283,8 @@ export const openItems: OpenItem[] = [
   {
     id: "driver-details",
     topic: "operations",
-    question: "Enter each driver's name, mobile and email under Settings > Drivers, and give every truck its usual driver. Drivers are emailed the job (date, time, pick-up, drop-off, customer details) when a booking is confirmed.",
-    meanwhile: "A truck with no usual driver, or a driver with no email, means nobody is told; the dashboard says so next to the trip.",
+    question: "Enter each driver's name, mobile and email under Settings > Drivers. Drivers are picked per job on Booking and trucks (Blue Line, 28 Oct) -- no usual driver per truck -- and emailed the job the day before the move.",
+    meanwhile: "A job with no driver 2 days before the move is flagged in red on Booking and trucks and the team is emailed (bluelineremovalsau@gmail.com, or DISPATCH_ALERT_EMAIL). A driver with no email isn't told; the dashboard says so.",
     status: "internal",
   },
   {

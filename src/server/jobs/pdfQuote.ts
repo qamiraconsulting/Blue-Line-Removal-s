@@ -1,5 +1,5 @@
 import { site } from "../../data/site.js";
-import { BOOKED_DAY_NOTE, formatArrivalTime } from "../quote/bookingEmails.js";
+import { BOOKED_DAY_NOTE, CANCELLATION_POLICY, formatArrivalTime } from "../quote/bookingEmails.js";
 import { esc, firstName, formatAud, NAVY, shell, type EmailContent } from "../quote/emails.js";
 import type { QuoteLines } from "./lines.js";
 
@@ -73,7 +73,7 @@ export function introLines(job: PdfQuoteJob): string[] {
     ...(job.note ? [`A note from our team: ${job.note}`] : []),
     // Booked on the estimate: the final charges are still confirmed at the move-day inspection
     // (a short note, Ayesha 2026-10-28; the full terms are what the customer agreed to in the chat).
-    ...(job.kind === "booked" ? [BOOKED_DAY_NOTE] : []),
+    ...(job.kind === "booked" ? [BOOKED_DAY_NOTE, `${CANCELLATION_POLICY} Phone: ${site.phone.display}.`] : []),
   ];
 }
 

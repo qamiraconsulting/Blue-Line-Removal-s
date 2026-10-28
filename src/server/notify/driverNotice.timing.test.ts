@@ -8,7 +8,6 @@ import { driverNoticeLine, syncDriverNotice, type DriverNoticeStore, type TripFo
 
 const SAM: DriverLike = { id: "d-sam", name: "Sam Patel", phone: null, email: "sam@example.com", active: true };
 const PAT: DriverLike = { id: "d-pat", name: "Pat Lee", phone: null, email: "pat@example.com", active: true };
-const TRUCKS = [{ id: "t-baby", driverId: SAM.id }];
 
 // Sun 18 Oct, 1pm in Melbourne. A move on Tue 20 Oct is due on Mon 19 Oct; the hourly job sends it from 9am.
 const NOW = new Date("2026-10-18T02:00:00Z");
@@ -31,7 +30,7 @@ const trip = (over: Partial<TripForNotice> = {}): TripForNotice => ({
   fromText: "4/12 Station St, Preston VIC 3072",
   toText: "5 High St, Brunswick VIC 3056",
   notes: null,
-  driver: resolveDriver({ truckId: "t-baby" }, TRUCKS, [SAM, PAT]),
+  driver: resolveDriver({ driverId: SAM.id }, [SAM, PAT]),
   testMode: false,
   previous: null,
   ...over,
@@ -87,7 +86,7 @@ describe("the driver's first email waits for the day before the move", () => {
   it("a different driver before it goes out gets the job; the first driver is never emailed", async () => {
     const { deps, sent, change } = setup(trip());
     await syncDriverNotice({ bookingId: "b-1" }, deps);
-    change({ driver: resolveDriver({ truckId: "t-baby", driverId: PAT.id }, TRUCKS, [SAM, PAT]) });
+    change({ driver: resolveDriver({ driverId: PAT.id }, [SAM, PAT]) });
     await syncDriverNotice({ bookingId: "b-1" }, deps);
     await syncDriverNotice({ bookingId: "b-1" }, { ...deps, ...at(NINE_AM_19TH) }, { mode: "cron" });
     expect(sent.map((e) => e.to)).toEqual(["pat@example.com"]);

@@ -9,6 +9,7 @@ import { useJobs } from "./useJobs";
 //    form. Review (change anything, with a note), confirm -- it goes in the calendar and the
 //    customer gets their confirmed PDF quote.
 //  - Waiting for a quote: requests the form or chat couldn't price. Edit & send the quote.
+//  - Estimates & quotes not booked yet: follow-ups (moved here from Overview, Blue Line 28 Oct).
 //  - Chats that need a person.
 
 interface LeadRow {
@@ -48,6 +49,7 @@ export default function Dashboard() {
   };
   const requests = data?.jobs.filter((j) => j.status === "booking_requested") ?? [];
   const waiting = data?.jobs.filter((j) => j.status === "waiting_for_quote") ?? [];
+  const notBooked = data?.jobs.filter((j) => j.status === "estimate_sent" || j.status === "quoted") ?? [];
 
   return (
     <div>
@@ -78,6 +80,17 @@ export default function Dashboard() {
         {data && waiting.length === 0 && <p className="mt-6 text-sm text-slate-500">Nothing waiting right now.</p>}
         <ul className="mt-6 space-y-3">
           {waiting.map((j) => (
+            <JobCard key={j.reference} job={j} onChanged={changed} />
+          ))}
+        </ul>
+      </section>
+
+      <section className="mb-10">
+        <h2 className="font-display text-2xl font-bold text-navy">Estimates &amp; quotes not booked yet</h2>
+        <p className="mt-1 text-sm text-slate-600">Customers who got a price but haven&apos;t booked. Follow them up -- if they accept by phone, use &quot;Book it&quot;.</p>
+        {data && notBooked.length === 0 && <p className="mt-6 text-sm text-slate-500">None open.</p>}
+        <ul className="mt-6 space-y-3">
+          {notBooked.map((j) => (
             <JobCard key={j.reference} job={j} onChanged={changed} />
           ))}
         </ul>

@@ -95,6 +95,9 @@ export const quoteRequestSchema = z.object({
   dropoffApartment: z.boolean().optional().default(false),
   pickupParkingOver50m: z.boolean().optional().default(false),
   dropoffParkingOver50m: z.boolean().optional().default(false),
+  // Heavy items the customer names (Blue Line, 28 Oct): each one is charged at the rate card's
+  // per-heavy-item price. No list -- whatever the customer calls heavy counts.
+  heavyItems: z.coerce.number().int().min(0).max(20).optional().default(0),
   // The website form's optional "Additional notes" box (Moving only).
   notes: z.string().trim().max(1000).optional().default(""),
   // Junk Removal (the form's "Details of Your Junk" and photos, 2026-10-25). Photos arrive as
@@ -298,6 +301,9 @@ export async function handleQuoteRequest(
   // junk details or photos -- whatever else the page happened to send is ignored.
   const junkPhotos = withAddresses.data.need === "junk" ? checkJunkPhotos(withAddresses.data.photos) : { ok: true as const, attachments: [] as EmailAttachment[] };
   if (!junkPhotos.ok) return { status: 400, body: { ok: false, error: junkPhotos.error } };
+  const crew = checkCrew(withAddresses.data.truck, withAddresses.data.movers, deps.rateCard);
+  if (!crew.ok) return { status: 400, body: { ok: false, error: crew.error } };
+  withAddresses.data.movers = crew.movers;
   const req: QuoteRequest =
     withAddresses.data.need === "junk"
       ? { ...withAddresses.data, propertySize: "", notes: "", photos: undefined }
@@ -355,14 +361,13 @@ export async function handleQuoteRequest(
     movingDate,
     firstMoveRequested: canCheckCustomer,
     firstMoveEligible,
-    // Stairs and a long carry are priced from the rate card; heavy items stay in the free-text
-    // access notes for the team.
+    // Stairs, a long carry and heavy items are priced from the rate card.
     access: {
       pickupStairFlights: req.pickupStairFlights,
       dropoffStairFlights: req.dropoffStairFlights,
       pickupLongCarry: longCarryAtEnd(req.pickupApartment, req.pickupParkingOver50m),
       dropoffLongCarry: longCarryAtEnd(req.dropoffApartment, req.dropoffParkingOver50m),
-      heavyItems: 0,
+      heavyItems: req.heavyItems,
     },
     specialItems: req.specialItems,
     depotToPickup,
@@ -539,6 +544,26 @@ export async function handleQuoteRequest(
       },
     },
   };
+}
+
+/**
+ * Only the crews Blue Line offers with each truck (rate card allowedMovers). A truck chosen
+ * without movers gets its crew; movers without a truck (or with "inspect") aren't accepted.
+ */
+export function checkCrew(
+  truck: (typeof truckChoices)[number] | undefined,
+  movers: 2 | 3 | 4 | undefined,
+  rateCard: RateCard,
+): { ok: true; movers: 2 | 3 | 4 | undefined } | { ok: false; error: string } {
+  const offered = () =>
+    truckIds.map((t) => `${rateCard.trucks[t].label} with ${rateCard.allowedMovers[t].join(" or ")} movers`).join(", ");
+  if (!truck || truck === "inspect") {
+    return movers === undefined ? { ok: true, movers } : { ok: false, error: `Choose a truck with the movers. We offer: ${offered()}.` };
+  }
+  const allowed = rateCard.allowedMovers[truck];
+  if (movers === undefined) return { ok: true, movers: allowed[0] as 2 | 3 | 4 };
+  if (allowed.includes(movers)) return { ok: true, movers };
+  return { ok: false, error: `The ${rateCard.trucks[truck].label} comes with ${allowed.join(" or ")} movers, not ${movers}. We offer: ${offered()}.` };
 }
 
 /**

@@ -30,6 +30,9 @@ export const rateCardSchema = z.object({
   trucks: z.record(z.enum(truckIds), z.object({ label: z.string(), hourlyRateAud: z.number().positive().nullable() })),
   extraMoverHourlyRateAud: z.number().nonnegative(),
   minimumJobHours: z.number().positive(),
+  // The crews offered with each truck; a customer can't choose anything else (Blue Line,
+  // 28 Oct: 3 movers only with the 10 tonne truck). The first is used when only a truck is chosen.
+  allowedMovers: z.record(z.enum(truckIds), z.array(z.number().int().min(1)).min(1)),
 
   // Home size guide: the truck and crew that usually suit each home size, and how long
   // the job usually takes. The customer may choose a different truck or crew; the guide's
@@ -48,8 +51,8 @@ export const rateCardSchema = z.object({
   // false = add the real drive time (Google) on top. null = not confirmed.
   typicalHoursIncludeDriving: z.boolean().nullable(),
 
-  // Supported by the engine but not collected yet: the form takes free-text access notes
-  // (stairs, parking distance, heavy items), which go to the team with the estimate.
+  // Priced extras. The chat collects all three; the website form only sends free-text access
+  // notes, which go to the team with the estimate.
   accessExtras: z.object({
     perStairFlightAud: z.number().nonnegative(),
     longCarryAud: z.number().nonnegative(),
@@ -104,7 +107,8 @@ export type RateCard = z.infer<typeof rateCardSchema>;
  *
  * Call-out: never charged by the chatbot or the website estimate (Ayesha's manager, 28 Oct).
  * Blue Line approved the price summary (Ayesha, 28 Oct), so `status` is "confirmed": real prices.
- * Still open (src/server/openItems.ts): the heavy-items list (B3) and the WhatsApp number (B8).
+ * Blue Line, 28 Oct: heavy items have no list -- each item the customer calls heavy is charged
+ * (perHeavyItemAud); crews are fixed per truck (allowedMovers). WhatsApp is parked.
  */
 export const blrRateCard: RateCard = {
   version: "blr-email-2026-10-25",
@@ -117,6 +121,8 @@ export const blrRateCard: RateCard = {
   },
   extraMoverHourlyRateAud: 60,
   minimumJobHours: 2,
+  // Blue Line, 28 Oct: 2 movers with the 4.5T and 6-8T trucks; 3 movers only with the 10T.
+  allowedMovers: { "4.5T": [2], "6-8T": [2], "10T": [3] },
 
   // B1, Blue Line's reply: hours are to LOAD AND UNLOAD only, so drive time is added by the engine.
   jobSizes: {

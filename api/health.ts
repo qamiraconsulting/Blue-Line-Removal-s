@@ -34,7 +34,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     teamInbox: env.LEAD_TO_EMAIL ? "set" : "default (hello@)",
     distances: Boolean(env.GOOGLE_MAPS_SERVER_KEY),
     chatAssistant: Boolean(env.ANTHROPIC_API_KEY),
-    adminDashboard: Boolean(env.CLERK_SECRET_KEY) && Boolean(env.ADMIN_USER_IDS?.trim()),
+    adminDashboard: Boolean(env.CLERK_SECRET_KEY) && Boolean(env.ADMIN_USER_IDS?.trim() || env.ADMIN_EMAILS?.trim()),
     rateLimiting: Boolean(env.UPSTASH_REDIS_REST_URL && env.UPSTASH_REDIS_REST_TOKEN),
     // Branded PDF quotes + Matt's Google Form intake (the quote Apps Script).
     pdfQuotes: Boolean(env.APPS_SCRIPT_URL && env.APPS_SCRIPT_SECRET),

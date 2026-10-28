@@ -9,8 +9,6 @@ const PAT: DriverLike = { id: "d-pat", name: "Pat Lee", phone: null, email: "pat
 // Sun 18 Oct, 1pm in Melbourne: the trips below (Mon 19 Oct) are tomorrow, so their emails are due now.
 const NOW = new Date("2026-10-18T02:00:00Z");
 
-const TRUCKS = [{ id: "t-baby", driverId: SAM.id }, { id: "t-big", driverId: null }];
-
 function trip(over: Partial<TripForNotice> = {}): TripForNotice {
   return {
     id: "b-1",
@@ -27,7 +25,7 @@ function trip(over: Partial<TripForNotice> = {}): TripForNotice {
     fromText: "12 Station St, Preston",
     toText: "5 High St, Brunswick",
     notes: "Gate code 1234",
-    driver: resolveDriver({ truckId: "t-baby" }, TRUCKS, [SAM, PAT]),
+    driver: resolveDriver({ driverId: SAM.id }, [SAM, PAT]),
     testMode: false,
     previous: null,
     ...over,
@@ -55,17 +53,17 @@ function setup(first: TripForNotice, opts: { fail?: boolean; nonProduction?: boo
 }
 
 describe("who drives a trip", () => {
-  it("is the truck's usual driver unless someone covers that trip", () => {
-    expect(resolveDriver({ truckId: "t-baby" }, TRUCKS, [SAM, PAT])).toMatchObject({ name: "Sam Patel", isCover: false });
-    expect(resolveDriver({ truckId: "t-baby", driverId: PAT.id }, TRUCKS, [SAM, PAT])).toMatchObject({ name: "Pat Lee", isCover: true });
-    expect(resolveDriver({ truckId: "t-big" }, TRUCKS, [SAM, PAT])).toBeNull();
+  it("is the driver picked for that job -- there is no usual driver per truck (Blue Line, 28 Oct)", () => {
+    expect(resolveDriver({ driverId: SAM.id }, [SAM, PAT])).toMatchObject({ name: "Sam Patel" });
+    expect(resolveDriver({ driverId: PAT.id }, [SAM, PAT])).toMatchObject({ name: "Pat Lee" });
+    expect(resolveDriver({}, [SAM, PAT])).toBeNull(); // none picked yet
     // an older typed name has no record, so nobody to email
-    expect(resolveDriver({ truckId: "t-big", driverName: "Sam" }, TRUCKS, [SAM, PAT])).toMatchObject({ driver: null, name: "Sam" });
+    expect(resolveDriver({ driverName: "Sam" }, [SAM, PAT])).toMatchObject({ driver: null, name: "Sam" });
   });
 });
 
 describe("telling the driver about a job", () => {
-  it("emails the usual driver the date, time, pick-up, drop-off and the customer's details -- and no price", async () => {
+  it("emails the picked driver the date, time, pick-up, drop-off and the customer's details -- and no price", async () => {
     const { deps, sent, now } = setup(trip());
     expect(await syncDriverNotice({ bookingId: "b-1" }, deps)).toEqual({ status: "sent", kind: "new", to: "sam@example.com" });
     expect(sent).toHaveLength(1);
@@ -98,10 +96,10 @@ describe("telling the driver about a job", () => {
     expect(update.text).not.toContain("Customer: Jane Smith (was");
   });
 
-  it("when someone else covers, the new driver gets the job and the usual driver is told they're off it", async () => {
+  it("when the driver is changed, the new driver gets the job and the old one is told they're off it", async () => {
     const { deps, sent, change, now } = setup(trip());
     await syncDriverNotice({ bookingId: "b-1" }, deps);
-    change({ driver: resolveDriver({ truckId: "t-baby", driverId: PAT.id }, TRUCKS, [SAM, PAT]) });
+    change({ driver: resolveDriver({ driverId: PAT.id }, [SAM, PAT]) });
     await syncDriverNotice({ bookingId: "b-1" }, deps);
     expect(sent.map((e) => [e.to, e.subject.split(":")[0]])).toEqual([
       ["sam@example.com", "New job"],
@@ -125,9 +123,9 @@ describe("telling the driver about a job", () => {
   it("says why nobody was told, so the team can fix it", async () => {
     expect(await syncDriverNotice({ bookingId: "b-1" }, setup(trip({ truckLabel: null, driver: null })).deps)).toMatchObject({ status: "not_notified", why: "no_truck" });
     expect(await syncDriverNotice({ bookingId: "b-1" }, setup(trip({ driver: null })).deps)).toMatchObject({ status: "not_notified", why: "no_driver" });
-    const noEmail = resolveDriver({ truckId: "t-baby" }, TRUCKS, [{ ...SAM, email: null }]);
+    const noEmail = resolveDriver({ driverId: SAM.id }, [{ ...SAM, email: null }]);
     expect(await syncDriverNotice({ bookingId: "b-1" }, setup(trip({ driver: noEmail })).deps)).toMatchObject({ status: "not_notified", why: "driver_has_no_email" });
-    const inactive = resolveDriver({ truckId: "t-baby" }, TRUCKS, [{ ...SAM, active: false }]);
+    const inactive = resolveDriver({ driverId: SAM.id }, [{ ...SAM, active: false }]);
     expect(await syncDriverNotice({ bookingId: "b-1" }, setup(trip({ driver: inactive })).deps)).toMatchObject({ status: "not_notified", why: "driver_inactive" });
   });
 

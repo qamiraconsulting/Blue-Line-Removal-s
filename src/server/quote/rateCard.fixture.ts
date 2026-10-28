@@ -17,6 +17,7 @@ export const fixtureRateCard: RateCard = {
   },
   extraMoverHourlyRateAud: 80,
   minimumJobHours: 2,
+  allowedMovers: { "4.5T": [2, 3, 4], "6-8T": [2, 3, 4], "10T": [2, 3, 4] },
 
   jobSizes: {
     studio_1bed: { truck: "4.5T", movers: 2, typicalHours: 2.5 },

@@ -12,26 +12,19 @@ the "Meanwhile" column says: it never guesses.
 
 | Item | Ref | Question | Meanwhile |
 |---|---|---|---|
-| `heavy-items` | B3 | Which items count as heavy ($80); items not moved. Reply 25 Oct: marble table (100 kg) so far; Lovejeet to send the full list | Captured in access notes, not priced |
-| `whatsapp-number` | B8 | WhatsApp Business number for the website | Phone only |
 | `defaults` | Defaults | Round to $10, valid 10 days, one discount per email/phone | In use |
 
 ## To clarify with Blue Line (not in the email)
 
 | Item | Question | Meanwhile |
 |---|---|---|
-| `booking-terms` | Approve the booking terms customers agree to in the chat (book on the estimate; team inspects on the move day and confirms final charges) | Draft terms shown word for word; exact text stored per booking |
-| `capacity-setup` | Fill in Settings on the dashboard (trucks, working days, arrival times, end of day, gap, movers, notice), keep phone bookings in the calendar, then decide on instant confirmation | Instant confirmation off; team confirms every booking |
-| `existing-booking-tool` | Is there another calendar/tool with bookings today? Enter them on the dashboard or we connect to it | Only dashboard bookings count |
-| `cancellation-policy` | Deposit and cancellation/rescheduling policy for the booking terms | No deposit; cancellations by phone |
+| `booking-terms` | Approve the booking terms customers agree to in the chat. 28 Oct: Blue Line's cancellation rule (72 hours, by phone) added; the rest wasn't commented on | Terms shown word for word; exact text stored per booking |
 | `typical-hours-driving` | The "typical hours" are to load and unload (25 Oct), so the engine adds the real drive time. Worth a one-line confirmation from Blue Line | Drive time added on top |
-| `crew-choice-hours` | If the customer picks a different truck/crew than the guide, do the hours change? | Guide's hours always used |
 | `deposit-terms` | Is the $100 deposit taken off the final bill, and refundable if the customer cancels or moves the date? | Chat only says a $100 deposit locks the booking in; refunds by hand in Stripe |
 | `stripe-account` | Blue Line opens a Stripe account (ABN, owner ID, payout BSB + account), requests PayTo, switches on receipts, gives Qamira Developer access. Plain bank transfer dropped (16 Oct) | Testing on Qamira's Stripe test account; no keys = team sends a link |
 | `junk-removal-pricing` | Junk removal: always a personal quote, or a price list? | Goes to the team |
 | `commercial-moves` | Office moves: always a personal quote? | Goes to the team |
 | `whatsapp-alerts` | WhatsApp Business Platform/Cloud API (for automatic alerts), or just the app? | Email alerts + dashboard |
-| `admin-users` | Who at Blue Line needs dashboard access? | Only listed user IDs get in |
 | `faq-facts` | Insurance, deposit/payment, cancellation, working hours | Chat hands to the team |
 | `privacy-policy` | Privacy policy names Anthropic, Google Maps, Resend, Neon; reviewed before launch | Short collection notice in chat |
 
@@ -46,7 +39,7 @@ the "Meanwhile" column says: it never guesses.
 | `quote-form-fields` | Form: home size + optional truck (4.5T/6-8T/10T) + 2-4 movers + inspect + access notes; new Property Size options (awaited from Ayesha) | Form sends home size + optional notes; result says "estimate" |
 | `hourly-rate-disclosure` | The PDF quote shows rate x hours (15 Oct). Should the chat also answer hourly-rate questions? | PDF shows the breakdown; the chat never states a rate |
 | `stripe-setup` | Vercel STRIPE_SECRET_KEY + STRIPE_WEBHOOK_SECRET, Stripe webhook to /api/stripe/webhook, Vercel protection bypass on previews; test keys now, live at go-live | No payment page; team sends a link |
-| `driver-details` | Enter each driver's name, mobile and email (Settings > Drivers) and set every truck's usual driver | Nobody is told about a job on a truck with no driver or a driver with no email; the dashboard flags it |
+| `driver-details` | Enter each driver's name, mobile and email (Settings > Drivers). Drivers are picked per job on Booking and trucks (no usual driver, 28 Oct) | A job with no driver 2 days before the move is flagged red and the team is emailed |
 | `cron-secret` | Add CRON_SECRET in Vercel (Production) so the hourly job can send the day-before driver and customer emails | No day-before emails on the live site; on the test link use Send due emails now (Booking and trucks) |
 | `quote-form-apartment` | Website form doesn't ask apartment / parking distance per end, so it leaves out the long carry at apartments; add the questions to the form | Only the chat adds the long carry; website apartment estimates are lower |
 | `risky-items-note-pdf` | Add the risky/breakable-item note to the PDF quote template and decide on the booking terms | In the estimate email and the chat only |
@@ -61,6 +54,13 @@ the "Meanwhile" column says: it never guesses.
 
 | Item | Answer | Handling |
 |---|---|---|
+| `heavy-items` | No list: whatever the customer calls heavy counts (Blue Line, 28 Oct) | The chat charges $80 for each heavy item the customer names |
+| `whatsapp-number` | Parked by Blue Line (28 Oct), to add later | Phone only on the website |
+| `capacity-setup` | 7am to 9pm every day; every booking (manual too) goes in the system (28 Oct) | Settings: start 7:00am every 30 min, finish by 9pm, every day; instant confirmation on |
+| `existing-booking-tool` | The team enters every booking, manual ones included (28 Oct) | Only dashboard bookings count |
+| `cancellation-policy` | Call at least 72 hours before the move day; by phone only (28 Oct) | In the booking terms, the booked email and the chat |
+| `crew-choice-hours` | No crew choice: 4.5T and 6-8T come with 2 movers, 10T with 3 (28 Oct) | Chat offers only those; server refuses others; guide hours used |
+| `admin-users` | Full: Irfan, Ayesha, Lovejeet, Lovepreet, Juned. Limited: Matt (no Settings), email to come (28 Oct) | ADMIN_EMAILS / ADMIN_LIMITED_EMAILS in Vercel; server enforces |
 | `sign-off` | Blue Line approved the price summary (28 Oct) | Rate card status is "confirmed": real prices. On the test link customer emails still go to the test inbox only |
 | `call-out-fee` | No call-out is charged by the chatbot or the website estimate (Ayesha's manager, 28 Oct) | No call-out line or charge; nothing in Settings. Matt's own quotes keep his sheet's call-out |
 | `part-a-confirm` | Blue Line accepted Part A (25 Oct); the call-out point is settled (28 Oct) | In the rate card; the final sign-off is `sign-off` |

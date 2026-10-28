@@ -50,6 +50,13 @@
       "when": 1792331748351,
       "tag": "0006_day_before_notices",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793203629947,
+      "tag": "0007_drivers_per_job",
+      "breakpoints": true
     }
   ]
 }

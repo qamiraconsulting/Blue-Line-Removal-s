@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { fixtureRateCard } from "../quote/rateCard.fixture.js";
+import { blrRateCard } from "../quote/rateCard.js";
 import type { OutgoingEmail, QuoteServiceDeps } from "../quote/service.js";
 import type { NewQuoteRow, QuoteStore } from "../quote/store.js";
 import type { LeadPatch, LeadStore } from "./leadStore.js";
@@ -89,7 +90,7 @@ describe("get_quote uses the same engine and flow as the website form", () => {
 
   it("prices the crew size the customer chose, and passes their access notes to the team", async () => {
     const { runTool, sent } = setup();
-    const run = await runTool("get_quote", { ...quoteInput, movers: 4, accessNotes: "2 flights of stairs at pickup" });
+    const run = await runTool("get_quote", { ...quoteInput, truck: "6-8T", movers: 4, accessNotes: "2 flights of stairs at pickup" });
     expect(run.result).toMatchObject({ amountAud: 1510 }); // same as the form for a 2 bed with 4 movers
     expect(sent.find((e) => e.kind === "team")!.text).toContain("Access notes: 2 flights of stairs at pickup");
   });
@@ -342,7 +343,9 @@ describe("tool and prompt wording", () => {
     // one question per message; the customer names the time; heavy items listed; a copy only on request
     expect(prompt).toContain("ONE QUESTION PER MESSAGE");
     expect(prompt).toContain('Ask "What time would you like us to arrive?"');
-    expect(prompt).toContain("Heavy items noted:");
+    expect(prompt).toContain("Heavy items included:");
+    expect(buildSystemPrompt(new Date("2026-10-06T15:30:00Z"), blrRateCard, false)).toContain("a large truck (10 tonne) comes with 3 movers");
+    expect(prompt).toContain("at least 72 hours before your move day");
     expect(prompt).toContain("Would you like a copy of this estimate by email?");
     expect(prompt).toContain("Don't say it has been emailed");
 

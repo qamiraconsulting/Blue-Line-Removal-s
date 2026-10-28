@@ -7,6 +7,7 @@ import { ClerkProvider, SignIn } from "@clerk/react-router";
 // components from @clerk/react internally, so mixing sources here isn't
 // mixing implementations.
 import { Show, UserButton } from "@clerk/react";
+import { AdminRoleContext, useLoadAdminRole } from "../../pages/admin/useAdminRole";
 
 // Isolated to the /admin route subtree only -- the public site's Layout.tsx
 // never loads Clerk's bundle, keeping it off the customer-facing pages
@@ -48,19 +49,31 @@ export default function AdminLayout() {
         </div>
       </Show>
       <Show when="signed-in">
+        <SignedInShell />
+      </Show>
+    </ClerkProvider>
+  );
+}
+
+const TABS: { to: string; label: string; fullOnly?: boolean }[] = [
+  { to: "/admin/overview", label: "Overview" },
+  { to: "/admin", label: "Lead review" },
+  { to: "/admin/trips", label: "Booking and trucks" },
+  { to: "/admin/capacity", label: "Settings", fullOnly: true },
+];
+
+function SignedInShell() {
+  const role = useLoadAdminRole();
+  return (
+    <AdminRoleContext.Provider value={role}>
         <div className="min-h-screen bg-slate-50">
           {/* Frozen: stays at the top of the screen while the page scrolls. */}
           <header className="sticky top-0 z-40 flex items-center justify-between border-b border-slate-200 bg-white px-6 py-4 shadow-sm">
             <div className="flex flex-wrap items-center gap-6">
               <h1 className="font-display text-lg font-bold text-navy">Blue Line Removals</h1>
               <nav className="flex gap-4 text-sm">
-                {[
-                  ["/admin/overview", "Overview"],
-                  ["/admin", "Lead review"],
-                  ["/admin/capacity", "Settings"],
-                  ["/admin/trips", "Booking and trucks"],
-                ].map(([to, label]) => (
-                  <NavLink key={to} to={to!} end className={({ isActive }) => (isActive ? "font-bold text-action" : "text-slate-600 hover:text-navy")}>
+                {TABS.filter((t) => !t.fullOnly || role === "full").map(({ to, label }) => (
+                  <NavLink key={to} to={to} end className={({ isActive }) => (isActive ? "font-bold text-action" : "text-slate-600 hover:text-navy")}>
                     {label}
                   </NavLink>
                 ))}
@@ -72,7 +85,6 @@ export default function AdminLayout() {
             <Outlet />
           </main>
         </div>
-      </Show>
-    </ClerkProvider>
+    </AdminRoleContext.Provider>
   );
 }

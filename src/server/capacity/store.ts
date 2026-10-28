@@ -106,33 +106,18 @@ export async function saveSettings(settings: CapacitySettings, updatedBy: string
 
 export const listTrucks = () => getDb().select().from(trucks).orderBy(asc(trucks.truckType), asc(trucks.label));
 
-export type SaveTruckResult = { ok: true; id: string; usualDriverChanged: boolean } | { ok: false; error: string };
+export type SaveTruckResult = { ok: true; id: string } | { ok: false; error: string };
 
-export async function saveTruck(truck: { id?: string; label: string; truckType: string; active: boolean; notes?: string | null; driverId?: string | null }): Promise<SaveTruckResult> {
+/** A truck has no driver of its own any more: drivers are picked per job (Blue Line, 28 Oct). */
+export async function saveTruck(truck: { id?: string; label: string; truckType: string; active: boolean; notes?: string | null }): Promise<SaveTruckResult> {
   const db = getDb();
-  const driverId = truck.driverId ?? null;
-  if (driverId) {
-    const [d] = await db.select().from(drivers).where(eq(drivers.id, driverId)).limit(1);
-    if (!d) return { ok: false, error: "That driver wasn't found." };
-    if (!d.active) return { ok: false, error: `${d.name} is marked inactive -- make them active first, or pick another driver.` };
-  }
-  const fields = { label: truck.label, truckType: truck.truckType, active: truck.active, notes: truck.notes ?? null, driverId };
+  const fields = { label: truck.label, truckType: truck.truckType, active: truck.active, notes: truck.notes ?? null };
   if (truck.id) {
-    const [before] = await db.select({ driverId: trucks.driverId }).from(trucks).where(eq(trucks.id, truck.id)).limit(1);
     await db.update(trucks).set(fields).where(eq(trucks.id, truck.id));
-    return { ok: true, id: truck.id, usualDriverChanged: (before?.driverId ?? null) !== driverId };
+    return { ok: true, id: truck.id };
   }
   const [row] = await db.insert(trucks).values(fields).returning({ id: trucks.id });
-  return { ok: true, id: row!.id, usualDriverChanged: driverId !== null };
-}
-
-/** Today's and later confirmed bookings on a truck -- they follow the truck's usual driver. */
-export async function upcomingBookingIdsForTruck(truckId: string, today: string): Promise<string[]> {
-  const rows = await getDb()
-    .select({ id: bookings.id })
-    .from(bookings)
-    .where(and(eq(bookings.truckId, truckId), gte(bookings.date, today), eq(bookings.status, "confirmed")));
-  return rows.map((r) => r.id);
+  return { ok: true, id: row!.id };
 }
 
 export const listDrivers = () => getDb().select().from(drivers).orderBy(asc(drivers.name));
@@ -147,10 +132,6 @@ export async function saveDriver(driver: { id?: string; name: string; phone: str
   const key = (n: string) => n.trim().toLowerCase().replace(/\s+/g, " ");
   if (all.some((d) => d.id !== driver.id && key(d.name) === key(driver.name))) return { ok: false, error: `There's already a driver called ${driver.name}.` };
   if (driver.id) {
-    if (!driver.active) {
-      const [onTruck] = await db.select({ label: trucks.label }).from(trucks).where(and(eq(trucks.driverId, driver.id), eq(trucks.active, true))).limit(1);
-      if (onTruck) return { ok: false, error: `${driver.name} is the usual driver of ${onTruck.label}. Give that truck another driver first, then make ${driver.name} inactive.` };
-    }
     await db.update(drivers).set(fields).where(eq(drivers.id, driver.id));
     return { ok: true, id: driver.id };
   }
@@ -170,23 +151,18 @@ export async function saveOverride(o: { date: string; closed: boolean; moversAva
 
 export const deleteOverride = (date: string) => getDb().delete(dayOverrides).where(eq(dayOverrides.date, date));
 
-/**
- * Bookings in a date range. driverName is whoever actually drives the trip (a cover driver, or
- * else the truck's usual driver); driverId is only set when someone is covering that trip.
- */
+/** Bookings in a date range, with the name of the driver picked for each (null = none yet). */
 export async function listBookings(from: string, to: string) {
   const db = getDb();
-  const [rows, truckRows, driverRows] = await Promise.all([
+  const [rows, driverRows] = await Promise.all([
     db.select().from(bookings).where(and(gte(bookings.date, from), lte(bookings.date, to))).orderBy(asc(bookings.date), asc(bookings.arrivalTime)),
-    db.select({ id: trucks.id, driverId: trucks.driverId }).from(trucks),
     db.select().from(drivers),
   ]);
   return rows.map(({ driverNotice, customerNotice, ...b }) => {
-    const who = resolveDriver(b, truckRows, driverRows);
+    const who = resolveDriver(b, driverRows);
     return {
       ...b,
       driverName: who?.name ?? null,
-      driverCover: who?.isCover ?? false,
       driverHasEmail: Boolean(who?.driver?.email),
       driverNotifiedAt: driverNotice?.sentAt ?? null,
       customerNotifiedAt: customerNotice?.sentAt ?? null,
@@ -208,7 +184,7 @@ export interface TripInput {
   start: string;
   end: string;
   movers: number;
-  /** Someone covering this one trip. null = the truck's usual driver. */
+  /** The driver picked for this job. null = none picked yet. */
   driverId: string | null;
   /** Email the customer their booking the day before the move. */
   customerNoticeWanted: boolean;
@@ -240,18 +216,18 @@ export async function saveTrip(trip: TripInput, by: string): Promise<SaveTripRes
 
     const [truck] = await tx.select().from(trucks).where(eq(trucks.id, trip.truckId)).limit(1);
     if (!truck) throw new Error("Truck not found");
-    const [truckRows, driverRows] = await Promise.all([tx.select({ id: trucks.id, driverId: trucks.driverId }).from(trucks), tx.select().from(drivers)]);
-    // A cover driver is only stored when it isn't the truck's usual driver.
-    const coverId = trip.driverId && trip.driverId !== truck.driverId ? trip.driverId : null;
-    if (coverId && !driverRows.some((d) => d.id === coverId && d.active)) throw new Error("Driver not found");
-    const driverName = resolveDriver({ truckId: truck.id, driverId: coverId }, truckRows, driverRows)?.name ?? null;
+    const driverRows = await tx.select().from(drivers);
+    const driverId = trip.driverId;
+    // A driver already on the job may have been made inactive since; anyone newly picked must be active.
+    if (driverId && !driverRows.some((d) => d.id === driverId && (d.active || d.id === before?.driverId))) throw new Error("Driver not found");
+    const driverName = resolveDriver({ driverId }, driverRows)?.name ?? null;
     const [override] = await tx.select().from(dayOverrides).where(eq(dayOverrides.date, trip.date)).limit(1);
     const sameDay = await tx
       .select({ id: bookings.id, truckId: bookings.truckId, date: bookings.date, arrivalTime: bookings.arrivalTime, estimatedMinutes: bookings.estimatedMinutes, status: bookings.status, driverName: bookings.driverName, driverId: bookings.driverId, customerName: bookings.customerName, quoteReference: bookings.quoteReference, notes: bookings.notes })
       .from(bookings)
       .where(and(eq(bookings.date, trip.date), eq(bookings.status, "confirmed")));
-    // The same driver can't be on two overlapping trips, whether picked or the truck's usual driver.
-    const withDrivers = sameDay.map((b) => ({ ...b, driverName: resolveDriver(b, truckRows, driverRows)?.name ?? null }));
+    // The same driver can't be on two overlapping trips.
+    const withDrivers = sameDay.map((b) => ({ ...b, driverName: resolveDriver(b, driverRows)?.name ?? null }));
     const problem = tripProblem({ id: trip.id, truckId: trip.truckId, date: trip.date, start: trip.start, end: trip.end, driverName }, withDrivers, override?.trucksUnavailable ?? []);
     if (problem) return { ok: false, problem, truckName: truck.label };
 
@@ -262,8 +238,9 @@ export async function saveTrip(trip: TripInput, by: string): Promise<SaveTripRes
       truckId: truck.id,
       truckType: truck.truckType,
       movers: trip.movers,
-      driverId: coverId,
+      driverId,
       driverName: null, // an older typed name is replaced by the chosen driver
+      noDriverAlertSentAt: driverId ? null : (before?.noDriverAlertSentAt ?? null),
       customerName: trip.customerName,
       phone: trip.phone,
       customerEmail: trip.customerEmail,

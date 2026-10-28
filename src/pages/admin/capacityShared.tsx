@@ -55,7 +55,6 @@ export interface Booking {
   driverName: string | null;
   /** Only set when someone other than the usual driver is covering this trip. */
   driverId: string | null;
-  driverCover: boolean;
   driverHasEmail: boolean;
   /** When the driver was last emailed about it. */
   driverNotifiedAt: string | null;

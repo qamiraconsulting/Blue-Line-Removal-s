@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { verifyToken } from "@clerk/backend";
+import { createClerkClient, verifyToken } from "@clerk/backend";
 
 // Real security boundary for the internal dashboard lives here, not in the
 // frontend route gate. Since the site is ssr:false (static + client-side
@@ -9,8 +9,14 @@ import { verifyToken } from "@clerk/backend";
 // API handler must call this before touching the database.
 //
 // A valid Clerk session is NOT enough: anyone able to sign up to the Clerk app
-// would get one. Access also requires the user's Clerk ID to be listed in
-// ADMIN_USER_IDS (comma-separated). An empty list lets nobody in.
+// would get one. Access also needs the user's VERIFIED email address on a list
+// (Blue Line, 28 Oct 2026):
+//   ADMIN_EMAILS          full access (comma-separated)
+//   ADMIN_LIMITED_EMAILS  limited access -- bookings, trucks and drivers per trip, but not
+//                         Settings (booking settings, days off, the driver and truck lists)
+// ADMIN_USER_IDS (Clerk user IDs) still gives full access, as before. Empty lists let nobody in.
+
+export type AdminRole = "full" | "limited";
 
 export class AdminAuthError extends Error {
   constructor(
@@ -22,6 +28,16 @@ export class AdminAuthError extends Error {
 }
 
 type Verify = (token: string, options: { secretKey: string }) => Promise<{ sub: string }>;
+/** The user's verified email addresses, lower case. */
+type LookupEmails = (userId: string, secretKey: string) => Promise<string[]>;
+
+const list = (value: string | undefined) =>
+  new Set(
+    (value ?? "")
+      .split(",")
+      .map((s) => s.trim().toLowerCase())
+      .filter(Boolean),
+  );
 
 export function adminUserIds(env: Record<string, string | undefined> = process.env): Set<string> {
   return new Set(
@@ -32,12 +48,26 @@ export function adminUserIds(env: Record<string, string | undefined> = process.e
   );
 }
 
+// One Clerk lookup per user per few minutes, not one per dashboard request.
+const emailCache = new Map<string, { emails: string[]; at: number }>();
+const CACHE_MS = 5 * 60_000;
+
+const clerkEmails: LookupEmails = async (userId, secretKey) => {
+  const hit = emailCache.get(userId);
+  if (hit && Date.now() - hit.at < CACHE_MS) return hit.emails;
+  const user = await createClerkClient({ secretKey }).users.getUser(userId);
+  const emails = user.emailAddresses.filter((e) => e.verification?.status === "verified").map((e) => e.emailAddress.toLowerCase());
+  emailCache.set(userId, { emails, at: Date.now() });
+  return emails;
+};
+
 export async function requireAdminAuth(
   req: Pick<VercelRequest, "headers">,
-  deps: { env?: Record<string, string | undefined>; verify?: Verify } = {},
-): Promise<{ userId: string }> {
+  deps: { env?: Record<string, string | undefined>; verify?: Verify; lookupEmails?: LookupEmails } = {},
+): Promise<{ userId: string; role: AdminRole }> {
   const env = deps.env ?? process.env;
   const verify = deps.verify ?? (verifyToken as unknown as Verify);
+  const lookupEmails = deps.lookupEmails ?? clerkEmails;
 
   const secretKey = env.CLERK_SECRET_KEY;
   if (!secretKey) {
@@ -55,17 +85,38 @@ export async function requireAdminAuth(
     throw new AdminAuthError("Invalid or expired session.", 401);
   }
 
-  if (!adminUserIds(env).has(userId)) {
-    // The ID is the user's own, so it's safe to show -- it's what goes into ADMIN_USER_IDS.
-    throw new AdminAuthError(`This account isn't allowed into the dashboard yet. Ask Qamira to add user ID ${userId}.`, 403);
+  if (adminUserIds(env).has(userId)) return { userId, role: "full" };
+
+  const full = list(env.ADMIN_EMAILS);
+  const limited = list(env.ADMIN_LIMITED_EMAILS);
+  let emails: string[] = [];
+  if (full.size || limited.size) {
+    try {
+      emails = await lookupEmails(userId, secretKey);
+    } catch {
+      throw new AdminAuthError("Couldn't check your account just now -- try again in a minute.", 500);
+    }
   }
-  return { userId };
+  if (emails.some((e) => full.has(e))) return { userId, role: "full" };
+  if (emails.some((e) => limited.has(e))) return { userId, role: "limited" };
+
+  // The user's own email is safe to show -- it's what goes on the list.
+  const shown = emails[0] ?? "the email you signed in with";
+  throw new AdminAuthError(`This account isn't allowed into the dashboard yet. Ask Qamira to add ${shown}.`, 403);
 }
 
-/** For handlers: sends the error response and returns null when the caller isn't an admin. */
-export async function guardAdmin(req: VercelRequest, res: VercelResponse): Promise<{ userId: string } | null> {
+/**
+ * For handlers: sends the error response and returns null when the caller isn't allowed.
+ * need "full" refuses limited users too (403).
+ */
+export async function guardAdmin(req: VercelRequest, res: VercelResponse, need: AdminRole = "limited"): Promise<{ userId: string; role: AdminRole } | null> {
   try {
-    return await requireAdminAuth(req);
+    const admin = await requireAdminAuth(req);
+    if (need === "full" && admin.role !== "full") {
+      res.status(403).json({ error: "Only full dashboard users can change this." });
+      return null;
+    }
+    return admin;
   } catch (err) {
     if (err instanceof AdminAuthError) {
       res.status(err.status).json({ error: err.message });

@@ -18,7 +18,6 @@ import {
   saveSettings,
   saveTrip,
   saveTruck,
-  upcomingBookingIdsForTruck,
 } from "../../src/server/capacity/store.js";
 import { customerNoticeLine } from "../../src/server/notify/customerNotice.js";
 import { driverNoticeLine } from "../../src/server/notify/driverNotice.js";
@@ -61,8 +60,6 @@ const actionSchema = z.discriminatedUnion("action", [
       truckType: z.enum(truckIds),
       active: z.boolean(),
       notes: z.string().max(300).nullable().optional(),
-      /** The truck's usual driver. */
-      driverId: z.string().uuid().nullable().optional(),
     }),
   }),
   z.object({
@@ -119,7 +116,7 @@ const actionSchema = z.discriminatedUnion("action", [
       start: time,
       end: time,
       movers: z.number().int().min(1).max(20),
-      /** Someone covering this one trip; null = the truck's usual driver. */
+      /** The driver picked for this job; null = none picked yet (flagged 2 days before). */
       driverId: z.string().uuid().nullable(),
       customerName: z.string().trim().max(200).nullable(),
       phone: z.string().trim().max(50).nullable(),
@@ -133,6 +130,8 @@ const actionSchema = z.discriminatedUnion("action", [
   }),
 ]);
 
+
+const FULL_ONLY = new Set(["saveSettings", "saveTruck", "saveDriver", "saveOverride", "deleteOverride"]);
 
 const addDays = (iso: string, n: number) => {
   const [y, m, d] = iso.split("-").map(Number) as [number, number, number];
@@ -177,6 +176,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return;
     }
     const body = parsed.data;
+    // Settings (booking settings, days off, the driver and truck lists) are for full users only;
+    // limited users (Matt) add, move and cancel trips and pick drivers (Blue Line, 28 Oct).
+    if (FULL_ONLY.has(body.action) && admin.role !== "full") {
+      res.status(403).json({ error: "Only full dashboard users can change Settings." });
+      return;
+    }
     // Email: the truck's driver, and (when the team ticks it) the customer. Null if email isn't set up.
     const mail = buildQuoteDeps();
     const notices: string[] = [];
@@ -199,15 +204,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!saved.ok) {
           res.status(409).json({ error: saved.error });
           return;
-        }
-        // A new usual driver takes over the truck's upcoming bookings, and is told about them
-        // (the old one is told they're off them).
-        if (saved.usualDriverChanged) {
-          const upcoming = await upcomingBookingIdsForTruck(saved.id, melbourneNowLocal(new Date()).slice(0, 10));
-          const results = [];
-          for (const id of upcoming) results.push(await mail?.notifyDriver?.({ bookingId: id }));
-          const sent = results.filter((r) => r?.status === "sent").length;
-          if (upcoming.length) notices.push(`${upcoming.length} upcoming job${upcoming.length === 1 ? "" : "s"} on this truck moved to the new driver (${sent} email${sent === 1 ? "" : "s"} sent).`);
         }
         break;
       }
@@ -266,6 +262,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               ? "No emails were due."
               : `Sent ${summary.driverEmails} driver and ${summary.customerEmails} customer email${summary.driverEmails + summary.customerEmails === 1 ? "" : "s"}.`,
         );
+        if (summary?.noDriverJobs) notices.push(`The team was emailed about ${summary.noDriverJobs} job${summary.noDriverJobs === 1 ? "" : "s"} with no driver yet.`);
         break;
       }
       case "cancelBooking": {

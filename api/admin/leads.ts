@@ -11,7 +11,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  if (!(await guardAdmin(req, res))) return;
+  const admin = await guardAdmin(req, res);
+  if (!admin) return;
+
+  // ?me=1: what this user may see (the dashboard hides Settings from limited users).
+  if (req.query.me) {
+    res.status(200).json({ role: admin.role });
+    return;
+  }
 
   if (!process.env.DATABASE_URL) {
     res.status(500).json({ error: "Database isn't configured yet." });

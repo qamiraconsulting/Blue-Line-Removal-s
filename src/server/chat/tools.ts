@@ -26,11 +26,11 @@ export const getQuoteInput = z.object({
   truck: z
     .enum(truckChoices)
     .optional()
-    .describe("Only if the customer chose a truck: 4.5T, 6-8T or 10T -- or 'inspect' if they want the team to inspect and confirm. Leave out if they want Blue Line's suggestion."),
+    .describe("Only if the customer chose a truck: 4.5T, 6-8T or 10T -- or 'inspect' if they want the team to inspect and confirm. Leave out if they want Blue Line's suggestion. Each truck comes with a set crew (see the instructions); the server adds it."),
   movers: z
     .union([z.literal(2), z.literal(3), z.literal(4)])
     .optional()
-    .describe("Only if the customer chose a crew size: 2, 3 or 4 movers. Leave out if they want Blue Line's suggestion or chose 'inspect'."),
+    .describe("Leave out: each truck comes with a set crew and the server adds it. Only pass it if the customer insists on a number -- the server refuses a crew that isn't offered with that truck."),
   moveType: z.enum(["home", "apartment"]).describe("'apartment' if the pickup OR the drop-off is an apartment/unit/flat, else 'home'."),
   pickupStairFlights: z
     .number()
@@ -52,6 +52,13 @@ export const getQuoteInput = z.object({
   dropoffParkingOver50m: z
     .boolean()
     .describe("True ONLY if the customer definitely said the truck can't park within 50 metres of the door at the DROP-OFF. False if it can, or they're not sure."),
+  heavyItems: z
+    .number()
+    .int()
+    .min(0)
+    .max(20)
+    .optional()
+    .describe("How many heavy items the customer named (fridge, washing machine, marble table, gym equipment...). Each is charged as a heavy item. 0 if none."),
   accessNotes: z
     .string()
     .max(1000)

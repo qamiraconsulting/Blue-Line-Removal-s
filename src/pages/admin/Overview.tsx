@@ -3,12 +3,13 @@ import { Link } from "react-router";
 import clsx from "clsx";
 import { CHANNEL_LABEL, JOB_STATUS_LABEL, jobStatuses, type JobStatus } from "../../server/jobs/status";
 import { JobCard } from "./JobCard";
-import { aud, useJobs, type Job } from "./useJobs";
+import { aud, useJobs } from "./useJobs";
 
 // Overview: a first-level, at-a-glance view of every request from every channel -- website
 // form, chat, Matt's Google Form (phone, Airtasker, Moval...) -- for day-to-day performance
-// (Ayesha, 2026-10-15). Not a detailed report: tiles, a channel x status table, and the lists
-// that need someone.
+// (Ayesha, 2026-10-15). Numbers only (Blue Line, 28 Oct: nothing shown twice): tiles, a channel x
+// status table and the period's requests. The lists that need someone live on their own tabs --
+// estimates not booked yet on Lead review; upcoming jobs and "to mark complete" on Booking and trucks.
 
 function melbourneToday() {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Australia/Melbourne" }).format(new Date());
@@ -47,11 +48,7 @@ export default function Overview() {
   if (error) return <p className="text-sm text-red-600">{error}</p>;
   if (!data) return <p className="text-sm text-slate-500">Loading...</p>;
 
-  const { summary: s, jobs, today } = data;
-  const in7 = addDays(today, 7);
-  const upcoming = jobs.filter((j) => j.status === "booked" && !j.toComplete && j.movingDate && j.movingDate <= in7).sort((a, b) => `${a.movingDate}${a.arrivalTime}`.localeCompare(`${b.movingDate}${b.arrivalTime}`));
-  const toComplete = jobs.filter((j) => j.toComplete);
-  const notBooked = jobs.filter((j) => j.status === "estimate_sent" || j.status === "quoted");
+  const { summary: s, jobs } = data;
   const periodJobs = jobs.filter((j) => {
     const d = new Intl.DateTimeFormat("en-CA", { timeZone: "Australia/Melbourne" }).format(new Date(j.createdAt));
     return d >= range.from && d <= range.to && (filter === "all" || j.status === filter);
@@ -79,9 +76,9 @@ export default function Overview() {
       <div className="mt-2 grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
         <Tile label="Waiting for a quote" value={s.now.waitingForQuote} sub={s.now.oldestWaitingSince ? `oldest ${waitedFor(s.now.oldestWaitingSince)}` : "none waiting"} alert={waitingHours > 2} to="/admin" />
         <Tile label="Booking requests" value={s.now.bookingRequested} sub="to confirm" alert={s.now.bookingRequested > 0} to="/admin" />
-        <Tile label="Booked, next 7 days" value={s.now.bookedNext7Days.jobs} sub={aud(s.now.bookedNext7Days.valueAud)} />
-        <Tile label="Estimates & quotes not booked" value={s.now.estimatesNotBooked} sub="follow up" />
-        <Tile label="To mark complete" value={s.now.toMarkComplete} sub="moving date passed" alert={s.now.toMarkComplete > 0} />
+        <Tile label="Booked, next 7 days" value={s.now.bookedNext7Days.jobs} sub={aud(s.now.bookedNext7Days.valueAud)} to="/admin/trips" />
+        <Tile label="Estimates & quotes not booked" value={s.now.estimatesNotBooked} sub="follow up" to="/admin" />
+        <Tile label="To mark complete" value={s.now.toMarkComplete} sub="moving date passed" alert={s.now.toMarkComplete > 0} to="/admin/trips" />
       </div>
 
       <h3 className="mt-6 text-xs font-bold uppercase tracking-wide text-slate-500">
@@ -131,10 +128,6 @@ export default function Overview() {
         </table>
       </div>
 
-      <JobList title="Booked, next 7 days" empty="Nothing booked in the next 7 days." jobs={upcoming} onChanged={changed} />
-      <JobList title="To mark complete" intro="The moving date has passed -- record the final amount charged on the day (or cancel it)." empty="Nothing to mark complete." jobs={toComplete} onChanged={changed} />
-      <JobList title="Estimates & quotes not booked yet" intro="Follow these up. If the customer accepts by phone, use 'Book it'." empty="None open." jobs={notBooked} onChanged={changed} />
-
       <section className="mt-10">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="font-display text-xl font-bold text-navy">All requests in this period</h2>
@@ -168,15 +161,5 @@ function Tile({ label, value, sub, alert, to }: { label: string; value: ReactNod
     </Link>
   ) : (
     <div className={cls}>{body}</div>
-  );
-}
-
-function JobList({ title, intro, empty, jobs, onChanged }: { title: string; intro?: string; empty: string; jobs: Job[]; onChanged: (m: string) => void }) {
-  return (
-    <section className="mt-10">
-      <h2 className="font-display text-xl font-bold text-navy">{title}</h2>
-      {intro && <p className="mt-1 text-sm text-slate-600">{intro}</p>}
-      {jobs.length === 0 ? <p className="mt-4 text-sm text-slate-500">{empty}</p> : <ul className="mt-4 space-y-3">{jobs.map((j) => <JobCard key={j.reference} job={j} onChanged={onChanged} />)}</ul>}
-    </section>
   );
 }

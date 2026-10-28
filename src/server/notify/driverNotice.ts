@@ -10,9 +10,9 @@ import { esc, firstName, formatDateLabel, shell, type EmailContent } from "../qu
 import { customerRecipient, type OutgoingEmail } from "../quote/service.js";
 
 // Telling the driver about a job (Ayesha, 2026-10-16). Whenever a booking is confirmed -- by the
-// chat, by the team on the dashboard, or entered from a phone call -- the driver of the truck
-// it's on is emailed the date, time, pick-up, drop-off and the customer's details. The driver
-// is the truck's usual driver unless someone is covering that one trip.
+// chat, by the team on the dashboard, or entered from a phone call -- the driver picked for it
+// is emailed the date, time, pick-up, drop-off and the customer's details. Drivers are picked per
+// job by hand (Blue Line, 28 Oct); until one is picked nobody is emailed and the job is flagged.
 //
 // syncDriverNotice() is safe to call after ANY change to the calendar: it compares the trip as
 // it is now with what the driver was last told, and only emails when something differs --
@@ -291,7 +291,7 @@ export const dbDriverNoticeStore: DriverNoticeStore = {
       .limit(1);
     if (!b) return null;
     const [truckRows, driverRows, [q]] = await Promise.all([
-      db.select({ id: trucks.id, label: trucks.label, driverId: trucks.driverId }).from(trucks),
+      db.select({ id: trucks.id, label: trucks.label }).from(trucks),
       db.select().from(drivers),
       b.quoteReference
         ? db.select({ email: quotes.email, source: quotes.source, rateCardStatus: quotes.rateCardStatus }).from(quotes).where(eq(quotes.reference, b.quoteReference)).limit(1)
@@ -312,7 +312,7 @@ export const dbDriverNoticeStore: DriverNoticeStore = {
       fromText: b.fromText,
       toText: b.toText,
       notes: b.notes,
-      driver: resolveDriver(b, truckRows, driverRows),
+      driver: resolveDriver(b, driverRows),
       testMode: Boolean(q && q.source !== "team_form" && q.rateCardStatus !== "confirmed"),
       previous: b.driverNotice ?? null,
     };

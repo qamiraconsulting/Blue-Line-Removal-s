@@ -3,15 +3,15 @@ import { Link } from "react-router";
 import clsx from "clsx";
 import { NO_FINISH_TIME, startTimesBetween, startTimesSummary } from "../../lib/startTimes";
 import { box, button, Field, input, looksLikeEmail, num, SectionHeader, TRUCK_TYPES, useCapacity, type Driver, type Override, type Settings, type Truck } from "./capacityShared";
+import { useAdminRole } from "./useAdminRole";
 
-// "Settings": what the chat uses to offer free arrival times and -- only when
-// instant confirmation is switched on and everything below is filled in -- to confirm a
-// booking on the spot. Every booking taken outside the chat (phone, Airtasker, other) must be
-// added to the calendar here, or the chat can't see it. Which truck and driver goes when is
-// on the Truck trips tab (TruckTrips.tsx).
+// "Settings" (full users only -- Blue Line, 28 Oct): what the chat uses to offer free arrival
+// times and, only when instant confirmation is switched on, to confirm a booking on the spot;
+// plus the driver and truck lists and days off. Bookings themselves -- seeing, adding, moving,
+// cancelling, picking the driver -- are all on the Booking and trucks tab (TruckTrips.tsx), so
+// there's no booking calendar here.
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const SOURCES: Record<string, string> = { chat: "chat", web_form: "website form", phone: "phone", airtasker: "Airtasker", moval: "Moval", website_followup: "website follow-up", other: "other" };
 
 const missingForInstant = (s: Settings) =>
   [
@@ -24,23 +24,24 @@ const missingForInstant = (s: Settings) =>
   ].filter(Boolean) as string[];
 
 export default function Capacity() {
-  const { data, message, busy, setRange, load, post } = useCapacity();
+  const role = useAdminRole();
+  const { data, message, busy, post } = useCapacity();
   const [settings, setSettings] = useState<Settings | null>(null);
   useEffect(() => {
     if (data) setSettings(data.settings);
   }, [data]);
 
+  if (role === "limited") return <p className="text-sm text-slate-600">Settings are only for full dashboard users. Bookings, trucks and drivers for each job are on the Booking and trucks tab.</p>;
   if (!data || !settings) return <p className="text-sm text-slate-500">{message?.text ?? "Loading..."}</p>;
   const missing = missingForInstant(settings);
-  const truckName = (id: string | null) => data.trucks.find((t) => t.id === id)?.label ?? "unassigned";
 
   return (
     <div className="space-y-8">
       <div>
         <h2 className="font-display text-2xl font-bold text-navy">Settings</h2>
         <p className="mt-1 text-sm text-slate-600">
-          The chat uses this page to offer customers free arrival times and, only when you switch it on, to confirm bookings on the spot. Keep the calendar
-          complete -- <strong>every booking must be in the calendar</strong>. Chat and website-form bookings, and jobs Matt marks Confirmed in his Google Form, go in automatically; add anything else (phone, Airtasker, Moval...) on the Booking and trucks tab, or the chat can&apos;t see it.
+          How bookings work, your drivers and trucks, and days that are different. The chat uses these to offer customers free arrival times. Bookings
+          themselves are on the Booking and trucks tab -- <strong>every booking must be there</strong> (add phone and other bookings too), or the chat can&apos;t see it.
         </p>
         {message && <p className={clsx("mt-3 text-sm", message.error ? "text-red-600" : "text-green-700")}>{message.text}</p>}
       </div>
@@ -112,9 +113,9 @@ export default function Capacity() {
         </button>
       </section>
 
-      <Drivers drivers={data.drivers} trucks={data.trucks} busy={busy} onSave={(driver) => post({ action: "saveDriver", driver }, "Driver saved.")} />
+      <Drivers drivers={data.drivers} busy={busy} onSave={(driver) => post({ action: "saveDriver", driver }, "Driver saved.")} />
 
-      <Trucks trucks={data.trucks} drivers={data.drivers} busy={busy} onSave={(truck) => post({ action: "saveTruck", truck }, "Truck saved.")} />
+      <Trucks trucks={data.trucks} busy={busy} onSave={(truck) => post({ action: "saveTruck", truck }, "Truck saved.")} />
 
       <p className="rounded-md bg-slate-100 p-3 text-sm text-slate-700">
         Which truck and driver goes when, with the customer&apos;s details: see the{" "}
@@ -132,53 +133,6 @@ export default function Capacity() {
         onSave={(override) => post({ action: "saveOverride", override }, "Day saved.")}
         onDelete={(date) => post({ action: "deleteOverride", date }, "Day change removed.")}
       />
-
-      {/* ------------------------------------------------------------ calendar */}
-      <section className={box}>
-        <SectionHeader
-          title="Booking calendar"
-          intro="Every confirmed job. Chat bookings appear here automatically; add everything else on the Booking and trucks tab. Cancelling doesn't email the customer -- let them know yourself."
-        />
-        <div className="mt-4 flex flex-wrap items-end gap-3">
-          <Field label="From" hint="First day to show.">
-            <input type="date" className={input} defaultValue={data.from} onChange={(e) => setRange((r) => ({ ...r, from: e.target.value }))} />
-          </Field>
-          <Field label="To" hint="Last day to show.">
-            <input type="date" className={input} defaultValue={data.to} onChange={(e) => setRange((r) => ({ ...r, to: e.target.value }))} />
-          </Field>
-          <button type="button" className={clsx(button, "mb-0.5")} onClick={() => void load()}>
-            Show
-          </button>
-        </div>
-        <ul className="mt-4 divide-y divide-slate-100 text-sm">
-          {data.bookings.length === 0 && <li className="py-2 text-slate-500">No bookings in this range.</li>}
-          {data.bookings.map((b) => (
-            <li key={b.id} className={clsx("flex flex-wrap items-center justify-between gap-2 py-2", b.status === "cancelled" && "opacity-50 line-through")}>
-              <span>
-                <strong>
-                  {b.date} {b.arrivalTime}
-                </strong>{" "}
-                &middot; {b.truckType} ({truckName(b.truckId)}{b.driverName ? `, driver ${b.driverName}` : ""}), {b.movers} movers, ~{Math.round((b.estimatedMinutes / 60) * 10) / 10}h &middot; {b.customerName ?? "-"}{" "}
-                {b.phone && `· ${b.phone}`} &middot;{" "}
-                <span className="text-slate-500">
-                  via {SOURCES[b.source] ?? b.source}
-                  {b.quoteReference ? ` ${b.quoteReference}` : ""}
-                </span>
-              </span>
-              {b.status === "confirmed" && (
-                <button
-                  type="button"
-                  disabled={busy}
-                  className="text-xs font-bold text-red-600 underline"
-                  onClick={() => window.confirm("Cancel this booking? The customer isn't emailed -- let them know yourself.") && void post({ action: "cancelBooking", id: b.id }, "Booking cancelled.")}
-                >
-                  Cancel
-                </button>
-              )}
-            </li>
-          ))}
-        </ul>
-      </section>
 
     </div>
   );
@@ -225,18 +179,18 @@ function StartTimes({ settings, onChange }: { settings: Settings; onChange: (s: 
 
 const blankDriver = (): Driver => ({ name: "", phone: null, email: null, active: true, notes: null });
 
-function Drivers({ drivers, trucks, busy, onSave }: { drivers: Driver[]; trucks: Truck[]; busy: boolean; onSave: (d: Driver) => Promise<string | null> | void }) {
+function Drivers({ drivers, busy, onSave }: { drivers: Driver[]; busy: boolean; onSave: (d: Driver) => Promise<string | null> | void }) {
   const [draft, setDraft] = useState<Driver>(blankDriver());
   const draftOk = draft.name.trim() !== "" && looksLikeEmail(draft.email);
   return (
     <section className={box}>
       <SectionHeader
         title="Drivers"
-        intro="Everyone who drives a truck. Each truck has one usual driver (set under Trucks below). When a booking on that truck is confirmed -- by the chat, by Matt, or added from a phone call -- its driver is emailed the date, time, pick-up, drop-off and the customer's name, address and phone -- the day before the move (straight away if the move is today or tomorrow). Without an email address a driver can't be told."
+        intro="Everyone who drives a truck. The driver for each job is picked on the Booking and trucks tab, at least 2 days before the move -- if a job still has no driver 2 days before, it's flagged there and the team is emailed. The picked driver is emailed the date, time, pick-up, drop-off and the customer's name, address and phone the day before the move (straight away if picked later). Without an email address a driver can't be told."
       />
       <ul className="mt-3 space-y-2">
         {drivers.map((d) => (
-          <DriverRow key={d.id} driver={d} usualFor={trucks.filter((t) => t.driverId === d.id).map((t) => t.label)} busy={busy} onSave={onSave} />
+          <DriverRow key={d.id} driver={d} busy={busy} onSave={onSave} />
         ))}
         {drivers.length === 0 && <li className="text-sm text-slate-500">No drivers yet -- add your first below.</li>}
       </ul>
@@ -266,7 +220,7 @@ function Drivers({ drivers, trucks, busy, onSave }: { drivers: Driver[]; trucks:
   );
 }
 
-function DriverRow({ driver, usualFor, busy, onSave }: { driver: Driver; usualFor: string[]; busy: boolean; onSave: (d: Driver) => Promise<string | null> | void }) {
+function DriverRow({ driver, busy, onSave }: { driver: Driver; busy: boolean; onSave: (d: Driver) => Promise<string | null> | void }) {
   const [d, setD] = useState(driver);
   useEffect(() => setD(driver), [driver]);
   const emailOk = looksLikeEmail(d.email);
@@ -281,23 +235,22 @@ function DriverRow({ driver, usualFor, busy, onSave }: { driver: Driver; usualFo
       <button type="button" disabled={busy || !d.name.trim() || !emailOk} className="text-xs font-bold text-navy underline" onClick={() => void onSave({ ...d, name: d.name.trim() })}>
         Save
       </button>
-      {usualFor.length > 0 && <span className="text-xs text-slate-500">usual driver of {usualFor.join(", ")}</span>}
       {!d.email && d.active && <span className="text-xs font-bold text-amber-700">no email -- can&apos;t be told about jobs</span>}
     </li>
   );
 }
 
-function Trucks({ trucks, drivers, busy, onSave }: { trucks: Truck[]; drivers: Driver[]; busy: boolean; onSave: (t: Truck) => void }) {
+function Trucks({ trucks, busy, onSave }: { trucks: Truck[]; busy: boolean; onSave: (t: Truck) => void }) {
   const [draft, setDraft] = useState<Truck>({ label: "", truckType: "4.5T", active: true, notes: null, driverId: null });
   return (
     <section className={box}>
       <SectionHeader
         title="Trucks"
-        intro="Every truck that can be booked, with its size and its usual driver. Add each truck once. Changing a truck's usual driver moves its upcoming jobs to the new driver and emails them (the old driver is told they're off those jobs) -- use it for a permanent change. To cover one job, pick another driver on that trip in Truck trips instead."
+        intro="Every truck that can be booked, with its size. Add each truck once. The chat picks a free truck of the right size for each booking; the driver is picked per job on the Booking and trucks tab."
       />
       <ul className="mt-3 space-y-2">
         {trucks.map((t) => (
-          <TruckRow key={t.id} truck={t} drivers={drivers} busy={busy} onSave={onSave} />
+          <TruckRow key={t.id} truck={t} busy={busy} onSave={onSave} />
         ))}
       </ul>
       <div className="mt-4 flex flex-wrap items-end gap-4 border-t border-slate-100 pt-4">
@@ -310,9 +263,6 @@ function Trucks({ trucks, drivers, busy, onSave }: { trucks: Truck[]; drivers: D
               <option key={t}>{t}</option>
             ))}
           </select>
-        </Field>
-        <Field label="Usual driver" hint="Gets the job emails for this truck.">
-          <DriverSelect drivers={drivers} value={draft.driverId} onChange={(driverId) => setDraft({ ...draft, driverId })} none="no driver yet" />
         </Field>
         <button
           type="button"
@@ -335,24 +285,7 @@ function Trucks({ trucks, drivers, busy, onSave }: { trucks: Truck[]; drivers: D
   );
 }
 
-/** Active drivers, plus the one already chosen even if they have since been made inactive. */
-function DriverSelect({ drivers, value, onChange, none }: { drivers: Driver[]; value: string | null; onChange: (id: string | null) => void; none: string }) {
-  return (
-    <select className={input} value={value ?? ""} onChange={(e) => onChange(e.target.value || null)} aria-label="Usual driver">
-      <option value="">{none}</option>
-      {drivers
-        .filter((d) => d.active || d.id === value)
-        .map((d) => (
-          <option key={d.id} value={d.id}>
-            {d.name}
-            {d.email ? "" : " (no email)"}
-          </option>
-        ))}
-    </select>
-  );
-}
-
-function TruckRow({ truck, drivers, busy, onSave }: { truck: Truck; drivers: Driver[]; busy: boolean; onSave: (t: Truck) => void }) {
+function TruckRow({ truck, busy, onSave }: { truck: Truck; busy: boolean; onSave: (t: Truck) => void }) {
   const [t, setT] = useState(truck);
   useEffect(() => setT(truck), [truck]);
   return (
@@ -363,7 +296,6 @@ function TruckRow({ truck, drivers, busy, onSave }: { truck: Truck; drivers: Dri
           <option key={x}>{x}</option>
         ))}
       </select>
-      <DriverSelect drivers={drivers} value={t.driverId} onChange={(driverId) => setT({ ...t, driverId })} none="no driver yet" />
       <label className="flex items-center gap-1">
         <input type="checkbox" checked={t.active} onChange={(e) => setT({ ...t, active: e.target.checked })} /> active
       </label>

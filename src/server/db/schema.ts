@@ -232,8 +232,8 @@ export const bookingSettings = pgTable("booking_settings", {
   updatedBy: text("updated_by"),
 });
 
-// The people who drive the trucks. Each truck has one usual driver (trucks.driver_id); the
-// driver is emailed the job's details whenever a booking on that truck is confirmed.
+// The people who drive the trucks. The driver for each job is picked by hand (bookings.driver_id,
+// Blue Line 28 Oct) and emailed the job's details the day before the move.
 export const drivers = pgTable("drivers", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),
@@ -250,7 +250,9 @@ export const trucks = pgTable("trucks", {
   truckType: text("truck_type").notNull(), // "4.5T" | "6-8T" | "10T"
   active: boolean("active").notNull().default(true),
   notes: text("notes"),
-  driverId: uuid("driver_id").references(() => drivers.id), // the truck's usual driver
+  // No longer used (28 Oct): drivers are picked per job. Migration 0007 copied each truck's
+  // usual driver onto its upcoming jobs and cleared this. Kept so older rows still read.
+  driverId: uuid("driver_id").references(() => drivers.id),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -279,8 +281,8 @@ export const bookings = pgTable(
     truckType: text("truck_type").notNull(),
     truckId: uuid("truck_id").references(() => trucks.id),
     movers: integer("movers").notNull(),
-    // Who drives this trip. Both null = the truck's usual driver (the normal case). driver_id =
-    // someone else covering this one trip (sick/leave); driver_name alone = an older typed name.
+    // Who drives this trip: driver_id = the driver picked for it (both null = none picked yet);
+    // driver_name alone = an older typed name.
     driverName: text("driver_name"),
     driverId: uuid("driver_id").references(() => drivers.id),
     // What the driver was last emailed (so a change sends an update, not a duplicate).
@@ -298,6 +300,9 @@ export const bookings = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     createdBy: text("created_by"), // "chat (auto-confirmed)" or the team member's user id
     cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+    // When the team was emailed that this job still had no driver 2 days before the move
+    // (src/server/notify/noDriverAlert.ts). Cleared when a driver is picked.
+    noDriverAlertSentAt: timestamp("no_driver_alert_sent_at", { withTimezone: true }),
   },
   (t) => [index("bookings_date_idx").on(t.date)],
 );
