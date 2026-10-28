@@ -91,8 +91,8 @@ export const openItems: OpenItem[] = [
     question:
       "Blue Line confirms Part A as written: truck rates, extra mover, 2h minimum, charging from arrival to end of unloading with call-out included, extras, 10% discount then GST, estimate wording.",
     meanwhile:
-      "Part A is in the rate card and Blue Line's inline replies (25 Oct) accept it, with two points: Lovejeet is to confirm with the team that the call-out is included in the hourly rate (so the card stays 'placeholder' / test figures only until then), and the long carry changed (apartments always; over 50 m elsewhere).",
-    status: "asked",
+      "Accepted in Blue Line's inline replies (25 Oct), with the long carry changed (apartments always; over 50 m elsewhere). The call-out point is settled: the chatbot never charges one (manager, 28 Oct). What remains is the final sign-off (sign-off).",
+    status: "answered",
     ref: "Reply 25 Oct, Part A",
   },
   {
@@ -195,9 +195,9 @@ export const openItems: OpenItem[] = [
     id: "call-out-fee",
     topic: "pricing",
     question:
-      "Matt's Google Sheet adds a $100 call-out fee to his quotes, but the rate card (12 Oct email, Part A) says the call-out is included in the hourly rate and never charged. Which is right?",
-    meanwhile: "Website and chat estimates have no call-out; Matt's quotes keep his sheet's call-out. The same job can be priced differently by channel.",
-    status: "to_ask",
+      "Matt's Google Sheet adds a $100 call-out fee to his quotes, but the rate card (12 Oct email, Part A) says the call-out is included in the hourly rate and never charged. Which is right? Decided 28 Oct (Ayesha's manager): the chatbot and website estimates never charge a call-out; nothing to set up.",
+    meanwhile: "Website and chat estimates have no call-out line or charge; Matt's own quotes keep his sheet's call-out.",
+    status: "answered",
   },
   {
     id: "team-inbox",

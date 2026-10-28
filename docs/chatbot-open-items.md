@@ -14,7 +14,6 @@ the "Meanwhile" column says: it never guesses.
 |---|---|---|---|
 | `heavy-items` | B3 | Which items count as heavy ($80); items not moved. Reply 25 Oct: marble table (100 kg) so far; Lovejeet to send the full list | Captured in access notes, not priced |
 | `whatsapp-number` | B8 | WhatsApp Business number for the website | Phone only |
-| `part-a-confirm` | Part A | Blue Line accepted Part A (25 Oct). Still open: Lovejeet confirms with the team that the call-out is included in the hourly rate | In the rate card; stays test figures only until then |
 | `defaults` | Defaults | Round to $10, valid 10 days, one discount per email/phone | In use |
 
 ## To clarify with Blue Line (not in the email)
@@ -32,7 +31,6 @@ the "Meanwhile" column says: it never guesses.
 | `junk-removal-pricing` | Junk removal: always a personal quote, or a price list? | Goes to the team |
 | `commercial-moves` | Office moves: always a personal quote? | Goes to the team |
 | `sign-off` | Blue Line signs off the complete rate card (then status → confirmed) | Test figures only, never emailed |
-| `call-out-fee` | Matt's sheet adds a $100 call-out; the rate card says call-out is included, not charged. Which is right? | Website/chat: no call-out; Matt's quotes keep his |
 | `whatsapp-alerts` | WhatsApp Business Platform/Cloud API (for automatic alerts), or just the app? | Email alerts + dashboard |
 | `admin-users` | Who at Blue Line needs dashboard access? | Only listed user IDs get in |
 | `faq-facts` | Insurance, deposit/payment, cancellation, working hours | Chat hands to the team |
@@ -64,6 +62,8 @@ the "Meanwhile" column says: it never guesses.
 
 | Item | Answer | Handling |
 |---|---|---|
+| `call-out-fee` | No call-out is charged by the chatbot or the website estimate (Ayesha's manager, 28 Oct) | No call-out line or charge; nothing in Settings. Matt's own quotes keep his sheet's call-out |
+| `part-a-confirm` | Blue Line accepted Part A (25 Oct); the call-out point is settled (28 Oct) | In the rate card; the final sign-off is `sign-off` |
 | `long-carry-distance` | Long carry ($40) always applies at an apartment pick-up and drop-off, and at any end where the truck can't park within 50 m of the door; once per end (Blue Line reply 25 Oct, replaces the 100 m rule of 16 Oct) | The server adds it (chat asks apartment per end and parking over 50 m for houses) |
 | `home-size-guide` | Studio/1 bed 4.5T 2 movers 2 h; 2 bed 4.5T 2 movers 3 h; 3 bed 6-8T 2 movers 5 h; 4+ bed 10T 3 movers 7 h -- hours to load and unload (Blue Line reply 25 Oct, B1) | In the rate card; the engine adds the real drive time on top |
 | `weekend-holiday-surcharge` | No surcharge on weekends or public holidays (B2) | 0% in the rate card |

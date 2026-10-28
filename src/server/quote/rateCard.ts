@@ -102,9 +102,9 @@ export type RateCard = z.infer<typeof rateCardSchema>;
  *  - B5 service area: 120 km radius from Tarneit (used for the pick-up AND the move length)
  *  - B6 free wrapping of furniture (bubble wrap, shrink wrap, blankets); boxes are charged
  *
- * Still open (src/server/openItems.ts): Lovejeet confirming with the team that the call-out is
- * included in the hourly rate -- which is why `status` is still "placeholder" below -- the
- * heavy-items list (B3) and the WhatsApp number (B8).
+ * Call-out: never charged by the chatbot or the website estimate (Ayesha's manager, 28 Oct).
+ * `status` stays "placeholder" (test figures only) until Blue Line signs the card off.
+ * Still open (src/server/openItems.ts): the heavy-items list (B3) and the WhatsApp number (B8).
  */
 export const blrRateCard: RateCard = {
   version: "blr-email-2026-10-25",
