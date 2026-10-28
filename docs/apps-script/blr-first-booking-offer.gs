@@ -220,6 +220,7 @@ function sendOfferNotice_(values, decision) {
  * or "Discount / adjustment" as before, with a minus sign for a discount.
  */
 function addAdjustmentRow_(body, values) {
+  hideZeroCallOutRow_(body, values); // EDIT H (2026-10-28)
   var amount = Number(values && values.Adjustment);
   if (!amount) return;
   collect_(body, DocumentApp.ElementType.TABLE).forEach(function (t) {
@@ -240,6 +241,22 @@ function addAdjustmentRow_(body, values) {
   });
 }
 
+/**
+ * EDIT H (2026-10-28): no call-out is charged on website and chat jobs (Ayesha's manager), so a
+ * "Call-Out Fee $0.00" line is left out of the PDF's estimate table. A real call-out (Matt's
+ * quotes) still shows. The email's copy of the line: withoutZeroCallOutRow_().
+ */
+function hideZeroCallOutRow_(body, values) {
+  if (!isZeroAmount_(values && values.CallOut)) return;
+  collect_(body, DocumentApp.ElementType.TABLE).forEach(function (t) {
+    t = t.asTable();
+    if (t.getRow(0).getText().indexOf('Amount (AUD)') === -1) return;
+    for (var r = t.getNumRows() - 1; r >= 1; r--) {
+      if (/call[\s-]?out/i.test(t.getRow(r).getCell(0).getText())) t.removeRow(r);
+    }
+  });
+}
+
 /** The Packing cell's text ("$0.00") re-used for the adjustment: "−$53.00" for a discount. */
 function adjustmentAmountText_(packingCellText, packing, adjustment) {
   var amount = Number(adjustment);
@@ -254,6 +271,8 @@ function adjustmentAmountText_(packingCellText, packing, adjustment) {
 function testFirstBookingOffer() {
   Logger.log(JSON.stringify(discountedFigures_('530.00', '53.00', 10)));   // expect 53.00 / 477.00 / 47.70 / 524.70
   Logger.log(adjustmentAmountText_('$0.00', '0.00', '-53.00'));              // expect −$53.00
+  Logger.log(isZeroAmount_('0.00') + ' ' + isZeroAmount_('100.00') + ' ' + isZeroAmount_('')); // expect true false false
+  Logger.log(withoutZeroCallOutRow_('<tr><td>Labour</td></tr><tr><td>Call-Out Fee</td><td>A$0.00</td></tr><tr><td>GST</td></tr>', '0.00')); // expect no Call-Out row
   var check = checkCustomerWithWebsite_({}, { Email: 'nobody@example.com', Contact: '0400000000', BookingNo: 'TEST' }, '', 'Australia/Melbourne');
   Logger.log('Website check: ' + (check ? JSON.stringify(check) : 'NOT REACHED -- check BLR_INTAKE_URL / BLR_SHARED_SECRET'));
 }

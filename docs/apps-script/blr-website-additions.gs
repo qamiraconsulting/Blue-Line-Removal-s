@@ -92,6 +92,7 @@ function createQuoteDraft_(values, pdfBlob, opts) {
     var re = new RegExp('\\{\\{' + key + '\\}\\}', 'g');
     html = html.replace(re, String(values[key] != null ? values[key] : ''));
   });
+  html = withoutZeroCallOutRow_(html, values.CallOut); // EDIT H (2026-10-28)
 
   // The website's short intro (what this email is, and the team's note) goes at the top.
   if (opts.introHtml) {
@@ -118,6 +119,21 @@ function createQuoteDraft_(values, pdfBlob, opts) {
       blr_newhome: newhomeBlob
     }
   });
+}
+
+/**
+ * EDIT H (2026-10-28): no call-out is charged on website and chat jobs, so the email's
+ * "Call-Out Fee A$0.00" line is left out (the PDF's: hideZeroCallOutRow_). A real call-out still shows.
+ */
+function withoutZeroCallOutRow_(html, callOut) {
+  if (!isZeroAmount_(callOut)) return html;
+  return html.replace(/<tr\b[^>]*>(?:(?!<\/tr>)[\s\S])*?call[\s-]?out(?:(?!<\/tr>)[\s\S])*?<\/tr>/gi, '');
+}
+
+/** "0.00", "$0.00", "A$0" -> true; blank or anything else -> false. */
+function isZeroAmount_(value) {
+  var text = String(value == null ? '' : value).replace(/[^0-9.\-]/g, '');
+  return text !== '' && Number(text) === 0;
 }
 
 /**
