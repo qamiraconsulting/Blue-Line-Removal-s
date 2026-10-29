@@ -569,9 +569,24 @@ export function checkCrew(
 /**
  * Where a customer email goes: the customer -- or, for test figures, the preview's test inbox (or nowhere).
  * testEmailTo is only ever set on previews, and there every customer email goes to it, real prices
- * included: the test link never emails a real customer.
+ * included: the test link never emails a real customer -- except Blue Line's and Qamira's own
+ * testers (TEST_LINK_TESTERS), who get theirs at the address they typed (Ayesha, 29 Oct).
  */
 export function customerRecipient(email: string, testMode: boolean, testEmailTo: string | null | undefined): string | null {
-  if (testEmailTo) return testEmailTo;
+  if (testEmailTo) return isTestLinkTester(email) ? email : testEmailTo;
   return testMode ? null : email;
 }
+
+/** Previews only: these addresses (or "@domain") get the test link's emails themselves. */
+const TEST_LINK_TESTERS = [
+  "@bluelineremovals.com.au",
+  "@qamiraconsulting.com",
+  "bluelineremovalsau@gmail.com",
+  "sandhu0625@gmail.com",
+  "lovesandhu13133@gmail.com",
+  "junedpatel022@gmail.com",
+];
+export const isTestLinkTester = (email: string) => {
+  const e = email.trim().toLowerCase();
+  return TEST_LINK_TESTERS.some((t) => (t.startsWith("@") ? e.endsWith(t) : e === t));
+};

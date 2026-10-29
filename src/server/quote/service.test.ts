@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { blrRateCard, type RateCard } from "./rateCard.js";
 import { fixtureRateCard } from "./rateCard.fixture.js";
-import { handleQuoteRequest, longCarryAtEnd, normalisePhone, type OutgoingEmail, type QuoteApiResult, type QuoteServiceDeps } from "./service.js";
+import { customerRecipient, handleQuoteRequest, longCarryAtEnd, normalisePhone, type OutgoingEmail, type QuoteApiResult, type QuoteServiceDeps } from "./service.js";
 import type { NewQuoteRow, QuoteStore } from "./store.js";
 
 // Same hand-checkable card as the engine tests: ex-GST rates, weekend +20%, round to $10.
@@ -306,6 +306,15 @@ describe("placeholder rate card in dev/preview", () => {
     const preview = setup({ rateCard: blrRateCard, testEmailTo: "tester@example.com" });
     expect(result(await preview.run(goodBody))).toMatchObject({ kind: "price", testMode: false });
     expect(preview.sent.filter((e) => e.kind === "customer").map((e) => e.to)).toEqual(["tester@example.com"]);
+  });
+
+  it("on the test link, Blue Line's and Qamira's testers get their own emails; anyone else still goes to the test inbox", () => {
+    expect(customerRecipient("Lovejeet@BlueLineRemovals.com.au", false, "tester@example.com")).toBe("Lovejeet@BlueLineRemovals.com.au");
+    expect(customerRecipient("junedpatel022@gmail.com", false, "tester@example.com")).toBe("junedpatel022@gmail.com");
+    expect(customerRecipient("someone@gmail.com", false, "tester@example.com")).toBe("tester@example.com");
+    expect(customerRecipient("x@notqamiraconsulting.com.au", false, "tester@example.com")).toBe("tester@example.com");
+    // live site: no test inbox, everyone gets their own
+    expect(customerRecipient("someone@gmail.com", false, null)).toBe("someone@gmail.com");
   });
 
   it("refuses to price unless explicitly allowed", async () => {
