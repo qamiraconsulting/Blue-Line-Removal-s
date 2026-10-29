@@ -6,16 +6,17 @@ import { AdminRoleContext, useLoadAdminRole } from "../../pages/admin/useAdminRo
 
 // The redesigned dashboard (Blue Line approved the prototype, Oct 2026). Same sign-in, same data
 // and the same /api/admin/* endpoints as the current dashboard (AdminLayout.tsx), which stays
-// at /admin until Ayesha signs off. Phase 1 is Today + Requests; until Schedule, Reports and
-// Settings are rebuilt here, the sidebar links to those pages on the current dashboard.
+// at /admin until Ayesha signs off. Until the booking form, Reports and Settings are rebuilt
+// here (phase 3), the sidebar links to those pages on the current dashboard.
 
 const NAV = [
   { to: "/admin/new", label: "Today", icon: "M4 12h4l2-6 4 12 2-6h4" },
   { to: "/admin/new/requests", label: "Requests", icon: "M3 4h5v16H3zM10 4h5v11h-5zM17 4h4v7h-4z" },
+  { to: "/admin/new/schedule", label: "Schedule", icon: "M3 5h18v16H3zM3 10h18M8 3v4M16 3v4" },
 ];
 
 const CURRENT: { to: string; label: string; fullOnly?: boolean }[] = [
-  { to: "/admin/trips", label: "Booking and trucks" },
+  { to: "/admin/trips", label: "Add a booking by hand" },
   { to: "/admin/overview", label: "Overview numbers", fullOnly: true },
   { to: "/admin/capacity", label: "Settings", fullOnly: true },
 ];
@@ -53,7 +54,7 @@ function OpsShell() {
               <NavLink
                 key={n.to}
                 to={n.to}
-                end
+                end={n.to === "/admin/new"}
                 className={({ isActive }) =>
                   clsx(
                     "flex items-center gap-2.5 whitespace-nowrap rounded-md px-2.5 py-2 text-sm font-semibold",

@@ -56,34 +56,7 @@ const ACTION_LABEL: Record<string, string> = {
 };
 
 export function JobCard({ job, onChanged }: { job: Job; onChanged: (message: string) => void }) {
-  const { adminFetch } = useAdminApi();
-  const [open, setOpen] = useState<Open>(null);
-  const [reason, setReason] = useState("");
-  const [message, setMessage] = useState("");
-  const [finalAmount, setFinalAmount] = useState(String(job.quotedAmountAud ?? job.estimateAud ?? ""));
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
   const price = job.finalAmountAud ?? job.quotedAmountAud ?? job.estimateAud;
-
-  async function post(action: string, extra: Record<string, unknown>, done: string) {
-    setBusy(true);
-    setError(null);
-    try {
-      const res = await adminFetch("/api/admin/jobs", { method: "POST", body: JSON.stringify({ action, reference: job.reference, ...extra }) });
-      const out = await res.json();
-      if (!res.ok) throw new Error(out.error ?? "That didn't work");
-      setOpen(null);
-      onChanged(done + (out.emailed ? " The customer was emailed." : "") + (out.driverMessage ? ` ${out.driverMessage}` : ""));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "That didn't work");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  // "Confirm" from a quote/estimate = the customer accepted by phone; from a request = their online booking.
-  const actionLabel = (a: string) => (a === "confirm" && job.status !== "booking_requested" ? "Book it (customer accepted)" : (ACTION_LABEL[a] ?? a));
 
   return (
     <li className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
@@ -126,6 +99,42 @@ export function JobCard({ job, onChanged }: { job: Job; onChanged: (message: str
       {(job.depositRequired || job.depositStatus) && <DepositLine job={job} />}
       {job.closedReason && <p className="mt-1 text-sm text-slate-500">Reason: {job.closedReason}</p>}
 
+      <JobActions job={job} onChanged={onChanged} chatLink />
+    </li>
+  );
+}
+
+/** The buttons a job's status allows, with their forms. Used by the job card and the new dashboard's job page. */
+export function JobActions({ job, onChanged, chatLink }: { job: Job; onChanged: (message: string) => void; chatLink?: boolean }) {
+  const { adminFetch } = useAdminApi();
+  const [open, setOpen] = useState<Open>(null);
+  const [reason, setReason] = useState("");
+  const [message, setMessage] = useState("");
+  const [finalAmount, setFinalAmount] = useState(String(job.quotedAmountAud ?? job.estimateAud ?? ""));
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function post(action: string, extra: Record<string, unknown>, done: string) {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await adminFetch("/api/admin/jobs", { method: "POST", body: JSON.stringify({ action, reference: job.reference, ...extra }) });
+      const out = await res.json();
+      if (!res.ok) throw new Error(out.error ?? "That didn't work");
+      setOpen(null);
+      onChanged(done + (out.emailed ? " The customer was emailed." : "") + (out.driverMessage ? ` ${out.driverMessage}` : ""));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "That didn't work");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // "Confirm" from a quote/estimate = the customer accepted by phone; from a request = their online booking.
+  const actionLabel = (a: string) => (a === "confirm" && job.status !== "booking_requested" ? "Book it (customer accepted)" : (ACTION_LABEL[a] ?? a));
+
+  return (
+    <>
       <div className="mt-3 flex flex-wrap items-center gap-2">
         {job.actions.map((a) =>
           a === "reopen" ? (
@@ -147,7 +156,7 @@ export function JobCard({ job, onChanged }: { job: Job; onChanged: (message: str
             </button>
           ),
         )}
-        {job.conversationId && (
+        {chatLink && job.conversationId && (
           <Link to={`/admin/conversations/${job.conversationId}`} className="text-sm text-navy underline">
             Open the chat
           </Link>
@@ -214,12 +223,12 @@ export function JobCard({ job, onChanged }: { job: Job; onChanged: (message: str
         </div>
       )}
       {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
-    </li>
+    </>
   );
 }
 
 /** The $100 deposit, as Stripe last reported it. */
-function DepositLine({ job }: { job: Job }) {
+export function DepositLine({ job }: { job: Job }) {
   const paidOn = job.depositPaidAt ? new Date(job.depositPaidAt).toLocaleDateString("en-AU", { day: "numeric", month: "short", timeZone: "Australia/Melbourne" }) : "";
   const test = job.depositTestMode ? " (Stripe test)" : "";
   const [text, tone] =

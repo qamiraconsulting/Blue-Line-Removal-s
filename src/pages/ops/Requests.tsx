@@ -1,13 +1,13 @@
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router";
 import clsx from "clsx";
 import { shortDay } from "../../lib/noticeTiming";
 import { time12 } from "../../lib/truckTrips";
 import { CHANNEL_LABEL, JOB_STATUS_LABEL, jobStatuses, type JobStatus } from "../../server/jobs/status";
 import { useCapacity } from "../admin/capacityShared";
 import { REASONS } from "../admin/JobCard";
-import { useAdminRole } from "../admin/useAdminRole";
 import { aud, useJobs, type Job } from "../admin/useJobs";
-import { addDays, ChannelChip, jobPrice, JobPanel, melbourneToday, needsDriver, Notice, route, StatusPill } from "./shared";
+import { addDays, ChannelChip, jobPrice, melbourneToday, needsDriver, Notice, route, StatusPill } from "./shared";
 
 // Requests: every request from every channel in one place -- a board by status, or a table
 // that also holds the closed ones. Replaces Lead review's lists and Overview's "All requests
@@ -18,7 +18,7 @@ const CLOSED: JobStatus[] = ["completed", "cancelled", "rejected", "lost"];
 type StatusFilter = "open" | "closed" | "all" | JobStatus;
 
 export default function Requests() {
-  const role = useAdminRole();
+  const navigate = useNavigate();
   const today = useMemo(melbourneToday, []);
   const range = useMemo(() => ({ from: addDays(today, -89), to: today }), [today]);
   const jobs = useJobs(range);
@@ -27,8 +27,6 @@ export default function Requests() {
   const [channel, setChannel] = useState("all");
   const [status, setStatus] = useState<StatusFilter>("open");
   const [q, setQ] = useState("");
-  const [open, setOpen] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
 
   const all = jobs.data?.jobs ?? [];
   const needle = q.trim().toLowerCase();
@@ -39,12 +37,7 @@ export default function Requests() {
   );
   const noDriverRefs = new Set((cap.data?.bookings ?? []).filter((b) => needsDriver(b, today)).map((b) => b.quoteReference));
   const channels = [...new Set(all.map((j) => j.channel))].sort();
-  const openJob = all.find((j) => j.reference === open) ?? null;
-  const changed = (m: string) => {
-    setNotice(m);
-    jobs.reload();
-    void cap.load();
-  };
+  const setOpen = (ref: string) => navigate(`/admin/new/jobs/${ref}`);
 
   const card = (j: Job) => {
     const price = jobPrice(j);
@@ -113,7 +106,6 @@ export default function Requests() {
         </div>
       </div>
       <Notice text={jobs.error} error />
-      <Notice text={notice} />
       {!jobs.data && !jobs.error && <p className="text-sm text-slate-500">Loading...</p>}
 
       {jobs.data && mode === "board" && (
@@ -184,7 +176,6 @@ export default function Requests() {
         </section>
       )}
 
-      {openJob && <JobPanel job={openJob} role={role} onClose={() => setOpen(null)} onChanged={changed} />}
     </div>
   );
 }

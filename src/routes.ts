@@ -26,6 +26,8 @@ export default [
   layout("components/admin/OpsLayout.tsx", [
     route("admin/new", "pages/ops/Today.tsx"),
     route("admin/new/requests", "pages/ops/Requests.tsx"),
+    route("admin/new/jobs/:ref", "pages/ops/Job.tsx"),
+    route("admin/new/schedule", "pages/ops/Schedule.tsx"),
     route("admin/new/chat/:id", "pages/admin/ConversationDetail.tsx", { id: "ops-chat" }),
   ]),
 ] satisfies RouteConfig;

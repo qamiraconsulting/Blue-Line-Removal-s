@@ -44,7 +44,8 @@ interface TripForm {
 const looksLikeEmail = (v: string) => v.trim() === "" || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
 
 export default function TruckTrips() {
-  const { data, message, busy, post, changeRange } = useCapacity();
+  const cap = useCapacity();
+  const { data, message, busy, post } = cap;
   const role = useAdminRole();
   const jobs = useJobs();
   const [jobNotice, setJobNotice] = useState<string | null>(null);
@@ -85,21 +86,7 @@ export default function TruckTrips() {
         <span className="ml-2 text-xs text-slate-500">(the live site does this every hour; use this on the test link)</span>
         {message && <p className={clsx("mt-3 text-sm", message.error ? "text-red-600" : "text-green-700")}>{message.text}</p>}
       </div>
-      <TripsDay
-        data={data}
-        busy={busy}
-        onDay={(tripDay) => changeRange({ tripDay })}
-        onSave={(trip, notifyCustomer) => post({ action: "saveTrip", trip, notifyCustomer }, trip.id ? "Trip updated." : "Trip added.")}
-        onCancel={(b) =>
-          window.confirm(
-            b.quoteReference
-              ? `This trip is the booking for ${b.customerName ?? b.quoteReference}. Cancelling it cancels their booking too, and tells the driver it's off if they were already emailed (the customer isn't emailed about a cancellation -- let them know yourself). To only change the truck, driver or times, use Edit instead.`
-              : "Cancel this trip? The truck shows as Available again. If its driver was already emailed, they are told the job is off; emails still waiting for the day before are cancelled.",
-          )
-            ? post({ action: "cancelBooking", id: b.id }, b.quoteReference ? "Booking cancelled." : "Trip cancelled.")
-            : Promise.resolve(null)
-        }
-      />
+      <TripsDayPanel cap={cap} />
       <section>
         <h2 className="font-display text-xl font-bold text-navy">To mark complete</h2>
         <p className="mt-1 text-sm text-slate-600">The moving date has passed -- record the final amount charged on the day (or cancel it).</p>
@@ -122,6 +109,29 @@ export default function TruckTrips() {
       {/* A job booked another way (phone, Airtasker, Moval...) -- after the trip form, at the bottom. */}
       <AddBooking trucks={data.trucks} busy={busy} onAdd={(booking, notifyCustomer) => post({ action: "addBooking", booking, notifyCustomer }, "Booking added.")} />
     </div>
+  );
+}
+
+/** One day of trips with its editing -- here and on the new dashboard's Schedule. */
+export function TripsDayPanel({ cap }: { cap: ReturnType<typeof useCapacity> }) {
+  const { data, busy, post, changeRange } = cap;
+  if (!data) return null;
+  return (
+    <TripsDay
+      data={data}
+      busy={busy}
+      onDay={(tripDay) => changeRange({ tripDay })}
+      onSave={(trip, notifyCustomer) => post({ action: "saveTrip", trip, notifyCustomer }, trip.id ? "Trip updated." : "Trip added.")}
+      onCancel={(b) =>
+        window.confirm(
+          b.quoteReference
+            ? `This trip is the booking for ${b.customerName ?? b.quoteReference}. Cancelling it cancels their booking too, and tells the driver it's off if they were already emailed (the customer isn't emailed about a cancellation -- let them know yourself). To only change the truck, driver or times, use Edit instead.`
+            : "Cancel this trip? The truck shows as Available again. If its driver was already emailed, they are told the job is off; emails still waiting for the day before are cancelled.",
+        )
+          ? post({ action: "cancelBooking", id: b.id }, b.quoteReference ? "Booking cancelled." : "Trip cancelled.")
+          : Promise.resolve(null)
+      }
+    />
   );
 }
 

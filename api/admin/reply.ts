@@ -11,13 +11,15 @@ import { guardAdmin } from "../../src/server/services/adminAuth.js";
 //    thread -- the customer's widget polls and shows it), puts the chat in "human" mode so
 //    the assistant stops answering, and clears the "needs follow-up" flag (picked up).
 //  - hand back: returns the chat to the assistant ("bot" mode), with or without a message.
+//  - handled: the team dealt with it another way (e.g. phoned) -- only clears the flag.
 const bodySchema = z
   .object({
     conversationId: z.string().uuid(),
     message: z.string().trim().max(4000).optional(),
     handBackToAssistant: z.boolean().optional(),
+    handled: z.boolean().optional(),
   })
-  .refine((b) => Boolean(b.message) || b.handBackToAssistant, { message: "Nothing to do." });
+  .refine((b) => Boolean(b.message) || b.handBackToAssistant || b.handled, { message: "Nothing to do." });
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") {
@@ -36,10 +38,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const db = getDb();
     const { conversationId, message, handBackToAssistant } = parsed.data;
-    const mode = handBackToAssistant ? "bot" : "human";
+    const mode = handBackToAssistant ? "bot" : message ? "human" : null;
 
     if (message) await db.insert(messages).values({ conversationId, role: "human_agent", content: message });
-    await setConversationMode(conversationId, mode);
+    if (mode) await setConversationMode(conversationId, mode);
     await db.update(leads).set({ humanFollowupRequired: false, updatedAt: new Date() }).where(eq(leads.conversationId, conversationId));
 
     res.status(200).json({ ok: true, mode });

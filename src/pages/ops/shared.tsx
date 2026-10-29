@@ -1,8 +1,8 @@
-import { useEffect, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import clsx from "clsx";
 import { CHANNEL_LABEL, JOB_STATUS_LABEL, type JobStatus } from "../../server/jobs/status";
 import type { AdminRole } from "../admin/useAdminRole";
-import { JobCard, STATUS_STYLE } from "../admin/JobCard";
+import { STATUS_STYLE } from "../admin/JobCard";
 import type { Booking } from "../admin/capacityShared";
 import type { Job } from "../admin/useJobs";
 
@@ -61,28 +61,4 @@ export function Panel({ title, aside, children, className }: { title: ReactNode;
 export function Notice({ text, error }: { text: string | null; error?: boolean }) {
   if (!text) return null;
   return <p className={clsx("rounded-lg border px-3 py-2 text-sm", error ? "border-red-200 bg-red-50 text-red-700" : "border-green-200 bg-green-50 text-green-800")}>{text}</p>;
-}
-
-/** One job, opened from any list: the full job card with the actions this user may use. */
-export function JobPanel({ job, role, onClose, onChanged }: { job: Job; role: AdminRole | null; onClose: () => void; onChanged: (message: string) => void }) {
-  useEffect(() => {
-    const esc = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", esc);
-    return () => window.removeEventListener("keydown", esc);
-  }, [onClose]);
-  return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-navy/40" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div role="dialog" aria-modal="true" aria-label={job.customerName} className="h-full w-full max-w-xl overflow-y-auto bg-paper p-4 shadow-2xl sm:p-6">
-        <div className="mb-3 flex items-center justify-between">
-          <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Job {job.reference}</p>
-          <button type="button" onClick={onClose} className="rounded-md px-2 py-1 text-sm font-semibold text-slate-600 hover:bg-white">
-            Close
-          </button>
-        </div>
-        <ul>
-          <JobCard job={{ ...job, actions: allowedActions(job, role) }} onChanged={onChanged} />
-        </ul>
-      </div>
-    </div>
-  );
 }

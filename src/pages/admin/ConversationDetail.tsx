@@ -21,13 +21,20 @@ interface ChatQuote {
 }
 
 interface Lead {
+  humanFollowupRequired: boolean;
   customerName: string | null;
   phone: string | null;
   email: string | null;
+  notes: string | null;
 }
 
 export default function ConversationDetail() {
   const { id } = useParams<{ id: string }>();
+  return id ? <ChatThread id={id} /> : null;
+}
+
+/** One chat: the messages, a reply box and hand-back. inJob = shown on a job page, which already has the customer. */
+export function ChatThread({ id, inJob, onHandled }: { id: string; inJob?: boolean; onHandled?: () => void }) {
   const { adminFetch } = useAdminApi();
   const [messages, setMessages] = useState<Message[] | null>(null);
   const [lead, setLead] = useState<Lead | null>(null);
@@ -55,7 +62,7 @@ export default function ConversationDetail() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(load, [id]);
 
-  async function post(body: { message?: string; handBackToAssistant?: boolean }) {
+  async function post(body: { message?: string; handBackToAssistant?: boolean; handled?: boolean }) {
     setSending(true);
     setError(null);
     try {
@@ -66,6 +73,7 @@ export default function ConversationDetail() {
       if (!res.ok) throw new Error((await res.json()).error ?? "Failed to send");
       setReply("");
       load();
+      onHandled?.();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to send");
     } finally {
@@ -82,7 +90,15 @@ export default function ConversationDetail() {
 
   return (
     <div>
-      {lead && (
+      {lead?.humanFollowupRequired && (
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-orange-50 px-3 py-2 text-sm font-semibold text-action-dim">
+          <span>Waiting for a person: {lead.notes ?? "the chat handed this over"}</span>
+          <button type="button" disabled={sending} onClick={() => void post({ handled: true })} className="rounded-full border border-action-dim px-3 py-1 text-xs font-bold disabled:opacity-40">
+            Mark handled
+          </button>
+        </div>
+      )}
+      {lead && !inJob && (
         <div className="mb-4 rounded-lg bg-white p-4 shadow-sm">
           <p className="font-display font-bold text-navy">{lead.customerName ?? "Unnamed enquiry"}</p>
           <p className="text-sm text-slate-600">
@@ -91,7 +107,7 @@ export default function ConversationDetail() {
         </div>
       )}
 
-      {quotes.length > 0 && (
+      {quotes.length > 0 && !inJob && (
         <div className="mb-4 rounded-lg bg-white p-4 text-sm shadow-sm">
           <p className="mb-1 font-display font-bold text-navy">Quotes from this chat</p>
           {quotes.map((q) => (
