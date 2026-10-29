@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router";
 import clsx from "clsx";
 import { CHANNEL_LABEL } from "../../server/jobs/status";
@@ -24,7 +25,8 @@ export function NewJobButton() {
         </svg>
         New job
       </button>
-      {open && <NewJobForm onClose={() => setOpen(false)} />}
+      {/* Drawn on <body>: inside the blurred top bar a fixed overlay is trapped in the bar. */}
+      {open && createPortal(<NewJobForm onClose={() => setOpen(false)} />, document.body)}
     </>
   );
 }
