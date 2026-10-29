@@ -26,7 +26,7 @@ export const privacy = {
       paragraphs: ["We only collect information you give us or that your browser sends when you use our website:"],
       bullets: [
         "Quote requests: your name, email address, phone number, pickup and drop-off suburbs or addresses, moving date, property size, the service you need, any notes you add, and any photos you upload for a junk removal quote.",
-        "Our website chat: the messages you type, and the details you give there -- such as your name, email address, phone number, full pickup and drop-off addresses, moving date, home size, access (stairs, lifts, parking) and heavy items.",
+        "Our website chat: the messages you type, and the details you give there — such as your name, email address, phone number, full pickup and drop-off addresses, moving date, home size, access (stairs, lifts, parking) and heavy items.",
         "Bookings: the date and arrival time you choose, and your agreement to our booking terms.",
         "Callback requests: your name, email address, phone number, and the day and time you'd like us to call.",
         "Phone calls and emails: your contact details and whatever you tell us about your move or junk removal job.",
