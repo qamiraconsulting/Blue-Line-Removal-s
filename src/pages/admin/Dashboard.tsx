@@ -119,7 +119,7 @@ export default function Dashboard() {
           return (
             <li key={lead.id} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
               {lead.conversationId ? (
-                <Link to={`/admin/conversations/${lead.conversationId}`} className="block">
+                <Link to={`/admin/classic/conversations/${lead.conversationId}`} className="block">
                   {card}
                 </Link>
               ) : (

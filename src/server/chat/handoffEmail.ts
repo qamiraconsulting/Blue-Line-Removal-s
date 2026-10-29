@@ -23,7 +23,7 @@ export function renderHandoffEmail(input: {
     `Email: ${input.email || "-"}`,
     `Moving: ${input.from || "?"} -> ${input.to || "?"}`,
     "",
-    `Read the chat and reply: ${site.url}/admin/conversations/${input.conversationId}`,
+    `Read the chat and reply: ${site.url}/admin/chat/${input.conversationId}`,
   ].join("\n");
   const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   return {

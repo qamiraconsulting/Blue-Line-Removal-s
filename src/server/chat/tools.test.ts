@@ -266,7 +266,7 @@ describe("request_human_followup", () => {
     const alerts = sent.filter((e) => e.subject.startsWith("Chat needs a person"));
     expect(alerts).toHaveLength(1);
     expect(alerts[0]).toMatchObject({ to: "team@example.com", kind: "team" });
-    expect(alerts[0]!.text).toContain("/admin/conversations/conv-1");
+    expect(alerts[0]!.text).toContain("/admin/chat/conv-1");
     expect(alerts[0]!.text).toContain("Phone: 0412345678");
   });
 

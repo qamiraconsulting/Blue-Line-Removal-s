@@ -187,7 +187,7 @@ export default function JobPage() {
 
 function BackLink() {
   return (
-    <Link to="/admin/new/requests" className="text-sm font-semibold text-slate-500 hover:text-navy">
+    <Link to="/admin/requests" className="text-sm font-semibold text-slate-500 hover:text-navy">
       &larr; Requests
     </Link>
   );

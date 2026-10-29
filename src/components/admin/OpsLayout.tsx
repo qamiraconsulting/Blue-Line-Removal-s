@@ -5,17 +5,17 @@ import { AdminGate } from "./AdminLayout";
 import { AdminRoleContext, useLoadAdminRole } from "../../pages/admin/useAdminRole";
 import { NewJobButton } from "../../pages/ops/NewJob";
 
-// The redesigned dashboard (Blue Line approved the prototype, Oct 2026). Same sign-in, same data
-// and the same /api/admin/* endpoints as the current dashboard (AdminLayout.tsx), which stays
-// at /admin until Ayesha signs off; the sidebar links back to it until then. Matt (limited)
+// The dashboard (redesigned from the prototype Blue Line approved, Oct 2026). Same sign-in, data
+// and /api/admin/* endpoints as the previous one (AdminLayout.tsx), kept at /admin/classic as a
+// fallback; the sidebar links back to it. Matt (limited)
 // doesn't see Reports or Settings.
 
 const NAV: { to: string; label: string; icon: string; fullOnly?: boolean }[] = [
-  { to: "/admin/new", label: "Today", icon: "M4 12h4l2-6 4 12 2-6h4" },
-  { to: "/admin/new/requests", label: "Requests", icon: "M3 4h5v16H3zM10 4h5v11h-5zM17 4h4v7h-4z" },
-  { to: "/admin/new/schedule", label: "Schedule", icon: "M3 5h18v16H3zM3 10h18M8 3v4M16 3v4" },
-  { to: "/admin/new/reports", label: "Reports", icon: "M4 20V10M10 20V4M16 20v-7M22 20H2", fullOnly: true },
-  { to: "/admin/new/settings", label: "Settings", icon: "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM4 12h2M18 12h2M12 4v2M12 18v2M6.3 6.3l1.4 1.4M16.3 16.3l1.4 1.4M6.3 17.7l1.4-1.4M16.3 7.7l1.4-1.4", fullOnly: true },
+  { to: "/admin", label: "Today", icon: "M4 12h4l2-6 4 12 2-6h4" },
+  { to: "/admin/requests", label: "Requests", icon: "M3 4h5v16H3zM10 4h5v11h-5zM17 4h4v7h-4z" },
+  { to: "/admin/schedule", label: "Schedule", icon: "M3 5h18v16H3zM3 10h18M8 3v4M16 3v4" },
+  { to: "/admin/reports", label: "Reports", icon: "M4 20V10M10 20V4M16 20v-7M22 20H2", fullOnly: true },
+  { to: "/admin/settings", label: "Settings", icon: "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM4 12h2M18 12h2M12 4v2M12 18v2M6.3 6.3l1.4 1.4M16.3 16.3l1.4 1.4M6.3 17.7l1.4-1.4M16.3 7.7l1.4-1.4", fullOnly: true },
 ];
 
 
@@ -52,7 +52,7 @@ function OpsShell() {
               <NavLink
                 key={n.to}
                 to={n.to}
-                end={n.to === "/admin/new"}
+                end={n.to === "/admin"}
                 className={({ isActive }) =>
                   clsx(
                     "flex items-center gap-2.5 whitespace-nowrap rounded-md px-2.5 py-2 text-sm font-semibold",
@@ -72,7 +72,7 @@ function OpsShell() {
             <NewJobButton />
           </div>
 
-          <NavLink to="/admin" className="hidden text-xs text-slate-400 underline-offset-2 hover:text-white hover:underline md:block">
+          <NavLink to="/admin/classic" className="hidden text-xs text-slate-400 underline-offset-2 hover:text-white hover:underline md:block">
             Old dashboard &rarr;
           </NavLink>
 

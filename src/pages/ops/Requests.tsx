@@ -37,7 +37,7 @@ export default function Requests() {
   );
   const noDriverRefs = new Set((cap.data?.bookings ?? []).filter((b) => needsDriver(b, today)).map((b) => b.quoteReference));
   const channels = [...new Set(all.map((j) => j.channel))].sort();
-  const setOpen = (ref: string) => navigate(`/admin/new/jobs/${ref}`);
+  const setOpen = (ref: string) => navigate(`/admin/jobs/${ref}`);
 
   const card = (j: Job) => {
     const price = jobPrice(j);

@@ -32,7 +32,7 @@ export default function Schedule() {
 
   const data = cap.data;
   const openTrip = (b: Booking) => {
-    if (b.quoteReference) return navigate(`/admin/new/jobs/${b.quoteReference}`);
+    if (b.quoteReference) return navigate(`/admin/jobs/${b.quoteReference}`);
     cap.changeRange({ tripDay: b.date });
     setMode("day");
   };

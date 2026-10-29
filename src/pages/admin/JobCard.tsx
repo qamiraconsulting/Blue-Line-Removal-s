@@ -157,7 +157,7 @@ export function JobActions({ job, onChanged, chatLink }: { job: Job; onChanged: 
           ),
         )}
         {chatLink && job.conversationId && (
-          <Link to={`/admin/conversations/${job.conversationId}`} className="text-sm text-navy underline">
+          <Link to={`/admin/classic/conversations/${job.conversationId}`} className="text-sm text-navy underline">
             Open the chat
           </Link>
         )}

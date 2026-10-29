@@ -49,7 +49,7 @@ export default function Today() {
 
   const all = jobs.data?.jobs ?? [];
   const byRef = (ref: string | null) => (ref ? all.find((j) => j.reference === ref) : undefined);
-  const setOpen = (ref: string | null) => ref && navigate(`/admin/new/jobs/${ref}`);
+  const setOpen = (ref: string | null) => ref && navigate(`/admin/jobs/${ref}`);
   const loading = !jobs.data || !cap.data;
 
   const confirm = all.filter((j) => j.status === "booking_requested");
@@ -116,10 +116,10 @@ export default function Today() {
 
       {s && (
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <Kpi label="Booked, next 7 days" value={s.now.bookedNext7Days.jobs} sub={`${aud(s.now.bookedNext7Days.valueAud)} in jobs`} to="/admin/new/schedule" />
+          <Kpi label="Booked, next 7 days" value={s.now.bookedNext7Days.jobs} sub={`${aud(s.now.bookedNext7Days.valueAud)} in jobs`} to="/admin/schedule" />
           {full && (
             <>
-              <Kpi label="Open requests" value={openRequests} sub="waiting on us or the customer" to="/admin/new/requests" />
+              <Kpi label="Open requests" value={openRequests} sub="waiting on us or the customer" to="/admin/requests" />
               <Kpi
                 label="Booked this month"
                 value={s.inPeriod.conversionPercent === null ? "-" : `${s.inPeriod.conversionPercent}%`}
@@ -216,7 +216,7 @@ export default function Today() {
                           ))}
                       </select>
                     ) : (
-                      <Link to="/admin/new/schedule" className="text-xs font-bold text-navy underline">
+                      <Link to="/admin/schedule" className="text-xs font-bold text-navy underline">
                         Assign a truck first
                       </Link>
                     )}
@@ -229,7 +229,7 @@ export default function Today() {
             <>
               <Group title="Chats waiting for a person" hint="Handed over by the chat" items={chats} hot empty="No chats waiting.">
                 {(l) => {
-                  const go = byRef(l.quoteReference) ? () => setOpen(l.quoteReference) : l.conversationId ? () => navigate(`/admin/new/chat/${l.conversationId}`) : undefined;
+                  const go = byRef(l.quoteReference) ? () => setOpen(l.quoteReference) : l.conversationId ? () => navigate(`/admin/chat/${l.conversationId}`) : undefined;
                   return (
                     <Row key={l.id} onOpen={go} who={l.customerName ?? "Unnamed enquiry"} meta={l.notes ? `“${l.notes}”` : `${l.fromText ?? "?"} → ${l.toText ?? "?"}`}>
                       {go && <Btn onClick={go}>Reply</Btn>}
@@ -369,7 +369,7 @@ function Road({ title, day, trips, cap, onOpen }: { title: string; day: string; 
     <Panel
       title={title}
       aside={
-        <Link to="/admin/new/schedule" className="text-xs font-semibold text-slate-500 hover:text-navy">
+        <Link to="/admin/schedule" className="text-xs font-semibold text-slate-500 hover:text-navy">
           {shortDay(day)} &rarr;
         </Link>
       }

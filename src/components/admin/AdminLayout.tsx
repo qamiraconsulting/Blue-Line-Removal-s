@@ -64,10 +64,10 @@ export function AdminGate({ children }: { children: ReactNode }) {
 }
 
 const TABS: { to: string; label: string; fullOnly?: boolean }[] = [
-  { to: "/admin/overview", label: "Overview" },
-  { to: "/admin", label: "Lead review" },
-  { to: "/admin/trips", label: "Booking and trucks" },
-  { to: "/admin/capacity", label: "Settings", fullOnly: true },
+  { to: "/admin/classic/overview", label: "Overview" },
+  { to: "/admin/classic", label: "Lead review" },
+  { to: "/admin/classic/trips", label: "Booking and trucks" },
+  { to: "/admin/classic/capacity", label: "Settings", fullOnly: true },
 ];
 
 function SignedInShell() {

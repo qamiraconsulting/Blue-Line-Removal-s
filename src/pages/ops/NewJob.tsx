@@ -7,7 +7,7 @@ import { useAdminApi } from "../admin/useAdminApi";
 import { useAdminRole } from "../admin/useAdminRole";
 
 // "+ New job": a phone, Airtasker, Moval or other job in one form -- it replaces "Assign a truck
-// to a trip" and "Add a booking by hand". Saved through api/admin/newjob.ts like Matt's Google
+// to a trip" and "Add a booking by hand". Saved through api/adminjob.ts like Matt's Google
 // Form, so it shows on every list with a status. Matt (limited) can only book.
 
 const CHANNELS = ["phone", "airtasker", "moval", "website_followup", "other"] as const;
@@ -77,7 +77,7 @@ function NewJobForm({ onClose }: { onClose: () => void }) {
     const val = (v: string) => v.trim() || null;
     const n = (v: string) => (v.trim() === "" ? null : Number(v));
     try {
-      const res = await adminFetch("/api/admin/newjob", {
+      const res = await adminFetch("/api/adminjob", {
         method: "POST",
         body: JSON.stringify({
           mode: f.mode,
@@ -105,7 +105,7 @@ function NewJobForm({ onClose }: { onClose: () => void }) {
       if (!res.ok) throw new Error(out.error ?? "Couldn't save the job");
       const notice = [book ? "Job booked." : "Job saved. Send the quote below.", out.warning, ...(out.notices ?? [])].filter(Boolean).join(" ");
       onClose();
-      navigate(`/admin/new/jobs/${out.reference}`, { state: { notice } });
+      navigate(`/admin/jobs/${out.reference}`, { state: { notice } });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't save the job");
     } finally {

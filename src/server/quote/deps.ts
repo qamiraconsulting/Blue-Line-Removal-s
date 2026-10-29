@@ -73,7 +73,7 @@ export function buildQuoteDeps(env: Env = process.env): QuoteServiceDeps | null 
     store: dbNoDriverStore,
     sendEmail,
     to: (nonProduction && testEmailTo) || env.DISPATCH_ALERT_EMAIL || DEFAULT_DISPATCH_ALERT_EMAIL,
-    dashboardUrl: `${siteUrlFrom(env)}/admin/trips`,
+    dashboardUrl: `${siteUrlFrom(env)}/admin/schedule`,
   };
 
   return {

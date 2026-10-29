@@ -141,7 +141,7 @@ export function SettingsSections({ only }: { only?: SettingsTab }) {
       {!only && (
         <p className="rounded-md bg-slate-100 p-3 text-sm text-slate-700">
           Which truck and driver goes when, with the customer&apos;s details: see the{" "}
-          <Link to="/admin/trips" className="font-bold text-navy underline">
+          <Link to="/admin/classic/trips" className="font-bold text-navy underline">
             Booking and trucks
           </Link>{" "}
           tab.

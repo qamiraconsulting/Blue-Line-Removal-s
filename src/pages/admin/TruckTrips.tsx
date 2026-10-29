@@ -63,7 +63,7 @@ export default function TruckTrips() {
             <>
               {" "}
               Trucks, drivers and booking settings are on{" "}
-              <Link to="/admin/capacity" className="font-bold text-navy underline">
+              <Link to="/admin/classic/capacity" className="font-bold text-navy underline">
                 Settings
               </Link>
               .
@@ -294,7 +294,7 @@ function TripsDay(props: {
         {activeTrucks.length === 0 ? (
           <p className="mt-4 text-sm text-slate-500">
             No trucks yet -- add them under{" "}
-            <Link to="/admin/capacity" className="font-bold text-navy underline">
+            <Link to="/admin/classic/capacity" className="font-bold text-navy underline">
               Settings &gt; Trucks
             </Link>
             , e.g. &quot;Baby Blue&quot;.

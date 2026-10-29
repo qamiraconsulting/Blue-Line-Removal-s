@@ -74,11 +74,11 @@ export default function Overview() {
 
       <h3 className="mt-6 text-xs font-bold uppercase tracking-wide text-slate-500">Right now</h3>
       <div className="mt-2 grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        <Tile label="Waiting for a quote" value={s.now.waitingForQuote} sub={s.now.oldestWaitingSince ? `oldest ${waitedFor(s.now.oldestWaitingSince)}` : "none waiting"} alert={waitingHours > 2} to="/admin" />
-        <Tile label="Booking requests" value={s.now.bookingRequested} sub="to confirm" alert={s.now.bookingRequested > 0} to="/admin" />
-        <Tile label="Booked, next 7 days" value={s.now.bookedNext7Days.jobs} sub={aud(s.now.bookedNext7Days.valueAud)} to="/admin/trips" />
-        <Tile label="Estimates & quotes not booked" value={s.now.estimatesNotBooked} sub="follow up" to="/admin" />
-        <Tile label="To mark complete" value={s.now.toMarkComplete} sub="moving date passed" alert={s.now.toMarkComplete > 0} to="/admin/trips" />
+        <Tile label="Waiting for a quote" value={s.now.waitingForQuote} sub={s.now.oldestWaitingSince ? `oldest ${waitedFor(s.now.oldestWaitingSince)}` : "none waiting"} alert={waitingHours > 2} to="/admin/classic" />
+        <Tile label="Booking requests" value={s.now.bookingRequested} sub="to confirm" alert={s.now.bookingRequested > 0} to="/admin/classic" />
+        <Tile label="Booked, next 7 days" value={s.now.bookedNext7Days.jobs} sub={aud(s.now.bookedNext7Days.valueAud)} to="/admin/classic/trips" />
+        <Tile label="Estimates & quotes not booked" value={s.now.estimatesNotBooked} sub="follow up" to="/admin/classic" />
+        <Tile label="To mark complete" value={s.now.toMarkComplete} sub="moving date passed" alert={s.now.toMarkComplete > 0} to="/admin/classic/trips" />
       </div>
 
       <h3 className="mt-6 text-xs font-bold uppercase tracking-wide text-slate-500">
