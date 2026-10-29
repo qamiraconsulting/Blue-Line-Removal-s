@@ -25,8 +25,15 @@ const missingForInstant = (s: Settings) =>
 
 export type SettingsTab = "rules" | "drivers" | "trucks" | "off";
 
-/** `only`: one section, for the new dashboard's Settings tabs; without it, the whole page. */
-export default function Capacity({ only }: { only?: SettingsTab }) {
+export default function Capacity() {
+  return <SettingsSections />;
+}
+
+/**
+ * The settings sections. `only`: one section, for the new dashboard's Settings tabs; without it,
+ * the whole page. (A named export: React Router wraps a route's default export, dropping props.)
+ */
+export function SettingsSections({ only }: { only?: SettingsTab }) {
   const role = useAdminRole();
   const { data, message, busy, post } = useCapacity();
   const [settings, setSettings] = useState<Settings | null>(null);

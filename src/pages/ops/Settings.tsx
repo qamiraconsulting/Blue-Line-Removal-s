@@ -1,6 +1,6 @@
 import { useState } from "react";
 import clsx from "clsx";
-import Capacity, { type SettingsTab } from "../admin/Capacity";
+import { SettingsSections, type SettingsTab } from "../admin/Capacity";
 import { useAdminRole } from "../admin/useAdminRole";
 
 // Settings, in four tabs instead of one long page: the same sections and saves as the current
@@ -37,7 +37,7 @@ export default function Settings() {
           </button>
         ))}
       </div>
-      <Capacity key={tab} only={tab} />
+      <SettingsSections key={tab} only={tab} />
     </div>
   );
 }
