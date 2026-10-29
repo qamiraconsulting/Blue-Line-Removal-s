@@ -69,7 +69,7 @@ export function SettingsSections({ only }: { only?: SettingsTab }) {
               <strong>Confirm bookings instantly in the chat</strong>
               <span className="block text-slate-600">
                 On: the chat confirms a booking on the spot when the chosen time has a free truck of the right size and enough movers. Off: every chat booking is a request you
-                confirm under Lead review.
+                confirm on Today.
               </span>
               {settings.autoConfirm && missing.length > 0 && (
                 <span className="mt-1 block text-red-600">Nothing is confirmed instantly until these are filled in: {missing.join(", ")}.</span>

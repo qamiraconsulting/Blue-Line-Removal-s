@@ -95,7 +95,7 @@ export default function Schedule() {
       {!data && <p className="text-sm text-slate-500">Loading...</p>}
 
       {data && mode === "week" && (
-        <Panel title={`${shortDay(days[0])} – ${shortDay(days[6])}`} aside={<span className="text-sm text-slate-500 tabular-nums">{data.bookings.filter((b) => b.status === "confirmed").length} trips</span>}>
+        <Panel title={`${shortDay(days[0])} – ${shortDay(days[6])}`} aside={<span className="text-sm text-slate-500 tabular-nums">{plural(data.bookings.filter((b) => b.status === "confirmed").length, "trip")}</span>}>
           <div className="overflow-x-auto">
             <div className="grid min-w-[960px] grid-cols-[128px_repeat(7,minmax(118px,1fr))] border-t border-slate-100 text-sm">
               <div className="bg-paper" />
@@ -120,13 +120,13 @@ export default function Schedule() {
 
       {data && mode === "day" && (
         <>
-          <Panel title={`${shortDay(day)}${day === today ? " · Today" : ""}`} aside={<span className="text-sm text-slate-500">{offNote(data, day) ?? `${data.dayTrips.filter((b) => b.status === "confirmed").length} jobs · 7 am to 9 pm`}</span>}>
+          <Panel title={`${shortDay(day)}${day === today ? " · Today" : ""}`} aside={<span className="text-sm text-slate-500">{offNote(data, day) ?? `${plural(data.dayTrips.filter((b) => b.status === "confirmed").length, "job")} · 7 am to 9 pm`}</span>}>
             <div className="overflow-x-auto">
               <div className="grid min-w-[860px] grid-cols-[128px_minmax(0,1fr)] border-t border-slate-100">
                 <div />
                 <div className="relative h-7 border-b border-slate-200">
                   {[7, 9, 11, 13, 15, 17, 19, 21].map((h) => (
-                    <span key={h} className="absolute top-1.5 -translate-x-1/2 text-[11px] text-slate-400 tabular-nums" style={{ left: `${((h * 60 - DAY_START) / (DAY_END - DAY_START)) * 100}%` }}>
+                    <span key={h} className={clsx("absolute top-1.5 text-[11px] text-slate-400 tabular-nums", h === 7 ? "" : h === 21 ? "-translate-x-full" : "-translate-x-1/2")} style={{ left: `${((h * 60 - DAY_START) / (DAY_END - DAY_START)) * 100}%` }}>
                       {h % 12 || 12} {h < 12 ? "am" : "pm"}
                     </span>
                   ))}
@@ -192,10 +192,15 @@ export default function Schedule() {
         </>
       )}
 
-      {noDriver.length > 0 && (
+      {upcoming.data && (
         <Panel title="Jobs with no driver yet" aside={<span className="text-xs text-slate-400">The team is emailed {DRIVER_NEEDED_DAYS_BEFORE} days before</span>}>
           <table className="w-full border-t border-slate-100 text-sm">
             <tbody>
+              {noDriver.length === 0 && (
+                <tr>
+                  <td className="px-4 py-3 text-slate-400">Every upcoming job has a driver.</td>
+                </tr>
+              )}
               {noDriver.map((b) => (
                 <tr key={b.id} onClick={() => open(b)} className="cursor-pointer border-b border-slate-100 last:border-b-0 hover:bg-paper">
                   <td className="px-4 py-2.5 font-bold text-navy">{b.customerName ?? b.quoteReference ?? "Trip"}</td>
@@ -226,6 +231,8 @@ export default function Schedule() {
     </div>
   );
 }
+
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
 function offNote(data: CapacityData, d: string) {
   const off = data.overrides.find((o) => o.date === d && o.closed);
