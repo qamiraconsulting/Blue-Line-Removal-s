@@ -15,5 +15,6 @@ export default {
     "/quote",
     "/faq",
     "/deposit",
+    "/privacy",
   ],
 } satisfies Config;

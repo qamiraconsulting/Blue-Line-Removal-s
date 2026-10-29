@@ -134,7 +134,10 @@ export function ChatPanel() {
               </button>
             </div>
             <p className="mt-1.5 text-center text-[10px] leading-snug text-slate-400">
-              We keep this chat to help with your move. Please don&apos;t share payment details.
+              We keep this chat to help with your move. Please don&apos;t share payment details.{" "}
+              <a href="/privacy" target="_blank" rel="noopener" className="underline hover:text-slate-600">
+                Privacy
+              </a>
             </p>
           </form>
         </>

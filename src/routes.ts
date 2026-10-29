@@ -7,6 +7,7 @@ export default [
     route("services/:slug", "pages/ServiceDetail.tsx"),
     route("quote", "pages/Quote.tsx"),
     route("faq", "pages/FAQ.tsx"),
+    route("privacy", "pages/Privacy.tsx"),
     route("deposit", "pages/Deposit.tsx"),
   ]),
   // Internal lead-review dashboard -- not in the public site's Layout,
