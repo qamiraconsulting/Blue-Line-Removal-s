@@ -63,7 +63,7 @@ export function SettingsSections({ only }: { only?: SettingsTab }) {
       {(!only || only === "rules") && (
         <section className={box}>
           <SectionHeader title="Booking settings" intro="How bookings work in general. Save after changing anything." />
-          <label className="mt-4 flex items-start gap-3 rounded-md bg-slate-50 p-3">
+          <label className="mt-4 flex items-start gap-3 rounded-lg bg-paper p-3">
             <input type="checkbox" className="mt-1" checked={settings.autoConfirm} onChange={(e) => setSettings({ ...settings, autoConfirm: e.target.checked })} />
             <span className="text-sm">
               <strong>Confirm bookings instantly in the chat</strong>
@@ -79,12 +79,16 @@ export function SettingsSections({ only }: { only?: SettingsTab }) {
 
           <div className="mt-5 grid gap-5 sm:grid-cols-2">
             <div className="text-sm">
-              <span className="block text-xs font-bold uppercase text-slate-600">Working days</span>
-              <span className="mb-1 block text-xs text-slate-500">Days customers can book online. Untick days you don&apos;t work.</span>
+              <span className="block text-xs font-semibold text-slate-500">Working days</span>
+              <span className="mb-1 block text-[11.5px] text-slate-400">Days customers can book online. Click a day to turn it on or off.</span>
               <div className="flex flex-wrap gap-2">
                 {DAYS.map((d, i) => (
-                  <label key={d} className="flex items-center gap-1">
+                  <label
+                    key={d}
+                    className="cursor-pointer rounded-md border border-slate-300 px-2.5 py-1 text-xs font-semibold text-slate-600 has-checked:border-navy has-checked:bg-navy has-checked:text-white"
+                  >
                     <input
+                      className="sr-only"
                       type="checkbox"
                       checked={settings.workingDays.includes(i)}
                       onChange={(e) =>
@@ -176,8 +180,8 @@ function StartTimes({ settings, onChange }: { settings: Settings; onChange: (s: 
   const count = settings.arrivalTimes.length;
   return (
     <div className="text-sm">
-      <span className="block text-xs font-bold uppercase text-slate-600">Arrival times</span>
-      <span className="mb-1 block text-xs text-slate-500">
+      <span className="block text-xs font-semibold text-slate-500">Arrival times</span>
+      <span className="mb-1 block text-[11.5px] text-slate-400">
         Times the crew can arrive. The chat asks the customer what time suits them, and offers the nearest free times if it doesn&apos;t. For 24/7, use 00:00 to 23:30.
       </span>
       <div className="flex flex-wrap items-center gap-2">
@@ -217,7 +221,7 @@ function Drivers({ drivers, busy, onSave }: { drivers: Driver[]; busy: boolean; 
         title="Drivers"
         intro="Everyone who drives a truck. The driver for each job is picked on the Booking and trucks tab, at least 2 days before the move -- if a job still has no driver 2 days before, it's flagged there and the team is emailed. The picked driver is emailed the date, time, pick-up, drop-off and the customer's name, address and phone the day before the move (straight away if picked later). Without an email address a driver can't be told."
       />
-      <ul className="mt-3 space-y-2">
+      <ul className="mt-3">
         {drivers.map((d) => (
           <DriverRow key={d.id} driver={d} busy={busy} onSave={onSave} />
         ))}
@@ -259,7 +263,7 @@ function DriverRow({ driver, busy, onSave }: { driver: Driver; busy: boolean; on
   useEffect(() => setD(driver), [driver]);
   const emailOk = looksLikeEmail(d.email);
   return (
-    <li className="flex flex-wrap items-center gap-2 text-sm">
+    <li className="flex flex-wrap items-center gap-2 border-t border-slate-100 py-2.5 text-sm first:border-t-0">
       <input className={input} value={d.name} onChange={(e) => setD({ ...d, name: e.target.value })} aria-label="Name" />
       <input
         type="tel"
@@ -283,7 +287,7 @@ function DriverRow({ driver, busy, onSave }: { driver: Driver; busy: boolean; on
       <button
         type="button"
         disabled={busy || !d.name.trim() || !emailOk}
-        className="text-xs font-bold text-navy underline"
+        className="rounded-md border border-slate-300 px-2.5 py-1 text-xs font-bold text-navy hover:border-navy disabled:opacity-40"
         onClick={() => void onSave({ ...d, name: d.name.trim() })}
       >
         Save
@@ -301,7 +305,7 @@ function Trucks({ trucks, busy, onSave }: { trucks: Truck[]; busy: boolean; onSa
         title="Trucks"
         intro="Every truck that can be booked, with its size. Add each truck once. The chat picks a free truck of the right size for each booking; the driver is picked per job on the Booking and trucks tab."
       />
-      <ul className="mt-3 space-y-2">
+      <ul className="mt-3">
         {trucks.map((t) => (
           <TruckRow key={t.id} truck={t} busy={busy} onSave={onSave} />
         ))}
@@ -342,7 +346,7 @@ function TruckRow({ truck, busy, onSave }: { truck: Truck; busy: boolean; onSave
   const [t, setT] = useState(truck);
   useEffect(() => setT(truck), [truck]);
   return (
-    <li className="flex flex-wrap items-center gap-2 text-sm">
+    <li className="flex flex-wrap items-center gap-2 border-t border-slate-100 py-2.5 text-sm first:border-t-0">
       <input className={input} value={t.label} onChange={(e) => setT({ ...t, label: e.target.value })} aria-label="Name / rego" />
       <select className={input} value={t.truckType} onChange={(e) => setT({ ...t, truckType: e.target.value })} aria-label="Size">
         {TRUCK_TYPES.map((x) => (
@@ -352,7 +356,7 @@ function TruckRow({ truck, busy, onSave }: { truck: Truck; busy: boolean; onSave
       <label className="flex items-center gap-1">
         <input type="checkbox" checked={t.active} onChange={(e) => setT({ ...t, active: e.target.checked })} /> active
       </label>
-      <button type="button" disabled={busy} className="text-xs font-bold text-navy underline" onClick={() => onSave(t)}>
+      <button type="button" disabled={busy} className="rounded-md border border-slate-300 px-2.5 py-1 text-xs font-bold text-navy hover:border-navy disabled:opacity-40" onClick={() => onSave(t)}>
         Save
       </button>
     </li>
@@ -381,7 +385,7 @@ function DayChanges(props: { overrides: Override[]; trucks: Truck[]; today: stri
                   .filter(Boolean)
                   .join(" · ")}
             {o.note && <span className="text-slate-500">({o.note})</span>}
-            <button type="button" disabled={props.busy} className="text-xs font-bold text-red-600 underline" onClick={() => props.onDelete(o.date)}>
+            <button type="button" disabled={props.busy} className="rounded-md border border-red-200 px-2.5 py-1 text-xs font-bold text-red-600 hover:border-red-400 disabled:opacity-40" onClick={() => props.onDelete(o.date)}>
               Remove
             </button>
           </li>
@@ -392,8 +396,8 @@ function DayChanges(props: { overrides: Override[]; trucks: Truck[]; today: stri
           <input type="date" min={props.today} className={input} value={draft.date} onChange={(e) => setDraft({ ...draft, date: e.target.value })} />
         </Field>
         <div className="text-sm">
-          <span className="block text-xs font-bold uppercase text-slate-600">Closed all day</span>
-          <span className="mb-1 block text-xs text-slate-500">Tick for no online bookings at all that day (holiday, staff event).</span>
+          <span className="block text-xs font-semibold text-slate-500">Closed all day</span>
+          <span className="mb-1 block text-[11.5px] text-slate-400">Tick for no online bookings at all that day (holiday, staff event).</span>
           <label className="flex items-center gap-1">
             <input type="checkbox" checked={draft.closed} onChange={(e) => setDraft({ ...draft, closed: e.target.checked })} /> closed
           </label>
@@ -410,8 +414,8 @@ function DayChanges(props: { overrides: Override[]; trucks: Truck[]; today: stri
               />
             </Field>
             <div className="text-sm">
-              <span className="block text-xs font-bold uppercase text-slate-600">Trucks off that day</span>
-              <span className="mb-1 block text-xs text-slate-500">Tick any truck that can&apos;t be used that day (service, repair).</span>
+              <span className="block text-xs font-semibold text-slate-500">Trucks off that day</span>
+              <span className="mb-1 block text-[11.5px] text-slate-400">Tick any truck that can&apos;t be used that day (service, repair).</span>
               {props.trucks.length === 0 ? (
                 <span className="text-xs text-slate-500">Add your trucks first (Trucks section above).</span>
               ) : (

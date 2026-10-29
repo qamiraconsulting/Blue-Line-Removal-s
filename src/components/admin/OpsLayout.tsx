@@ -1,4 +1,4 @@
-import { NavLink, Outlet } from "react-router";
+import { NavLink, Outlet, useLocation, useNavigate, useSearchParams } from "react-router";
 import clsx from "clsx";
 import { UserButton } from "@clerk/react";
 import { AdminGate } from "./AdminLayout";
@@ -7,7 +7,7 @@ import { NewJobButton } from "../../pages/ops/NewJob";
 
 // The dashboard (redesigned from the prototype Blue Line approved, Oct 2026). Same sign-in, data
 // and /api/admin/* endpoints as the previous one (AdminLayout.tsx), kept at /admin/classic as a
-// fallback; the sidebar links back to it. Matt (limited)
+// fallback (no link to it any more). The top bar's search drives the Requests list. Matt (limited)
 // doesn't see Reports or Settings.
 
 const NAV: { to: string; label: string; icon: string; fullOnly?: boolean }[] = [
@@ -68,24 +68,48 @@ function OpsShell() {
             ))}
           </nav>
 
-          <div className="order-2 md:order-none md:grid">
-            <NewJobButton />
-          </div>
-
-          <NavLink to="/admin/classic" className="hidden text-xs text-slate-400 underline-offset-2 hover:text-white hover:underline md:block">
-            Old dashboard &rarr;
-          </NavLink>
-
           <div className="ml-auto md:mt-auto md:ml-0 md:flex md:items-center md:gap-2 md:text-xs">
             <UserButton />
             <span className="hidden md:inline">{role === "limited" ? "Limited access" : role === "full" ? "Full access" : ""}</span>
           </div>
         </aside>
 
-        <main className="mx-auto w-full max-w-[1240px] px-4 py-6 md:px-8 md:py-8">
-          <Outlet />
-        </main>
+        <div className="min-w-0">
+          <header className="sticky top-0 z-30 flex flex-wrap items-center gap-3 border-b border-slate-200 bg-paper/95 px-4 py-3 backdrop-blur md:px-8">
+            <Search />
+            <div className="flex-1" />
+            <NewJobButton />
+          </header>
+          <main className="mx-auto w-full max-w-[1240px] px-4 py-6 md:px-8 md:py-8">
+            <Outlet />
+          </main>
+        </div>
       </div>
     </AdminRoleContext.Provider>
+  );
+}
+
+/** Find a customer, suburb or reference: shows the matches on Requests (?q=). */
+function Search() {
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const [params] = useSearchParams();
+  const onRequests = pathname === "/admin/requests";
+  const q = onRequests ? (params.get("q") ?? "") : "";
+  return (
+    <label className="relative w-full max-w-[380px] sm:w-auto sm:flex-1">
+      <svg viewBox="0 0 24 24" className="pointer-events-none absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-slate-400" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+        <circle cx="11" cy="11" r="7" />
+        <path d="m20 20-3.5-3.5" />
+      </svg>
+      <input
+        type="search"
+        value={q}
+        onChange={(e) => navigate(`/admin/requests${e.target.value ? `?q=${encodeURIComponent(e.target.value)}` : ""}`, { replace: onRequests })}
+        placeholder="Find a customer, suburb or reference"
+        aria-label="Find a customer, suburb or reference"
+        className="w-full rounded-lg border border-slate-200 bg-white py-2 pr-2.5 pl-8 text-sm"
+      />
+    </label>
   );
 }

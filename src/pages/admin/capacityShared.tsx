@@ -90,16 +90,16 @@ export const num = (v: string) => (v.trim() === "" ? null : Number(v));
 /** Blank is fine (the email is optional); otherwise it must look like an email address. */
 export const looksLikeEmail = (v: string | null) => !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
 
-export const box = "rounded-lg border border-slate-200 bg-white p-5 shadow-sm";
-export const input = "rounded border border-slate-300 px-2 py-1 text-sm focus:border-action focus:outline-none";
-export const button = "rounded-full bg-navy px-4 py-1.5 text-xs font-bold text-white disabled:opacity-40";
+export const box = "rounded-xl border border-slate-200 bg-white p-5 shadow-sm";
+export const input = "rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-sm focus:border-action focus:outline-none";
+export const button = "rounded-md bg-navy px-3 py-1.5 text-xs font-bold text-white disabled:opacity-40";
 
 /** A labelled field with a one-line explanation underneath the label. */
 export function Field({ label, hint, children, className }: { label: string; hint: string; children: ReactNode; className?: string }) {
   return (
     <label className={clsx("block text-sm", className)}>
-      <span className="block text-xs font-bold uppercase text-slate-600">{label}</span>
-      <span className="mb-1 block text-xs text-slate-500">{hint}</span>
+      <span className="block text-xs font-semibold text-slate-500">{label}</span>
+      <span className="mb-1 block text-[11.5px] text-slate-400">{hint}</span>
       {children}
     </label>
   );
@@ -108,7 +108,7 @@ export function Field({ label, hint, children, className }: { label: string; hin
 export function SectionHeader({ title, intro }: { title: string; intro: ReactNode }) {
   return (
     <>
-      <h3 className="font-display text-lg font-bold text-navy">{title}</h3>
+      <h3 className="font-display text-lg font-extrabold text-navy">{title}</h3>
       <p className="mt-1 text-sm text-slate-600">{intro}</p>
     </>
   );

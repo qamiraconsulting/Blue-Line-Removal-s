@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { useNavigate } from "react-router";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router";
 import clsx from "clsx";
 import { shortDay } from "../../lib/noticeTiming";
 import { time12 } from "../../lib/truckTrips";
@@ -26,7 +26,14 @@ export default function Requests() {
   const [mode, setMode] = useState<"board" | "table">("board");
   const [channel, setChannel] = useState("all");
   const [status, setStatus] = useState<StatusFilter>("open");
-  const [q, setQ] = useState("");
+  // The top bar's search (?q=). Searching shows every match, open or closed, in the table.
+  const q = useSearchParams()[0].get("q") ?? "";
+  useEffect(() => {
+    if (q) {
+      setMode("table");
+      setStatus("all");
+    }
+  }, [q]);
 
   const all = jobs.data?.jobs ?? [];
   const needle = q.trim().toLowerCase();
@@ -42,12 +49,12 @@ export default function Requests() {
   const card = (j: Job) => {
     const price = jobPrice(j);
     return (
-      <button key={j.reference} type="button" onClick={() => setOpen(j.reference)} className="grid gap-1 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-left shadow-sm hover:border-navy-3">
-        <span className="flex items-baseline justify-between gap-2">
-          <span className="truncate font-bold text-navy">{j.customerName}</span>
-          <span className="font-bold tabular-nums">{price !== null ? aud(price) : <span className="font-normal text-slate-400">no price</span>}</span>
+      <button key={j.reference} type="button" onClick={() => setOpen(j.reference)} className="grid w-full min-w-0 gap-1 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-left shadow-sm hover:border-navy-3">
+        <span className="flex min-w-0 items-baseline justify-between gap-2">
+          <span className="min-w-0 truncate font-bold text-navy">{j.customerName}</span>
+          <span className="shrink-0 font-bold tabular-nums">{price !== null ? aud(price) : <span className="font-normal text-slate-400">no price</span>}</span>
         </span>
-        <span className="text-[12.5px] text-slate-600">
+        <span className="min-w-0 text-[12.5px] text-slate-600 [overflow-wrap:anywhere]">
           {route(j)} · {j.movingDate ? shortDay(j.movingDate) : "no date"}
           {j.arrivalTime && j.status !== "waiting_for_quote" && ` ${time12(j.arrivalTime)}`}
         </span>
@@ -82,7 +89,6 @@ export default function Requests() {
               </button>
             ))}
           </div>
-          <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Customer, suburb or reference" aria-label="Search requests" className="w-56 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm" />
           <select value={channel} onChange={(e) => setChannel(e.target.value)} aria-label="Channel" className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm">
             <option value="all">All channels</option>
             {channels.map((c) => (
@@ -116,7 +122,7 @@ export default function Requests() {
                 const items = list.filter((j) => j.status === st).sort((a, b) => (st === "booked" ? (a.movingDate ?? "").localeCompare(b.movingDate ?? "") : b.createdAt.localeCompare(a.createdAt)));
                 const sum = items.reduce((n, j) => n + (jobPrice(j) ?? 0), 0);
                 return (
-                  <div key={st} className="grid content-start gap-2 rounded-xl bg-paper-2 p-2.5">
+                  <div key={st} className="grid min-w-0 content-start gap-2 rounded-xl bg-paper-2 p-2.5">
                     <div className="flex items-center justify-between px-1 pb-1">
                       <StatusPill status={st} />
                       <span className="text-[11.5px] tabular-nums text-slate-500">

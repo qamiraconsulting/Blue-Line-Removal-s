@@ -18,8 +18,11 @@ export function NewJobButton() {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} className="flex items-center justify-center gap-1.5 rounded-md bg-action px-3 py-2 text-sm font-bold text-white hover:bg-action-dim">
-        <span aria-hidden="true">+</span> New job
+      <button type="button" onClick={() => setOpen(true)} className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-action px-3.5 py-2 text-sm font-bold text-white hover:bg-action-dim">
+        <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden="true">
+          <path d="M12 5v14M5 12h14" />
+        </svg>
+        New job
       </button>
       {open && <NewJobForm onClose={() => setOpen(false)} />}
     </>
