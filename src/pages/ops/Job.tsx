@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Link, useParams } from "react-router";
+import { Link, useLocation, useParams } from "react-router";
 import clsx from "clsx";
 import { shortDay } from "../../lib/noticeTiming";
 import { fromMinutes, time12, toMinutes, tripEnd } from "../../lib/truckTrips";
@@ -9,7 +9,7 @@ import { useCapacity, type Booking } from "../admin/capacityShared";
 import { DepositLine, JobActions, REASONS } from "../admin/JobCard";
 import { useAdminRole } from "../admin/useAdminRole";
 import { aud, useJobs, type Job } from "../admin/useJobs";
-import { addDays, allowedActions, ChannelChip, jobPrice, melbourneToday, Notice, Panel, route, StatusPill } from "./shared";
+import { allowedActions, ChannelChip, jobPrice, Notice, Panel, route, StatusPill } from "./shared";
 
 // One page per job: what to do next, the move, the price and deposit, the truck and driver,
 // the chat and what has happened so far. Replaces the job cards that were repeated on three
@@ -37,11 +37,12 @@ function nextStep(j: Job): [string, string] | null {
 export default function JobPage() {
   const { ref } = useParams<{ ref: string }>();
   const role = useAdminRole();
-  const today = useMemo(melbourneToday, []);
-  const year = useMemo(() => ({ from: addDays(today, -364), to: today }), [today]);
-  const jobs = useJobs(year);
+  const one = useMemo(() => ({ reference: ref ?? "" }), [ref]);
+  const jobs = useJobs(one);
   const cap = useCapacity();
-  const [notice, setNotice] = useState<string | null>(null);
+  // A message from the New job form, shown once on arrival.
+  const arrived = (useLocation().state as { notice?: string } | null)?.notice ?? null;
+  const [notice, setNotice] = useState<string | null>(arrived);
   const job = jobs.data?.jobs.find((j) => j.reference === ref);
 
   // The booking for this job sits on its moving date in the same calendar the chat reads.
@@ -64,7 +65,7 @@ export default function JobPage() {
     return (
       <div className="grid gap-3">
         <BackLink />
-        <p className="text-sm text-slate-600">No job {ref} in the last year of requests.</p>
+        <p className="text-sm text-slate-600">No job {ref}.</p>
       </div>
     );
 

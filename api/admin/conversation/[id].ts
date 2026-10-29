@@ -11,7 +11,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  if (!(await guardAdmin(req, res))) return;
+  if (!(await guardAdmin(req, res, "full"))) return; // chats are for full users
 
   const conversationId = typeof req.query.id === "string" ? req.query.id : "";
   if (!/^[0-9a-f-]{36}$/i.test(conversationId)) {

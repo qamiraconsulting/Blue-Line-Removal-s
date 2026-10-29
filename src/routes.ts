@@ -28,6 +28,8 @@ export default [
     route("admin/new/requests", "pages/ops/Requests.tsx"),
     route("admin/new/jobs/:ref", "pages/ops/Job.tsx"),
     route("admin/new/schedule", "pages/ops/Schedule.tsx"),
+    route("admin/new/reports", "pages/ops/Reports.tsx"),
+    route("admin/new/settings", "pages/ops/Settings.tsx"),
     route("admin/new/chat/:id", "pages/admin/ConversationDetail.tsx", { id: "ops-chat" }),
   ]),
 ] satisfies RouteConfig;

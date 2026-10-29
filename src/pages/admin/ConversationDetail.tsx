@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { splitChoices } from "@/lib/chatChoices";
 import { useParams } from "react-router";
 import clsx from "clsx";
@@ -37,6 +37,11 @@ export default function ConversationDetail() {
 export function ChatThread({ id, inJob, onHandled }: { id: string; inJob?: boolean; onHandled?: () => void }) {
   const { adminFetch } = useAdminApi();
   const [messages, setMessages] = useState<Message[] | null>(null);
+  // On a job page the thread scrolls in its own box, opened at the latest message.
+  const thread = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (inJob && thread.current) thread.current.scrollTop = thread.current.scrollHeight;
+  }, [messages, inJob]);
   const [lead, setLead] = useState<Lead | null>(null);
   const [quotes, setQuotes] = useState<ChatQuote[]>([]);
   const [mode, setMode] = useState<"bot" | "human">("bot");
@@ -120,7 +125,7 @@ export function ChatThread({ id, inJob, onHandled }: { id: string; inJob?: boole
         </div>
       )}
 
-      <div className="space-y-3 rounded-lg bg-white p-4 shadow-sm">
+      <div ref={thread} className={clsx("space-y-3 rounded-lg bg-white p-4 shadow-sm", inJob && "max-h-[440px] overflow-y-auto border border-slate-100")}>
         {messages?.map((m) => (
           <div
             key={m.id}

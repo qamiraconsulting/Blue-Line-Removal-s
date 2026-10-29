@@ -27,7 +27,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  if (!(await guardAdmin(req, res))) return;
+  // Chats are for full users (Matt, limited, handles bookings only).
+  if (!(await guardAdmin(req, res, "full"))) return;
 
   const parsed = bodySchema.safeParse(req.body);
   if (!parsed.success) {

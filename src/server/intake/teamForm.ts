@@ -38,7 +38,8 @@ export interface TeamFormJob {
   arrivalTime: string | null;
   truck: TruckId | null;
   movers: number | null;
-  lines: QuoteLines;
+  /** null = not priced yet (a dashboard job waiting for its quote). */
+  lines: QuoteLines | null;
   status: JobStatus;
   channel: string;
   platformJobNumber: string | null;
@@ -169,7 +170,7 @@ export function calendarProblem(job: TeamFormJob): string | null {
     !job.arrivalTime && "arrival time",
     !job.truck && "truck size",
     !job.movers && "number of movers (Crew)",
-    !job.lines.hours && "hours",
+    !job.lines?.hours && "hours",
   ].filter(Boolean);
   return missing.length ? `Not in the calendar -- Matt's form is missing: ${missing.join(", ")}` : null;
 }
@@ -177,7 +178,8 @@ export function calendarProblem(job: TeamFormJob): string | null {
 export type IntakeResult = { ok: true; reference: string; status: JobStatus; calendar: string } | { ok: false; error: string };
 
 /** Creates or updates the job (linking it to the website/chat request if Matt gave its reference) and its calendar slot. */
-export async function saveTeamFormJob(job: TeamFormJob): Promise<IntakeResult> {
+/** `by`: "google_form" (Matt's form) or "dashboard" (the dashboard's New job form). */
+export async function saveTeamFormJob(job: TeamFormJob, by: "google_form" | "dashboard" = "google_form"): Promise<IntakeResult> {
   const db = getDb();
   return db.transaction(async (tx) => {
     // Same lock as the chat's bookings, so the two can't take the same truck at once.
@@ -201,15 +203,15 @@ export async function saveTeamFormJob(job: TeamFormJob): Promise<IntakeResult> {
       truck: job.truck,
       movers: job.movers,
       quoteLines: job.lines,
-      quotedAmountAud: Math.round(job.lines.total),
+      quotedAmountAud: job.lines ? Math.round(job.lines.total) : null,
       firstMoveApplied: job.firstBookingDiscount !== null,
-      quoteSentAt: now,
-      quoteSentBy: "google_form",
+      quoteSentAt: job.lines ? now : null,
+      quoteSentBy: job.lines ? by : null,
       jobStatus: job.status,
       statusUpdatedAt: now,
       bookingStatus: job.status === "booked" || job.status === "completed" ? "confirmed" : job.status === "cancelled" ? "cancelled" : null,
       calendarIssue: problem,
-      ...(job.status === "completed" ? { completedAt: now, finalAmountAud: job.finalAmountAud ?? Math.round(job.lines.total) } : {}),
+      ...(job.status === "completed" ? { completedAt: now, finalAmountAud: job.finalAmountAud ?? (job.lines ? Math.round(job.lines.total) : null) } : {}),
     };
 
     // 1. Matt quoted a website/chat request: update that one (closes its "waiting for quote").
@@ -240,7 +242,7 @@ export async function saveTeamFormJob(job: TeamFormJob): Promise<IntakeResult> {
           jobDescription: job.jobDescription,
           rateCardVersion: "team-quote",
           rateCardStatus: "team",
-          inputs: { from: "google_form" },
+          inputs: { from: by },
           rateCardSnapshot: {},
         });
         reference = job.externalRef;
@@ -257,7 +259,7 @@ export async function saveTeamFormJob(job: TeamFormJob): Promise<IntakeResult> {
         quoteReference: reference,
         date: job.movingDate!,
         arrivalTime: job.arrivalTime!,
-        estimatedMinutes: Math.round(job.lines.hours! * 60),
+        estimatedMinutes: Math.round(job.lines!.hours! * 60),
         truckType: job.truck!,
         movers: job.movers!,
         customerName: job.customerName,
@@ -265,7 +267,7 @@ export async function saveTeamFormJob(job: TeamFormJob): Promise<IntakeResult> {
         fromText: job.fromText,
         toText: job.toText,
         notes: job.platformJobNumber ? `Platform job ${job.platformJobNumber}` : null,
-        createdBy: "google_form",
+        createdBy: by,
         cancelledAt: null,
       };
       if (slot) await tx.update(bookings).set(row).where(eq(bookings.id, slot.id));

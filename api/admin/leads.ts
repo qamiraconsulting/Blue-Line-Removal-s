@@ -20,6 +20,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
+  if (admin.role !== "full") {
+    res.status(403).json({ error: "Chats are for full dashboard users." });
+    return;
+  }
+
   if (!process.env.DATABASE_URL) {
     res.status(500).json({ error: "Database isn't configured yet." });
     return;

@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { desc } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "../../src/server/db/client.js";
 import { quotes } from "../../src/server/db/schema.js";
@@ -69,13 +69,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const to = typeof req.query.to === "string" && day.safeParse(req.query.to).success ? req.query.to : today;
 
       // A small business: the latest couple of thousand requests cover every open job.
-      const rows = await getDb().select().from(quotes).orderBy(desc(quotes.createdAt)).limit(2000);
+      // ?reference=: just that job (the new dashboard's job page), whatever its date.
+      const one = typeof req.query.reference === "string" ? req.query.reference : null;
+      const rows = one
+        ? await getDb().select().from(quotes).where(eq(quotes.reference, one)).limit(1)
+        : await getDb().select().from(quotes).orderBy(desc(quotes.createdAt)).limit(2000);
       const summary = summarise(rows, today, from, to);
 
       const melbourne = (d: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: "Australia/Melbourne" }).format(d);
       const jobs = rows
         .map((r) => ({ r, ...effectiveStatus(r, today) }))
-        .filter(({ r, status }) => (OPEN_STATUSES as readonly string[]).includes(status) || (melbourne(r.createdAt) >= from && melbourne(r.createdAt) <= to))
+        .filter(({ r, status }) => one !== null || (OPEN_STATUSES as readonly string[]).includes(status) || (melbourne(r.createdAt) >= from && melbourne(r.createdAt) <= to))
         .map(({ r, status, toComplete }) => ({
           reference: r.reference,
           createdAt: r.createdAt,
@@ -142,6 +146,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return;
     }
     const body = parsed.data;
+    // Matt (limited) handles bookings: he can cancel one; quotes, confirming, rejecting and
+    // completing are for full users (Blue Line, Oct 2026).
+    if (admin.role !== "full" && body.action !== "cancel") {
+      res.status(403).json({ error: "Only full dashboard users can do that." });
+      return;
+    }
     const jobDeps: JobDeps = { ...deps, jobs: dbJobStore };
     const who = admin.userId;
 

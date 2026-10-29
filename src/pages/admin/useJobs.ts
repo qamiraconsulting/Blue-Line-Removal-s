@@ -97,11 +97,12 @@ export interface JobsData {
   testInbox: boolean;
 }
 
-export function useJobs(period?: { from: string; to: string }) {
+/** A period (open jobs plus those that came in then), or one job by its reference. */
+export function useJobs(period?: { from: string; to: string } | { reference: string }) {
   const { adminFetch } = useAdminApi();
   const [data, setData] = useState<JobsData | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const query = period ? `?from=${period.from}&to=${period.to}` : "";
+  const query = !period ? "" : "reference" in period ? `?reference=${encodeURIComponent(period.reference)}` : `?from=${period.from}&to=${period.to}`;
 
   const reload = useCallback(() => {
     adminFetch(`/api/admin/jobs${query}`)

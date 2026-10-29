@@ -168,7 +168,7 @@ export type QuoteApiResponse =
   | { status: 200; body: { ok: true; result: QuoteApiResult } }
   | { status: 400 | 429 | 502; body: { ok: false; error: string } };
 
-const defaultReference = (now: Date) =>
+export const defaultReference = (now: Date) =>
   `BLR-${now.toISOString().slice(0, 10).replace(/-/g, "")}-${randomBytes(3).toString("hex").toUpperCase()}`;
 
 /**

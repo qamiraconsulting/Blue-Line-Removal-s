@@ -23,7 +23,10 @@ const missingForInstant = (s: Settings) =>
     s.bufferMinutes === null && "gap after each job",
   ].filter(Boolean) as string[];
 
-export default function Capacity() {
+export type SettingsTab = "rules" | "drivers" | "trucks" | "off";
+
+/** `only`: one section, for the new dashboard's Settings tabs; without it, the whole page. */
+export default function Capacity({ only }: { only?: SettingsTab }) {
   const role = useAdminRole();
   const { data, message, busy, post } = useCapacity();
   const [settings, setSettings] = useState<Settings | null>(null);
@@ -31,109 +34,123 @@ export default function Capacity() {
     if (data) setSettings(data.settings);
   }, [data]);
 
-  if (role === "limited") return <p className="text-sm text-slate-600">Settings are only for full dashboard users. Bookings, trucks and drivers for each job are on the Booking and trucks tab.</p>;
+  if (role === "limited")
+    return <p className="text-sm text-slate-600">Settings are only for full dashboard users. Bookings, trucks and drivers for each job are on the Booking and trucks tab.</p>;
   if (!data || !settings) return <p className="text-sm text-slate-500">{message?.text ?? "Loading..."}</p>;
   const missing = missingForInstant(settings);
 
   return (
     <div className="space-y-8">
-      <div>
-        <h2 className="font-display text-2xl font-bold text-navy">Settings</h2>
-        <p className="mt-1 text-sm text-slate-600">
-          How bookings work, your drivers and trucks, and days that are different. The chat uses these to offer customers free arrival times. Bookings
-          themselves are on the Booking and trucks tab -- <strong>every booking must be there</strong> (add phone and other bookings too), or the chat can&apos;t see it.
-        </p>
-        {message && <p className={clsx("mt-3 text-sm", message.error ? "text-red-600" : "text-green-700")}>{message.text}</p>}
-      </div>
+      {!only && (
+        <div>
+          <h2 className="font-display text-2xl font-bold text-navy">Settings</h2>
+          <p className="mt-1 text-sm text-slate-600">
+            How bookings work, your drivers and trucks, and days that are different. The chat uses these to offer customers free arrival times. Bookings themselves are on the
+            Booking and trucks tab -- <strong>every booking must be there</strong> (add phone and other bookings too), or the chat can&apos;t see it.
+          </p>
+        </div>
+      )}
+      {message && <p className={clsx("text-sm", message.error ? "text-red-600" : "text-green-700")}>{message.text}</p>}
 
       {/* ------------------------------------------------------------ settings */}
-      <section className={box}>
-        <SectionHeader title="Booking settings" intro="How bookings work in general. Save after changing anything." />
-        <label className="mt-4 flex items-start gap-3 rounded-md bg-slate-50 p-3">
-          <input type="checkbox" className="mt-1" checked={settings.autoConfirm} onChange={(e) => setSettings({ ...settings, autoConfirm: e.target.checked })} />
-          <span className="text-sm">
-            <strong>Confirm bookings instantly in the chat</strong>
-            <span className="block text-slate-600">
-              On: the chat confirms a booking on the spot when the chosen time has a free truck of the right size and enough movers. Off: every chat booking
-              is a request you confirm under Lead review.
+      {(!only || only === "rules") && (
+        <section className={box}>
+          <SectionHeader title="Booking settings" intro="How bookings work in general. Save after changing anything." />
+          <label className="mt-4 flex items-start gap-3 rounded-md bg-slate-50 p-3">
+            <input type="checkbox" className="mt-1" checked={settings.autoConfirm} onChange={(e) => setSettings({ ...settings, autoConfirm: e.target.checked })} />
+            <span className="text-sm">
+              <strong>Confirm bookings instantly in the chat</strong>
+              <span className="block text-slate-600">
+                On: the chat confirms a booking on the spot when the chosen time has a free truck of the right size and enough movers. Off: every chat booking is a request you
+                confirm under Lead review.
+              </span>
+              {settings.autoConfirm && missing.length > 0 && (
+                <span className="mt-1 block text-red-600">Nothing is confirmed instantly until these are filled in: {missing.join(", ")}.</span>
+              )}
             </span>
-            {settings.autoConfirm && missing.length > 0 && (
-              <span className="mt-1 block text-red-600">Nothing is confirmed instantly until these are filled in: {missing.join(", ")}.</span>
-            )}
-          </span>
-        </label>
+          </label>
 
-        <div className="mt-5 grid gap-5 sm:grid-cols-2">
-          <div className="text-sm">
-            <span className="block text-xs font-bold uppercase text-slate-600">Working days</span>
-            <span className="mb-1 block text-xs text-slate-500">Days customers can book online. Untick days you don&apos;t work.</span>
-            <div className="flex flex-wrap gap-2">
-              {DAYS.map((d, i) => (
-                <label key={d} className="flex items-center gap-1">
-                  <input
-                    type="checkbox"
-                    checked={settings.workingDays.includes(i)}
-                    onChange={(e) =>
-                      setSettings({ ...settings, workingDays: e.target.checked ? [...settings.workingDays, i].sort() : settings.workingDays.filter((x) => x !== i) })
-                    }
-                  />
-                  {d}
-                </label>
-              ))}
+          <div className="mt-5 grid gap-5 sm:grid-cols-2">
+            <div className="text-sm">
+              <span className="block text-xs font-bold uppercase text-slate-600">Working days</span>
+              <span className="mb-1 block text-xs text-slate-500">Days customers can book online. Untick days you don&apos;t work.</span>
+              <div className="flex flex-wrap gap-2">
+                {DAYS.map((d, i) => (
+                  <label key={d} className="flex items-center gap-1">
+                    <input
+                      type="checkbox"
+                      checked={settings.workingDays.includes(i)}
+                      onChange={(e) =>
+                        setSettings({ ...settings, workingDays: e.target.checked ? [...settings.workingDays, i].sort() : settings.workingDays.filter((x) => x !== i) })
+                      }
+                    />
+                    {d}
+                  </label>
+                ))}
+              </div>
             </div>
-          </div>
-          <StartTimes settings={settings} onChange={setSettings} />
-          <Field label="Jobs must finish by" hint="End of your working day. A time isn't offered if the job would run past it.">
-            <label className="mb-1 flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={settings.dayEndTime === NO_FINISH_TIME}
-                onChange={(e) => setSettings({ ...settings, dayEndTime: e.target.checked ? NO_FINISH_TIME : null })}
-              />
-              No finish time (we work 24/7)
-            </label>
-            {settings.dayEndTime !== NO_FINISH_TIME && (
-              <input type="time" className={input} value={settings.dayEndTime ?? ""} onChange={(e) => setSettings({ ...settings, dayEndTime: e.target.value || null })} />
-            )}
-          </Field>
-          {(
-            [
-              ["moversPerDay", "Movers available per day", "Total movers you have on a normal day, across all jobs."],
-              ["bufferMinutes", "Gap after each job (minutes)", "Time kept free before the same truck can start its next job -- travel and overruns."],
-              ["minNoticeHours", "Minimum notice (hours)", "How soon a job can be booked online. 48 = nothing for today or tomorrow."],
-            ] as const
-          ).map(([key, label, hint]) => (
-            <Field key={key} label={label} hint={hint}>
-              <input type="number" min={0} className={clsx(input, "w-32")} value={settings[key] ?? ""} onChange={(e) => setSettings({ ...settings, [key]: num(e.target.value) })} />
+            <StartTimes settings={settings} onChange={setSettings} />
+            <Field label="Jobs must finish by" hint="End of your working day. A time isn't offered if the job would run past it.">
+              <label className="mb-1 flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={settings.dayEndTime === NO_FINISH_TIME}
+                  onChange={(e) => setSettings({ ...settings, dayEndTime: e.target.checked ? NO_FINISH_TIME : null })}
+                />
+                No finish time (we work 24/7)
+              </label>
+              {settings.dayEndTime !== NO_FINISH_TIME && (
+                <input type="time" className={input} value={settings.dayEndTime ?? ""} onChange={(e) => setSettings({ ...settings, dayEndTime: e.target.value || null })} />
+              )}
             </Field>
-          ))}
-        </div>
-        <button type="button" disabled={busy} className={clsx(button, "mt-5")} onClick={() => void post({ action: "saveSettings", settings }, "Settings saved.")}>
-          Save settings
-        </button>
-      </section>
+            {(
+              [
+                ["moversPerDay", "Movers available per day", "Total movers you have on a normal day, across all jobs."],
+                ["bufferMinutes", "Gap after each job (minutes)", "Time kept free before the same truck can start its next job -- travel and overruns."],
+                ["minNoticeHours", "Minimum notice (hours)", "How soon a job can be booked online. 48 = nothing for today or tomorrow."],
+              ] as const
+            ).map(([key, label, hint]) => (
+              <Field key={key} label={label} hint={hint}>
+                <input
+                  type="number"
+                  min={0}
+                  className={clsx(input, "w-32")}
+                  value={settings[key] ?? ""}
+                  onChange={(e) => setSettings({ ...settings, [key]: num(e.target.value) })}
+                />
+              </Field>
+            ))}
+          </div>
+          <button type="button" disabled={busy} className={clsx(button, "mt-5")} onClick={() => void post({ action: "saveSettings", settings }, "Settings saved.")}>
+            Save settings
+          </button>
+        </section>
+      )}
 
-      <Drivers drivers={data.drivers} busy={busy} onSave={(driver) => post({ action: "saveDriver", driver }, "Driver saved.")} />
+      {(!only || only === "drivers") && <Drivers drivers={data.drivers} busy={busy} onSave={(driver) => post({ action: "saveDriver", driver }, "Driver saved.")} />}
 
-      <Trucks trucks={data.trucks} busy={busy} onSave={(truck) => post({ action: "saveTruck", truck }, "Truck saved.")} />
+      {(!only || only === "trucks") && <Trucks trucks={data.trucks} busy={busy} onSave={(truck) => post({ action: "saveTruck", truck }, "Truck saved.")} />}
 
-      <p className="rounded-md bg-slate-100 p-3 text-sm text-slate-700">
-        Which truck and driver goes when, with the customer&apos;s details: see the{" "}
-        <Link to="/admin/trips" className="font-bold text-navy underline">
-          Booking and trucks
-        </Link>{" "}
-        tab.
-      </p>
+      {!only && (
+        <p className="rounded-md bg-slate-100 p-3 text-sm text-slate-700">
+          Which truck and driver goes when, with the customer&apos;s details: see the{" "}
+          <Link to="/admin/trips" className="font-bold text-navy underline">
+            Booking and trucks
+          </Link>{" "}
+          tab.
+        </p>
+      )}
 
-      <DayChanges
-        overrides={data.overrides}
-        trucks={data.trucks}
-        today={data.today}
-        busy={busy}
-        onSave={(override) => post({ action: "saveOverride", override }, "Day saved.")}
-        onDelete={(date) => post({ action: "deleteOverride", date }, "Day change removed.")}
-      />
-
+      {(!only || only === "off") && (
+        <DayChanges
+          overrides={data.overrides}
+          trucks={data.trucks}
+          today={data.today}
+          busy={busy}
+          onSave={(override) => post({ action: "saveOverride", override }, "Day saved.")}
+          onDelete={(date) => post({ action: "deleteOverride", date }, "Day change removed.")}
+        />
+      )}
     </div>
   );
 }
@@ -162,7 +179,12 @@ function StartTimes({ settings, onChange }: { settings: Settings; onChange: (s: 
         <span className="text-xs text-slate-600">to</span>
         <input type="time" className={input} value={last} onChange={(e) => (setLast(e.target.value), apply(first, e.target.value, every))} aria-label="Last arrival time" />
         <span className="text-xs text-slate-600">every</span>
-        <select className={input} value={every} onChange={(e) => (setEvery(Number(e.target.value)), apply(first, last, Number(e.target.value)))} aria-label="Minutes between arrival times">
+        <select
+          className={input}
+          value={every}
+          onChange={(e) => (setEvery(Number(e.target.value)), apply(first, last, Number(e.target.value)))}
+          aria-label="Minutes between arrival times"
+        >
           {[15, 30, 60].map((m) => (
             <option key={m} value={m}>
               {m} min
@@ -202,7 +224,12 @@ function Drivers({ drivers, busy, onSave }: { drivers: Driver[]; busy: boolean; 
           <input type="tel" className={input} value={draft.phone ?? ""} onChange={(e) => setDraft({ ...draft, phone: e.target.value || null })} />
         </Field>
         <Field label="Email" hint="Job details are sent here.">
-          <input type="email" className={clsx(input, !looksLikeEmail(draft.email) && "border-red-500")} value={draft.email ?? ""} onChange={(e) => setDraft({ ...draft, email: e.target.value || null })} />
+          <input
+            type="email"
+            className={clsx(input, !looksLikeEmail(draft.email) && "border-red-500")}
+            value={draft.email ?? ""}
+            onChange={(e) => setDraft({ ...draft, email: e.target.value || null })}
+          />
         </Field>
         <button
           type="button"
@@ -227,12 +254,31 @@ function DriverRow({ driver, busy, onSave }: { driver: Driver; busy: boolean; on
   return (
     <li className="flex flex-wrap items-center gap-2 text-sm">
       <input className={input} value={d.name} onChange={(e) => setD({ ...d, name: e.target.value })} aria-label="Name" />
-      <input type="tel" className={clsx(input, "w-36")} placeholder="mobile" value={d.phone ?? ""} onChange={(e) => setD({ ...d, phone: e.target.value || null })} aria-label="Mobile" />
-      <input type="email" className={clsx(input, "w-56", !emailOk && "border-red-500")} placeholder="email" value={d.email ?? ""} onChange={(e) => setD({ ...d, email: e.target.value || null })} aria-label="Email" />
+      <input
+        type="tel"
+        className={clsx(input, "w-36")}
+        placeholder="mobile"
+        value={d.phone ?? ""}
+        onChange={(e) => setD({ ...d, phone: e.target.value || null })}
+        aria-label="Mobile"
+      />
+      <input
+        type="email"
+        className={clsx(input, "w-56", !emailOk && "border-red-500")}
+        placeholder="email"
+        value={d.email ?? ""}
+        onChange={(e) => setD({ ...d, email: e.target.value || null })}
+        aria-label="Email"
+      />
       <label className="flex items-center gap-1">
         <input type="checkbox" checked={d.active} onChange={(e) => setD({ ...d, active: e.target.checked })} /> active
       </label>
-      <button type="button" disabled={busy || !d.name.trim() || !emailOk} className="text-xs font-bold text-navy underline" onClick={() => void onSave({ ...d, name: d.name.trim() })}>
+      <button
+        type="button"
+        disabled={busy || !d.name.trim() || !emailOk}
+        className="text-xs font-bold text-navy underline"
+        onClick={() => void onSave({ ...d, name: d.name.trim() })}
+      >
         Save
       </button>
       {!d.email && d.active && <span className="text-xs font-bold text-amber-700">no email -- can&apos;t be told about jobs</span>}
@@ -306,14 +352,7 @@ function TruckRow({ truck, busy, onSave }: { truck: Truck; busy: boolean; onSave
   );
 }
 
-function DayChanges(props: {
-  overrides: Override[];
-  trucks: Truck[];
-  today: string;
-  busy: boolean;
-  onSave: (o: Override) => void;
-  onDelete: (date: string) => void;
-}) {
+function DayChanges(props: { overrides: Override[]; trucks: Truck[]; today: string; busy: boolean; onSave: (o: Override) => void; onDelete: (date: string) => void }) {
   const blank: Override = { date: "", closed: false, moversAvailable: null, trucksUnavailable: [], note: null };
   const [draft, setDraft] = useState<Override>(blank);
   const name = (id: string) => props.trucks.find((t) => t.id === id)?.label ?? id;
