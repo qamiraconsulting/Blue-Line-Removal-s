@@ -21,4 +21,11 @@ export default [
     route("admin/capacity", "pages/admin/Capacity.tsx"),
     route("admin/trips", "pages/admin/TruckTrips.tsx"),
   ]),
+  // The redesigned dashboard (Blue Line approved the prototype), built beside the current one
+  // on the test link so either can be used until Ayesha signs off; then it moves to /admin.
+  layout("components/admin/OpsLayout.tsx", [
+    route("admin/new", "pages/ops/Today.tsx"),
+    route("admin/new/requests", "pages/ops/Requests.tsx"),
+    route("admin/new/chat/:id", "pages/admin/ConversationDetail.tsx", { id: "ops-chat" }),
+  ]),
 ] satisfies RouteConfig;

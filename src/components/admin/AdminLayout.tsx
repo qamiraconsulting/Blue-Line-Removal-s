@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { NavLink, Outlet, useLocation } from "react-router";
 import { ClerkProvider, SignIn } from "@clerk/react-router";
 // @clerk/react-router's own type exports don't surface Show/UserButton
@@ -23,6 +24,15 @@ import { AdminRoleContext, useLoadAdminRole } from "../../pages/admin/useAdminRo
 const publishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as string | undefined;
 
 export default function AdminLayout() {
+  return (
+    <AdminGate>
+      <SignedInShell />
+    </AdminGate>
+  );
+}
+
+/** Clerk sign-in around a dashboard -- shared by this one and the new one (OpsLayout.tsx). */
+export function AdminGate({ children }: { children: ReactNode }) {
   const { pathname } = useLocation();
   if (!publishableKey) {
     return (
@@ -48,9 +58,7 @@ export default function AdminLayout() {
           <SignIn routing="hash" withSignUp fallbackRedirectUrl={pathname} signUpFallbackRedirectUrl={pathname} />
         </div>
       </Show>
-      <Show when="signed-in">
-        <SignedInShell />
-      </Show>
+      <Show when="signed-in">{children}</Show>
     </ClerkProvider>
   );
 }

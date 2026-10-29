@@ -9,7 +9,7 @@ import { aud, type Job } from "./useJobs";
 // One request, from any channel, with the actions its status allows.
 
 // Why a quote didn't get an instant price, in words for Blue Line staff.
-const REASONS: Record<string, string> = {
+export const REASONS: Record<string, string> = {
   junk_removal: "Junk removal",
   size_missing: "No home size given",
   commercial_or_unsure_size: "Office move or unsure home size",
@@ -31,7 +31,7 @@ const REASONS: Record<string, string> = {
   other: "Needs a personal quote",
 };
 
-const STATUS_STYLE: Record<string, string> = {
+export const STATUS_STYLE: Record<string, string> = {
   waiting_for_quote: "bg-orange-100 text-orange-800",
   booking_requested: "bg-orange-100 text-orange-800",
   estimate_sent: "bg-sky-100 text-sky-800",
