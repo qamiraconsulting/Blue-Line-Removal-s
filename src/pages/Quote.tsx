@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { useSearchParams } from "react-router";
 import clsx from "clsx";
-import { User, Phone, Mail, MapPin, Calendar, Home as HomeIcon, Truck, Trash2, DollarSign, Clock, ShieldCheck, CircleCheck } from "lucide-react";
+import { User, Phone, Mail, MapPin, Calendar, Home as HomeIcon, Truck, Trash2, DollarSign, Clock, ShieldCheck, CircleCheck, Tag } from "lucide-react";
 import { Container } from "@/components/ui/Container";
 import { Section } from "@/components/ui/Section";
 import { Reveal } from "@/components/ui/Reveal";
@@ -75,7 +75,14 @@ export function Quote() {
               </span>
             </div>
 
-            <div className="mt-8 rounded-xl border border-ink/10 bg-white p-6 sm:p-8">
+            <p className="mt-5 flex items-center gap-2.5 rounded-lg border border-action/30 bg-action/5 px-4 py-3 text-sm text-navy">
+              <Tag className="h-4 w-4 shrink-0 text-action" aria-hidden="true" />
+              <span>
+                <strong className="font-bold">New customer?</strong> Get 10% off your first booking.
+              </span>
+            </p>
+
+            <div className="mt-6 rounded-xl border border-ink/10 bg-white p-6 sm:p-8">
               {submitted ? (
                 <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
                   <CircleCheck className="h-10 w-10 text-eco" aria-hidden="true" />
@@ -115,6 +122,7 @@ export function Quote() {
                       <HomeIcon className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-dim" aria-hidden="true" />
                       <select
                         id="propertySize"
+                        name="propertySize"
                         defaultValue={propertySizes[0]}
                         className="w-full appearance-none rounded-md border border-ink/15 bg-white py-2.5 pl-10 pr-3.5 text-sm text-ink outline-none focus:border-action"
                       >
