@@ -1,8 +1,10 @@
 import { useState } from "react";
-import { MessageCircle, X } from "lucide-react";
+import { X } from "lucide-react";
 import clsx from "clsx";
 import { trackEvent } from "@/lib/analytics";
 import { ChatPanel } from "./ChatPanel";
+import { ChatGreeting } from "./ChatGreeting";
+import { BLUE_FACE, markGreetingDone } from "@/lib/chatMascot";
 
 // Mounted globally in Layout.tsx. Every bottom offset below is relative to
 // --contact-bar-h (index.css), the height of the mobile ContactWidget bar --
@@ -12,32 +14,50 @@ import { ChatPanel } from "./ChatPanel";
 // top of either.
 export function ChatWidget() {
   const [open, setOpen] = useState(false);
+  const [greetingClosed, setGreetingClosed] = useState(false);
+
+  function toggle(source: "launcher" | "greeting") {
+    if (!open) {
+      trackEvent("chat_opened", { page: window.location.pathname, source });
+      // Opening the chat retires the greeting bubble for the rest of the visit.
+      markGreetingDone();
+      setGreetingClosed(true);
+    }
+    setOpen((v) => !v);
+  }
 
   return (
     <>
       {/*
         Stacking, bottom to top, all measured from the bar's top edge:
         BackToTop (1.5rem, 44px tall) -> launcher (6rem, 56px tall) -> panel
-        (11rem). The site header is `fixed ... z-[100]` and ~73-90px tall,
+        (11rem), or the greeting bubble (10.25rem) while the panel is shut.
+        The site header is `fixed ... z-[100]` and ~73-90px tall,
         so both pieces sit at z-[110] and the panel's height reserves 6rem
         at the top -- z-index alone only decides which fixed element wins
         an overlap, it doesn't stop the overlap.
       */}
       <button
         type="button"
-        aria-label={open ? "Close chat" : "Chat with us about your move"}
+        aria-label={open ? "Close chat" : "Chat with Blue about your move"}
         aria-expanded={open}
-        onClick={() => {
-          if (!open) trackEvent("chat_opened", { page: window.location.pathname });
-          setOpen((v) => !v);
-        }}
+        onClick={() => toggle("launcher")}
         className={clsx(
-          "fixed bottom-[calc(var(--contact-bar-h)+6rem)] right-6 z-[110] flex h-14 w-14 items-center justify-center rounded-full bg-action text-white shadow-lg transition-all duration-300 ease-signature hover:bg-action-bright",
-          open && "rotate-90",
+          "fixed bottom-[calc(var(--contact-bar-h)+6rem)] right-6 z-[110] flex h-14 w-14 items-center justify-center overflow-hidden rounded-full shadow-lg transition-all duration-300 ease-signature",
+          open ? "rotate-90 bg-action text-white hover:bg-action-bright" : "border-[3px] border-action bg-navy hover:scale-105",
         )}
       >
-        {open ? <X className="h-6 w-6" aria-hidden="true" /> : <MessageCircle className="h-6 w-6" aria-hidden="true" />}
+        {open ? <X className="h-6 w-6" aria-hidden="true" /> : <img src={BLUE_FACE} alt="" width={50} height={50} className="h-full w-full" />}
       </button>
+
+      <ChatGreeting
+        hidden={open || greetingClosed}
+        onOpenChat={() => toggle("greeting")}
+        onClose={() => {
+          markGreetingDone();
+          setGreetingClosed(true);
+        }}
+      />
 
       <div
         className={clsx(

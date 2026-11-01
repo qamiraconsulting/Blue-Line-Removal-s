@@ -5,6 +5,7 @@ import clsx from "clsx";
 import { site } from "@/data/site";
 import { splitChoices } from "@/lib/chatChoices";
 import { useChatSession } from "./useChatSession";
+import { BLUE_FACE } from "@/lib/chatMascot";
 
 export function ChatPanel() {
   const { messages, sendMessage, retry, startNewChat, status, error, awaitingTeam } = useChatSession();
@@ -32,7 +33,8 @@ export function ChatPanel() {
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center gap-2 bg-navy px-4 py-3 text-white">
-        <div className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-action text-xs font-bold">B</div>
+        {/* Blue, the chat's mascot -- the same face as the launcher, without its orange ring. */}
+        <img src={BLUE_FACE} alt="" width={36} height={36} className="h-9 w-9 flex-none rounded-full bg-navy-2" />
         <div className="min-w-0 flex-1">
           <p className="font-display text-sm font-bold leading-tight">Blue Line Removals</p>
           <p className="text-[11px] leading-tight text-white/70">
