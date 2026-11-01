@@ -44,7 +44,7 @@ export function ChatWidget() {
         onClick={() => toggle("launcher")}
         className={clsx(
           "fixed bottom-[calc(var(--contact-bar-h)+6rem)] right-6 z-[110] flex h-14 w-14 items-center justify-center overflow-hidden rounded-full shadow-lg transition-all duration-300 ease-signature",
-          open ? "rotate-90 bg-action text-white hover:bg-action-bright" : "border-[3px] border-action bg-navy hover:scale-105",
+          open ? "rotate-90 bg-action text-white hover:bg-action-bright" : "border-[3px] border-action bg-white hover:scale-105",
         )}
       >
         {open ? <X className="h-6 w-6" aria-hidden="true" /> : <img src={BLUE_FACE} alt="" width={50} height={50} className="h-full w-full" />}
