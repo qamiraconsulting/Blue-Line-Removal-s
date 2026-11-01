@@ -37,11 +37,22 @@ const png = () => Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a
 const heic = () => Buffer.concat([Buffer.from([0, 0, 0, 24, 0x66, 0x74, 0x79, 0x70]), Buffer.from("heic"), Buffer.alloc(300, 3)]).toString("base64");
 
 const contact = { name: "Sam Lee", phone: "0400 000 000", email: "sam@example.com" };
-const moving = { ...contact, need: "moving", from: "Richmond", to: "Geelong", date: "2026-11-20", propertySize: "3 Bedrooms" };
+const moving = {
+  ...contact,
+  need: "moving",
+  fromSuburb: "Richmond",
+  fromPostcode: "3121",
+  toSuburb: "Geelong",
+  toPostcode: "3220",
+  date: "2026-11-20",
+  propertySize: "Apartment",
+  notes: "Lift on both ends, piano",
+};
 const junk = (extra: Record<string, unknown> = {}) => ({
   ...contact,
   need: "junk",
-  from: "Brunswick",
+  fromSuburb: "Brunswick",
+  fromPostcode: "3056",
   date: "2026-11-21",
   junkDetails: "old sofa, fridge, 10 garden bags",
   photos: [
@@ -59,8 +70,8 @@ beforeEach(() => {
   process.env.LEAD_FROM_EMAIL = "leads@example.com";
 });
 
-describe("Moving quotes: the team email is unchanged", () => {
-  it("sends the same lines as before, and ignores any junk details or photos", async () => {
+describe("Moving quotes: suburb and postcode, property size and notes reach the team", () => {
+  it("sends each line, and ignores any junk details or photos", async () => {
     expect(await run({ ...moving, junkDetails: "old sofa", photos: [{ name: "a.jpg", type: "image/jpeg", data: jpeg() }] })).toEqual({ status: 200, body: { ok: true } });
     const email = sent();
     expect(email.subject).toBe("New quote request from Sam Lee (Moving)");
@@ -70,13 +81,26 @@ describe("Moving quotes: the team email is unchanged", () => {
         "Phone: 0400 000 000",
         "Email: sam@example.com",
         "Needs help with: Moving",
-        "Moving from: Richmond",
-        "Moving to: Geelong",
+        "Moving from: Richmond 3121",
+        "Moving to: Geelong 3220",
         "Preferred date: 2026-11-20",
-        "Property size: 3 Bedrooms",
+        "Property size: Apartment",
+        "Additional notes: Lift on both ends, piano",
       ].join("\n"),
     );
     expect(email.attachments).toBeUndefined();
+  });
+
+  it("still takes the single from/to box a page loaded before the change sends", async () => {
+    expect((await run({ ...contact, need: "moving", from: "Richmond", to: "Geelong", propertySize: "2 Bedroom" })).status).toBe(200);
+    expect(sent().text).toContain("Moving from: Richmond\nMoving to: Geelong");
+    expect(sent().text).toContain("Additional notes: -");
+  });
+
+  it("keeps only the postcode's digits", async () => {
+    await run({ ...moving, fromPostcode: " 31a21x ", toSuburb: "", toPostcode: "" });
+    expect(sent().text).toContain("Moving from: Richmond 3121");
+    expect(sent().text).toContain("Moving to: -");
   });
 });
 
@@ -86,12 +110,13 @@ describe("Junk Removal quotes: details and photos reach the team", () => {
     const email = sent();
     expect(email.subject).toBe("New quote request from Sam Lee (Junk Removal)");
     expect(email.text).toContain("Needs help with: Junk Removal");
-    expect(email.text).toContain("Moving from: Brunswick");
+    expect(email.text).toContain("Moving from: Brunswick 3056");
     expect(email.text).toContain("Preferred date: 2026-11-21");
     expect(email.text).toContain("Junk details: old sofa, fridge, 10 garden bags");
     expect(email.text).toContain("Junk photos: 3 attached to this email");
     expect(email.text).not.toContain("Moving to:");
     expect(email.text).not.toContain("Property size:");
+    expect(email.text).not.toContain("Additional notes:");
     expect(email.attachments?.map((a) => [a.filename, a.contentType])).toEqual([
       ["junk-photo-1-IMG_1.jpg", "image/jpeg"],
       ["junk-photo-2-IMG_2.png", "image/png"],

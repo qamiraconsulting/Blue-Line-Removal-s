@@ -25,6 +25,13 @@ function truncate(value: unknown, max: number): string {
   return typeof value === "string" ? value.trim().slice(0, max) : "";
 }
 
+// "Richmond 3121" from the form's suburb and postcode boxes. A page loaded before
+// 2026-11-01 still sends one "from"/"to" box, so that's used when the new ones are missing.
+function place(suburb: unknown, postcode: unknown, older: unknown): string {
+  const joined = [truncate(suburb, 60), truncate(postcode, 20).replace(/\D/g, "").slice(0, 4)].filter(Boolean).join(" ");
+  return joined || truncate(older, 200);
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") {
     res.status(405).json({ error: "Method not allowed" });
@@ -41,10 +48,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const phone = truncate(body?.phone, 50);
   const email = truncate(body?.email, 320);
   const need = body?.need === "junk" ? "Junk Removal" : "Moving";
-  const from = truncate(body?.from, 200);
-  const to = truncate(body?.to, 200);
+  const from = place(body?.fromSuburb, body?.fromPostcode, body?.from);
+  const to = place(body?.toSuburb, body?.toPostcode, body?.to);
   const date = truncate(body?.date, 50);
   const propertySize = truncate(body?.propertySize, 100);
+  const notes = need === "Moving" ? truncate(body?.notes, 1000) : "";
   const junkDetails = need === "Junk Removal" ? truncate(body?.junkDetails, MAX_JUNK_DETAILS) : "";
 
   if (!name || !phone || !email) {
@@ -86,7 +94,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               `Junk details: ${junkDetails || "-"}`,
               `Junk photos: ${attachments.length ? `${attachments.length} attached to this email` : "none sent"}`,
             ]
-          : [`Moving to: ${to || "-"}`, `Preferred date: ${date || "-"}`, `Property size: ${propertySize || "-"}`]),
+          : [
+              `Moving to: ${to || "-"}`,
+              `Preferred date: ${date || "-"}`,
+              `Property size: ${propertySize || "-"}`,
+              `Additional notes: ${notes || "-"}`,
+            ]),
       ].join("\n"),
       ...(attachments.length ? { attachments } : {}),
     });

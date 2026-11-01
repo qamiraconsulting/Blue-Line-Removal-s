@@ -17,7 +17,7 @@ const quoteTrust = [
   { icon: ShieldCheck, label: "Fully Insured" },
 ];
 
-const propertySizes = ["Studio / 1 Bed", "2 Bedroom", "3 Bedroom", "4+ Bedroom", "Office / Commercial", "Not Sure Yet"];
+const propertySizes = ["Studio / 1 Bed", "2 Bedroom", "3 Bedroom", "4+ Bedroom", "Apartment", "Office / Commercial", "Not Sure Yet"];
 
 export function Quote() {
   const [searchParams] = useSearchParams();
@@ -104,11 +104,17 @@ export function Quote() {
       phone: data.get("phone"),
       email: data.get("email"),
       need,
-      from: data.get("from"),
+      fromSuburb: data.get("from_suburb"),
+      fromPostcode: data.get("from_postcode"),
       date: data.get("date"),
       // Each service sends only its own fields (the other service's stay hidden on the form).
       ...(need === "moving"
-        ? { to: data.get("to"), propertySize: data.get("propertySize") }
+        ? {
+            toSuburb: data.get("to_suburb"),
+            toPostcode: data.get("to_postcode"),
+            propertySize: data.get("propertySize"),
+            notes: data.get("notes"),
+          }
         : {
             junkDetails: data.get("junkDetails"),
             photos: photos.map(({ name, type, data: base64 }) => ({ name, type, data: base64 })),
@@ -185,14 +191,14 @@ export function Quote() {
                     </div>
                   </div>
 
-                  <Field label="Moving From" id="from" type="text" placeholder="Suburb or City" icon={MapPin} />
+                  <AddressFields prefix="from" title="Moving From" />
                   {/* Junk Removal has no drop-off: hidden, not removed, so switching back keeps it. */}
-                  <div className={clsx("grid", need === "junk" && "hidden")}>
-                    <Field label="Moving To" id="to" type="text" placeholder="Suburb or City" icon={MapPin} defaultValue={prefilledTo} />
-                  </div>
+                  <AddressFields prefix="to" title="Moving To" defaultSuburb={prefilledTo} className={clsx(need === "junk" && "hidden")} />
                   <Field label="Preferred Date" id="date" type="date" icon={Calendar} />
 
-                  <div className={clsx("grid gap-1.5", need === "junk" && "hidden")}>
+                  {/* Moving only, hidden for Junk Removal like Moving To. */}
+                  <div className={clsx("grid gap-5", need === "junk" && "hidden")}>
+                  <div className="grid gap-1.5">
                     <label htmlFor="propertySize" className="text-xs font-bold uppercase tracking-[0.06em] text-ink-dim">
                       Property Size
                     </label>
@@ -209,6 +215,24 @@ export function Quote() {
                         ))}
                       </select>
                     </div>
+                  </div>
+
+                  <div className="grid gap-1.5">
+                    <label htmlFor="notes" className="text-xs font-bold uppercase tracking-[0.06em] text-ink-dim">
+                      Additional notes <span className="font-medium normal-case tracking-normal">(optional)</span>
+                    </label>
+                    <div className="relative">
+                      <MessageSquare className="pointer-events-none absolute left-3.5 top-3 h-4 w-4 text-ink-dim" aria-hidden="true" />
+                      <textarea
+                        id="notes"
+                        name="notes"
+                        rows={3}
+                        maxLength={1000}
+                        placeholder="Stairs, parking, heavy or fragile items, anything we should know"
+                        className="w-full resize-y rounded-md border border-ink/15 bg-white py-2.5 pl-10 pr-3.5 text-sm text-ink outline-none focus:border-action"
+                      />
+                    </div>
+                  </div>
                   </div>
 
                   {/* Junk Removal only: kept mounted when Moving is picked so nothing typed or chosen is lost. */}
@@ -315,6 +339,67 @@ export function Quote() {
 }
 
 export default Quote;
+
+// Where from / to: suburb and postcode, the same boxes as the test link's Quick Quote
+// (2026-11-01). The team gets the street address when they call.
+function AddressFields({
+  prefix,
+  title,
+  defaultSuburb,
+  className,
+}: {
+  prefix: string;
+  title: string;
+  defaultSuburb?: string;
+  className?: string;
+}) {
+  const box = "w-full rounded-md border border-ink/15 bg-white py-2.5 px-3.5 text-sm text-ink outline-none focus:border-action";
+  const label = "text-xs font-bold uppercase tracking-[0.06em] text-ink-dim";
+  return (
+    <fieldset className={clsx("grid gap-3", className)}>
+      <legend className="mb-1 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.06em] text-ink-dim">
+        <MapPin className="h-4 w-4" aria-hidden="true" />
+        {title}
+      </legend>
+      <div className="grid grid-cols-[minmax(0,1fr)_6.5rem] gap-3">
+        <div className="grid gap-1.5">
+          <label htmlFor={`${prefix}_suburb`} className={label}>
+            Suburb
+          </label>
+          <div className="relative">
+            <MapPin className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-dim" aria-hidden="true" />
+            <input
+              id={`${prefix}_suburb`}
+              name={`${prefix}_suburb`}
+              type="text"
+              maxLength={60}
+              placeholder="Suburb or City"
+              defaultValue={defaultSuburb}
+              autoComplete="off"
+              className={clsx(box, "pl-10")}
+            />
+          </div>
+        </div>
+        <div className="grid gap-1.5">
+          <label htmlFor={`${prefix}_postcode`} className={label}>
+            Postcode
+          </label>
+          <input
+            id={`${prefix}_postcode`}
+            name={`${prefix}_postcode`}
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]{4}"
+            maxLength={4}
+            placeholder="3072"
+            autoComplete="off"
+            className={box}
+          />
+        </div>
+      </div>
+    </fieldset>
+  );
+}
 
 function NeedCard({
   label,
