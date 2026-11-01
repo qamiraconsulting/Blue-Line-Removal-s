@@ -1,8 +1,8 @@
-import { attachmentName, base64Bytes, MAX_JUNK_PHOTOS, MAX_PHOTO_BYTES, MAX_TOTAL_PHOTO_BYTES, PHOTO_TYPES, samePhotoFamily, sniffPhotoType, type PhotoType } from "../../src/lib/junkPhotos.js";
+import { attachmentName, base64Bytes, MAX_JUNK_PHOTOS, MAX_PHOTO_BYTES, MAX_TOTAL_PHOTO_BYTES, PHOTO_TYPES, samePhotoFamily, sniffPhotoType, type PhotoType } from "../../lib/junkPhotos.js";
 
 // The server's own check of the junk photos sent with a Junk Removal quote request -- the
 // browser shrinks them, but nothing it says is trusted. They go on as email attachments to the
-// team by api/quote.ts; they are not stored anywhere.
+// team (src/server/quote/service.ts); they are not stored in the database.
 
 export interface EmailAttachment {
   filename: string;

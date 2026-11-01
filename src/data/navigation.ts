@@ -33,5 +33,6 @@ export const footerNav = {
     { label: "Reviews", href: "/#reviews" },
     { label: "FAQs", href: "/faq" },
     { label: "Get a Quote", href: "/quote" },
+    { label: "Privacy Policy", href: "/privacy" },
   ],
 } satisfies Record<string, NavItem[]>;

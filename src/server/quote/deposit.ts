@@ -1,0 +1,63 @@
+// The booking deposit (Ayesha, 2026-10-16): when the move is a week or more away, Blue Line
+// takes a $100 deposit to lock the booking in. The customer pays it on a secure Stripe page made
+// for their booking (card, or straight from their bank account with PayTo) -- see
+// src/server/payments. Once Stripe says it's paid, the booking is confirmed automatically if its
+// time is still free. The rest is paid on the day of the move. The chat never takes card details.
+//
+// Without Stripe set up (STRIPE_SECRET_KEY + STRIPE_WEBHOOK_SECRET), the customer is told the
+// team will send a payment link, and the team email says to send one.
+
+export const DEPOSIT_AUD = 100;
+/** A deposit applies when the move is at least this many days away. */
+export const DEPOSIT_MIN_DAYS = 7;
+
+export const FINAL_PAYMENT_TEXT = "The remaining payment can be made by card, bank transfer or cash on the day of the move.";
+/** When no deposit was taken (Ayesha, 2026-10-28: "remaining" is wrong when nothing was paid). */
+export const PAY_ON_THE_DAY_TEXT = "Payment for your move can be made by card, bank transfer or cash on the day.";
+
+/**
+ * Deposits are taken only when DEPOSITS_ENABLED is "true" (Vercel environment variable). Off by
+ * default: the launch takes no deposits (Ayesha, 2026-10-28) -- the chat, the form and the emails
+ * then never mention one. Turn it on together with the Stripe keys.
+ */
+export function depositsEnabled(env: Record<string, string | undefined> | undefined = typeof process === "undefined" ? undefined : process.env): boolean {
+  return env?.DEPOSITS_ENABLED === "true";
+}
+
+export interface DepositInfo {
+  required: boolean;
+  amountAud: number;
+  daysUntilMove: number | null;
+  /** This booking's secure payment page. null = none yet (no booking yet, or the team sends one). */
+  paymentLink: string | null;
+  /** How long the payment link stays open. */
+  linkValidHours?: number;
+  /** The link is the DEMO page (Stripe not connected yet): no money can be taken. Never set on the live site. */
+  demo?: boolean;
+  /** Already paid (e.g. the customer asks again after paying). */
+  paid?: boolean;
+  finalPayment: string;
+}
+
+const utcDay = (iso: string) => {
+  const [y, m, d] = iso.split("-").map(Number) as [number, number, number];
+  return Date.UTC(y, m - 1, d);
+};
+
+export function depositFor(movingDate: string | null, today: string, paymentLink: string | null | undefined, enabled: boolean = depositsEnabled()): DepositInfo {
+  const daysUntilMove = movingDate ? Math.round((utcDay(movingDate) - utcDay(today)) / 86_400_000) : null;
+  const required = enabled && daysUntilMove !== null && daysUntilMove >= DEPOSIT_MIN_DAYS;
+  return {
+    required,
+    amountAud: DEPOSIT_AUD,
+    daysUntilMove,
+    paymentLink: paymentLink || null,
+    finalPayment: required ? FINAL_PAYMENT_TEXT : PAY_ON_THE_DAY_TEXT,
+  };
+}
+
+/**
+ * Chat: the model writes this where the booking's payment link goes, and the exact link is put
+ * in its place (src/server/chat/agent.ts) -- the model never retypes the long Stripe link.
+ */
+export const DEPOSIT_LINK_MARKER = "[[deposit_link]]";

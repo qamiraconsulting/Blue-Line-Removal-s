@@ -1,0 +1,184 @@
+import { useEffect, useRef, useState } from "react";
+import { splitChoices } from "@/lib/chatChoices";
+import { useParams } from "react-router";
+import clsx from "clsx";
+import { useAdminApi } from "./useAdminApi";
+
+interface Message {
+  id: string;
+  role: string;
+  content: string;
+  createdAt: string;
+}
+
+interface ChatQuote {
+  reference: string;
+  status: string;
+  amountAud: number | null;
+  truck: string | null;
+  movers: number | null;
+  movingDate: string | null;
+}
+
+interface Lead {
+  humanFollowupRequired: boolean;
+  customerName: string | null;
+  phone: string | null;
+  email: string | null;
+  notes: string | null;
+}
+
+export default function ConversationDetail() {
+  const { id } = useParams<{ id: string }>();
+  return id ? <ChatThread id={id} /> : null;
+}
+
+/** One chat: the messages, a reply box and hand-back. inJob = shown on a job page, which already has the customer. */
+export function ChatThread({ id, inJob, onHandled }: { id: string; inJob?: boolean; onHandled?: () => void }) {
+  const { adminFetch } = useAdminApi();
+  const [messages, setMessages] = useState<Message[] | null>(null);
+  // On a job page the thread scrolls in its own box, opened at the latest message.
+  const thread = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (inJob && thread.current) thread.current.scrollTop = thread.current.scrollHeight;
+  }, [messages, inJob]);
+  const [lead, setLead] = useState<Lead | null>(null);
+  const [quotes, setQuotes] = useState<ChatQuote[]>([]);
+  const [mode, setMode] = useState<"bot" | "human">("bot");
+  const [reply, setReply] = useState("");
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  function load() {
+    adminFetch(`/api/admin/conversation/${id}`)
+      .then(async (res) => {
+        if (!res.ok) throw new Error((await res.json()).error ?? "Failed to load");
+        return res.json();
+      })
+      .then((data) => {
+        setMessages(data.messages);
+        setLead(data.lead);
+        setQuotes(data.quotes ?? []);
+        setMode(data.conversation?.mode === "human" ? "human" : "bot");
+      })
+      .catch((err) => setError(err.message));
+  }
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(load, [id]);
+
+  async function post(body: { message?: string; handBackToAssistant?: boolean; handled?: boolean }) {
+    setSending(true);
+    setError(null);
+    try {
+      const res = await adminFetch("/api/admin/reply", {
+        method: "POST",
+        body: JSON.stringify({ conversationId: id, ...body }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error ?? "Failed to send");
+      setReply("");
+      load();
+      onHandled?.();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to send");
+    } finally {
+      setSending(false);
+    }
+  }
+
+  function handleSend(e: React.FormEvent) {
+    e.preventDefault();
+    const text = reply.trim();
+    if (!text || sending) return;
+    void post({ message: text });
+  }
+
+  return (
+    <div>
+      {lead?.humanFollowupRequired && (
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-orange-50 px-3 py-2 text-sm font-semibold text-action-dim">
+          <span>Waiting for a person: {lead.notes ?? "the chat handed this over"}</span>
+          <button type="button" disabled={sending} onClick={() => void post({ handled: true })} className="rounded-full border border-action-dim px-3 py-1 text-xs font-bold disabled:opacity-40">
+            Mark handled
+          </button>
+        </div>
+      )}
+      {lead && !inJob && (
+        <div className="mb-4 rounded-lg bg-white p-4 shadow-sm">
+          <p className="font-display font-bold text-navy">{lead.customerName ?? "Unnamed enquiry"}</p>
+          <p className="text-sm text-slate-600">
+            {lead.phone} &middot; {lead.email}
+          </p>
+        </div>
+      )}
+
+      {quotes.length > 0 && !inJob && (
+        <div className="mb-4 rounded-lg bg-white p-4 text-sm shadow-sm">
+          <p className="mb-1 font-display font-bold text-navy">Quotes from this chat</p>
+          {quotes.map((q) => (
+            <p key={q.reference} className="text-slate-600">
+              {q.reference} &middot; {q.status === "priced" ? `$${q.amountAud?.toLocaleString("en-AU")}` : "needs a personal quote"}
+              {q.truck && ` · ${q.truck === "inspect" ? "inspection" : `${q.truck}, ${q.movers ?? "?"} movers`}`}
+              {q.movingDate && ` · ${q.movingDate}`}
+            </p>
+          ))}
+        </div>
+      )}
+
+      <div ref={thread} className={clsx("space-y-3 rounded-lg bg-white p-4 shadow-sm", inJob && "max-h-[440px] overflow-y-auto border border-slate-100")}>
+        {messages?.map((m) => (
+          <div
+            key={m.id}
+            className={clsx(
+              "max-w-[80%] whitespace-pre-line rounded-xl px-3.5 py-2 text-sm",
+              m.role === "user" && "ml-0 bg-slate-100 text-navy",
+              m.role === "assistant" && "ml-0 bg-blue-50 text-navy",
+              m.role === "human_agent" && "ml-auto bg-action text-white",
+            )}
+          >
+            <p className="mb-0.5 text-[10px] uppercase tracking-wide opacity-60">
+              {m.role === "human_agent" ? "You" : m.role}
+            </p>
+            {splitChoices(m.content).text}{splitChoices(m.content).choices.length > 0 && <span className="mt-1 block text-xs text-slate-400">Buttons shown: {splitChoices(m.content).choices.join(" · ")}</span>}
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-sm">
+        <p className="text-slate-600">
+          {mode === "human"
+            ? "You're handling this chat -- the assistant won't reply until you hand it back."
+            : "The assistant is answering this chat. Sending a reply takes it over."}
+        </p>
+        {mode === "human" && (
+          <button
+            type="button"
+            disabled={sending}
+            onClick={() => void post({ handBackToAssistant: true })}
+            className="rounded-full border border-navy px-4 py-1.5 text-xs font-bold text-navy disabled:opacity-40"
+          >
+            Hand back to the assistant
+          </button>
+        )}
+      </div>
+
+      <form onSubmit={handleSend} className="mt-3 flex gap-2">
+        <input
+          type="text"
+          value={reply}
+          onChange={(e) => setReply(e.target.value)}
+          placeholder="Reply to this customer..."
+          className="flex-1 rounded-full border border-slate-300 px-4 py-2 text-sm focus:border-action focus:outline-none"
+        />
+        <button
+          type="submit"
+          disabled={!reply.trim() || sending}
+          className="rounded-full bg-navy px-5 py-2 text-sm font-bold text-white disabled:opacity-40"
+        >
+          Send
+        </button>
+      </form>
+      {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+    </div>
+  );
+}

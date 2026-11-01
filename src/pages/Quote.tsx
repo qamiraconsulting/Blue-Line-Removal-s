@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { useSearchParams } from "react-router";
 import clsx from "clsx";
-import { User, Phone, Mail, MapPin, Calendar, Home as HomeIcon, Truck, Trash2, DollarSign, Clock, ShieldCheck, CircleCheck, Tag, MessageSquare, Camera, Image as ImageIcon, X } from "lucide-react";
+import { User, Phone, Mail, MapPin, Calendar, Home as HomeIcon, Truck, Trash2, DollarSign, Clock, ShieldCheck, CircleCheck, MessageSquare, Camera, Image as ImageIcon, Tag, X } from "lucide-react";
 import { Container } from "@/components/ui/Container";
 import { Section } from "@/components/ui/Section";
 import { Reveal } from "@/components/ui/Reveal";
 import { Button } from "@/components/ui/Button";
 import { site } from "@/data/site";
 import { trackEvent } from "@/lib/analytics";
+import type { QuoteApiResult } from "@/lib/quoteContract";
+import { addressProblem, isBlankAddress, type AddressParts } from "@/lib/address";
 import { MAX_JUNK_DETAILS, MAX_JUNK_PHOTOS, MAX_TOTAL_PHOTO_BYTES, PHOTO_ACCEPT } from "@/lib/junkPhotos";
 import { prepareJunkPhoto, type PreparedPhoto } from "@/lib/junkPhotosBrowser";
 
@@ -24,13 +26,12 @@ export function Quote() {
   const prefilledTo = searchParams.get("to") ?? "";
 
   const [need, setNeed] = useState<"moving" | "junk">("moving");
-  const [submitted, setSubmitted] = useState(false);
+  const [result, setResult] = useState<QuoteApiResult | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Junk Removal photos (2026-11-01, ported from the test branch's Quick Quote). They live here,
-  // not in the form, so they survive switching between Moving and Junk Removal; the other
-  // fields are kept mounted, just hidden, for the same reason.
+  // Junk photos live here (not in the form) so they survive switching between Moving and Junk
+  // Removal. Everything else on the form is left mounted, just hidden, for the same reason.
   const [photos, setPhotos] = useState<PreparedPhoto[]>([]);
   const [photoNotice, setPhotoNotice] = useState<string | null>(null);
   const [preparing, setPreparing] = useState(0);
@@ -87,34 +88,53 @@ export function Quote() {
     });
   }
 
+  // Set after mount: this page is prerendered at build time, so computing "today" during
+  // render would bake the build date into the HTML.
+  const [minDate, setMinDate] = useState<string | undefined>(undefined);
+  useEffect(() => setMinDate(new Date().toLocaleDateString("en-CA")), []);
+
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
     setSubmitting(true);
 
+    const data = new FormData(e.currentTarget);
+    // Suburb and postcode only (26 Oct); the server works out the state from the postcode.
+    const address = (prefix: string): AddressParts => ({
+      unitNumber: "",
+      street: "",
+      suburb: String(data.get(`${prefix}_suburb`) ?? ""),
+      state: "",
+      postcode: String(data.get(`${prefix}_postcode`) ?? ""),
+    });
+    const fromAddress = address("from");
+    const toAddress = address("to");
+    // The driver needs the whole address, so a half-filled one is sent back for fixing here.
+    const problem =
+      addressProblem(fromAddress, "pick-up", { needStreet: false }) ??
+      (need === "moving" ? (addressProblem(toAddress, "drop-off", { needStreet: false }) ?? null) : null);
+    if (problem) {
+      setError(problem);
+      setSubmitting(false);
+      return;
+    }
     if (preparing > 0) {
       setError("Your photos are still being prepared -- one moment, then send again.");
       setSubmitting(false);
       return;
     }
-
-    const data = new FormData(e.currentTarget);
     const payload = {
       name: data.get("name"),
       phone: data.get("phone"),
       email: data.get("email"),
       need,
-      fromSuburb: data.get("from_suburb"),
-      fromPostcode: data.get("from_postcode"),
+      fromAddress: isBlankAddress(fromAddress) ? undefined : fromAddress,
+      // Junk Removal has no drop-off (26 Oct).
+      toAddress: need === "moving" && !isBlankAddress(toAddress) ? toAddress : undefined,
       date: data.get("date"),
-      // Each service sends only its own fields (the other service's stay hidden on the form).
+      // Each service sends only its own fields.
       ...(need === "moving"
-        ? {
-            toSuburb: data.get("to_suburb"),
-            toPostcode: data.get("to_postcode"),
-            propertySize: data.get("propertySize"),
-            notes: data.get("notes"),
-          }
+        ? { propertySize: data.get("propertySize"), notes: data.get("notes") }
         : {
             junkDetails: data.get("junkDetails"),
             photos: photos.map(({ name, type, data: base64 }) => ({ name, type, data: base64 })),
@@ -128,14 +148,17 @@ export function Quote() {
         body: JSON.stringify(payload),
       });
       // A body the server refuses as too big comes back as plain text, not JSON.
-      const result = (await res.json().catch(() => ({
-        error: res.status === 413 ? "Your photos are too large to send together. Please remove one or two and try again." : undefined,
-      }))) as { ok?: boolean; error?: string };
-      if (!res.ok || !result.ok) {
-        setError(result.error ?? `We couldn't send that just now. Please email us at ${site.email} instead.`);
+      const body = (await res.json().catch(() => ({ error: res.status === 413 ? "Your photos are too large to send together. Please remove one or two and try again." : undefined }))) as {
+        ok?: boolean;
+        error?: string;
+        result?: QuoteApiResult;
+      };
+      if (!res.ok || !body.ok) {
+        setError(body.error ?? `We couldn't send that just now. Please email us at ${site.email} instead.`);
         return;
       }
-      setSubmitted(true);
+      // Older/degraded responses without a result still count as "received".
+      setResult(body.result ?? { kind: "manual", reference: "", emailed: false });
       trackEvent("quote_submitted", { service_type: need });
     } catch {
       setError("We couldn't send that just now. Please check your connection and try again.");
@@ -156,6 +179,7 @@ export function Quote() {
               </span>
             </div>
 
+            {/* From main (dbc5214): the Google Ads headline promises 10% off the first booking. */}
             <p className="mt-5 flex items-center gap-2.5 rounded-lg border border-action/30 bg-action/5 px-4 py-3 text-sm text-navy">
               <Tag className="h-4 w-4 shrink-0 text-action" aria-hidden="true" />
               <span>
@@ -164,14 +188,8 @@ export function Quote() {
             </p>
 
             <div className="mt-6 rounded-xl border border-ink/10 bg-white p-6 sm:p-8">
-              {submitted ? (
-                <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
-                  <CircleCheck className="h-10 w-10 text-eco" aria-hidden="true" />
-                  <p className="font-display text-lg font-bold text-navy">Got it — thanks!</p>
-                  <p className="max-w-[36ch] text-sm text-ink-dim">
-                    We've received your request and will be in touch shortly with your free quote.
-                  </p>
-                </div>
+              {result ? (
+                <QuoteResultCard result={result} />
               ) : (
                 <form onSubmit={handleSubmit} className="grid gap-5">
                   {error && (
@@ -191,12 +209,11 @@ export function Quote() {
                     </div>
                   </div>
 
-                  <AddressFields prefix="from" title="Moving From" />
-                  {/* Junk Removal has no drop-off: hidden, not removed, so switching back keeps it. */}
-                  <AddressFields prefix="to" title="Moving To" defaultSuburb={prefilledTo} className={clsx(need === "junk" && "hidden")} />
-                  <Field label="Preferred Date" id="date" type="date" icon={Calendar} />
+                  <AddressFields prefix="from" title="Moving From" required />
+                  {/* Junk Removal has no drop-off: hidden, not removed, so switching back keeps what was typed. */}
+                  <AddressFields prefix="to" title="Moving To" defaultSuburb={prefilledTo} required={need === "moving"} className={clsx(need === "junk" && "hidden")} />
+                  <Field label="Preferred Date" id="date" type="date" icon={Calendar} min={minDate} required={need === "moving"} />
 
-                  {/* Moving only, hidden for Junk Removal like Moving To. */}
                   <div className={clsx("grid gap-5", need === "junk" && "hidden")}>
                   <div className="grid gap-1.5">
                     <label htmlFor="propertySize" className="text-xs font-bold uppercase tracking-[0.06em] text-ink-dim">
@@ -245,7 +262,9 @@ export function Quote() {
                       >
                         <Camera className="h-7 w-7 text-action" aria-hidden="true" />
                         <span className="font-display text-sm font-bold text-navy">Tap to take or choose photos</span>
-                        <span className="text-xs text-ink-dim">JPG, PNG or HEIC &middot; up to {MAX_JUNK_PHOTOS} photos</span>
+                        <span className="text-xs text-ink-dim">
+                          JPG, PNG or HEIC &middot; up to {MAX_JUNK_PHOTOS} photos
+                        </span>
                         <input
                           id="junkPhotos"
                           type="file"
@@ -285,10 +304,7 @@ export function Quote() {
                             </li>
                           ))}
                           {Array.from({ length: preparing }).map((_, i) => (
-                            <li
-                              key={`preparing-${i}`}
-                              className="flex aspect-square animate-pulse items-center justify-center rounded-md border border-ink/10 bg-paper text-[10px] text-ink-dim"
-                            >
+                            <li key={`preparing-${i}`} className="flex aspect-square animate-pulse items-center justify-center rounded-md border border-ink/10 bg-paper text-[10px] text-ink-dim">
                               Preparing...
                             </li>
                           ))}
@@ -340,16 +356,18 @@ export function Quote() {
 
 export default Quote;
 
-// Where from / to: suburb and postcode, the same boxes as the test link's Quick Quote
-// (2026-11-01). The team gets the street address when they call.
+// Where from / to: just the suburb and postcode (Ayesha, 2026-10-26). The server works out the
+// state from the postcode; the team gets the street address when they call.
 function AddressFields({
   prefix,
   title,
+  required,
   defaultSuburb,
   className,
 }: {
   prefix: string;
   title: string;
+  required?: boolean;
   defaultSuburb?: string;
   className?: string;
 }) {
@@ -372,6 +390,7 @@ function AddressFields({
               id={`${prefix}_suburb`}
               name={`${prefix}_suburb`}
               type="text"
+              required={required}
               maxLength={60}
               placeholder="Suburb or City"
               defaultValue={defaultSuburb}
@@ -389,6 +408,7 @@ function AddressFields({
             name={`${prefix}_postcode`}
             type="text"
             inputMode="numeric"
+            required={required}
             pattern="[0-9]{4}"
             maxLength={4}
             placeholder="3072"
@@ -443,6 +463,7 @@ function Field({
   required,
   placeholder,
   defaultValue,
+  min,
 }: {
   label: string;
   id: string;
@@ -451,6 +472,7 @@ function Field({
   required?: boolean;
   placeholder?: string;
   defaultValue?: string;
+  min?: string;
 }) {
   return (
     <div className="grid gap-1.5">
@@ -466,9 +488,326 @@ function Field({
           required={required}
           placeholder={placeholder}
           defaultValue={defaultValue}
+          min={min}
           className="w-full rounded-md border border-ink/15 bg-white py-2.5 pl-10 pr-3.5 text-sm text-ink outline-none focus:border-action"
         />
       </div>
     </div>
+  );
+}
+
+/** Stripe's payment page, or the demo page used until Stripe is connected. */
+const isPaymentLink = (link: string) => /^https:\/\/checkout\.stripe\.com\//.test(link) || /\/deposit\?status=demo&/.test(link);
+
+function formatAud(amount: number) {
+  return `$${amount.toLocaleString("en-AU")}`;
+}
+
+function formatDate(isoDate: string) {
+  const [y, m, d] = isoDate.split("-").map(Number) as [number, number, number];
+  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString("en-AU", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
+}
+
+// What the customer sees after submitting: either their single fixed price, or the same
+// "we've got it" message as before when a person needs to follow up. Never a rate or a
+// breakdown -- only the price and what it includes.
+function QuoteResultCard({ result }: { result: QuoteApiResult }) {
+  if (result.kind === "manual") {
+    return (
+      <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
+        <CircleCheck className="h-10 w-10 text-eco" aria-hidden="true" />
+        <p className="font-display text-lg font-bold text-navy">Got it — thanks!</p>
+        <p className="max-w-[36ch] text-sm text-ink-dim">
+          We've received your request and will be in touch shortly with your free quote.
+          {result.emailed && " We've also emailed you a confirmation."}
+        </p>
+        {result.reference && <p className="text-xs text-ink-dim">Reference {result.reference}</p>}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col items-center gap-3 py-8 text-center" aria-live="polite">
+      {result.testMode && (
+        <p className="w-full rounded-md border border-action/40 bg-action/5 px-3 py-2 text-xs font-bold uppercase tracking-[0.06em] text-action-dim">
+          Test price — placeholder rates, not a real quote
+        </p>
+      )}
+      <CircleCheck className="h-10 w-10 text-eco" aria-hidden="true" />
+      <p className="font-display text-sm font-bold uppercase tracking-[0.06em] text-ink-dim">Your estimate</p>
+      <p className="font-display text-5xl font-black text-navy">{formatAud(result.amountAud)}</p>
+      <p className="text-xs text-ink-dim">GST included</p>
+
+      {result.firstMoveApplied && (
+        <span className="rounded-full bg-action/10 px-3 py-1 font-display text-xs font-bold uppercase tracking-[0.04em] text-action-dim">
+          10% first-move offer applied
+        </span>
+      )}
+      {result.firstMoveDenied && (
+        <p className="max-w-[40ch] text-xs text-ink-dim">
+          The first-move offer has already been used with these details, so this is our standard price.
+        </p>
+      )}
+
+      <p className="max-w-[44ch] text-sm text-ink">
+        This is an estimate based on the details you&apos;ve provided. The final price may vary depending on the actual hours worked,
+        inventory, access, stairs, parking and any special requirements.
+      </p>
+
+      <ul className="mt-1 grid gap-1 text-left text-sm text-ink-dim">
+        {result.includes.map((item) => (
+          <li key={item} className="flex items-start gap-2">
+            <CircleCheck className="mt-0.5 h-4 w-4 shrink-0 text-eco" aria-hidden="true" />
+            {item}
+          </li>
+        ))}
+      </ul>
+
+      <p className="mt-2 text-xs text-ink-dim">
+        Reference {result.reference} · valid until {formatDate(result.validUntil)}
+      </p>
+      {result.emailed && <p className="text-xs text-ink-dim">We've emailed you a copy of this quote.</p>}
+
+      {result.bookingToken ? (
+        <BookEstimate reference={result.reference} token={result.bookingToken} />
+      ) : (
+        <p className="mt-2 text-sm text-ink">
+          Ready to book? Call{" "}
+          <a href={site.phone.href} className="font-bold text-action hover:underline">
+            {site.phone.display}
+          </a>{" "}
+          or reply to our email.
+        </p>
+      )}
+    </div>
+  );
+}
+
+interface BookingDeposit {
+  required: boolean;
+  paymentLink: string | null;
+  linkValidHours?: number;
+  paid?: boolean;
+  finalPayment: string;
+}
+
+interface BookingInfo {
+  ok: boolean;
+  error?: string;
+  terms?: string;
+  onlineBookingOpen?: boolean;
+  availableTimes?: string[];
+  instantTimes?: string[];
+}
+
+/** "07:30" -> "7:30am" */
+function formatTime(hhmm: string) {
+  const [h, m] = hhmm.split(":").map(Number) as [number, number];
+  return `${h % 12 || 12}:${String(m).padStart(2, "0")}${h < 12 ? "am" : "pm"}`;
+}
+
+// Book the estimate just shown (Ayesha, 2026-10-15): pick an arrival time if the team has set
+// them up, agree to the booking terms, and it goes to the team to confirm -- they email the
+// confirmed quote. Same terms and rules as the chat.
+function BookEstimate({ reference, token }: { reference: string; token: string }) {
+  const [info, setInfo] = useState<BookingInfo | null>(null);
+  const [time, setTime] = useState("");
+  const [preferred, setPreferred] = useState("");
+  const [notes, setNotes] = useState("");
+  const [agreed, setAgreed] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [done, setDone] = useState<{ status: string; emailed: boolean; arrivalTime?: string | null; deposit?: BookingDeposit } | null>(null);
+  // After the deposit message the customer says how they'd like to pay, and then gets the link.
+  const [payHow, setPayHow] = useState<"card" | "bank" | null>(null);
+
+  useEffect(() => {
+    fetch(`/api/booking?reference=${encodeURIComponent(reference)}&token=${encodeURIComponent(token)}`)
+      .then((res) => res.json() as Promise<BookingInfo>)
+      .then(setInfo)
+      .catch(() => setInfo({ ok: false, error: "Online booking isn't available right now." }));
+  }, [reference, token]);
+
+  async function book(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setError(null);
+    setSending(true);
+    try {
+      const noteParts = [!time && preferred ? `Preferred arrival time: ${preferred}` : "", notes].filter(Boolean);
+      const res = await fetch("/api/booking", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reference, token, agreedToTerms: agreed, arrivalTime: time || undefined, notes: noteParts.join(" -- ") || undefined }),
+      });
+      const body = (await res.json()) as { ok?: boolean; error?: string; status?: string; emailed?: boolean; arrivalTime?: string | null; availableTimes?: string[]; deposit?: BookingDeposit };
+      if (!res.ok || !body.ok) {
+        setError(body.error ?? "We couldn't take that booking just now. Please call us instead.");
+        if (body.availableTimes && info) setInfo({ ...info, availableTimes: body.availableTimes });
+        setTime("");
+        return;
+      }
+      setDone({ status: body.status ?? "requested", emailed: Boolean(body.emailed), arrivalTime: body.arrivalTime, deposit: body.deposit });
+      trackEvent(body.status === "confirmed" ? "form_booking_confirmed" : "form_booking_requested");
+    } catch {
+      setError("We couldn't take that booking just now. Please check your connection and try again.");
+    } finally {
+      setSending(false);
+    }
+  }
+
+  const callUs = (
+    <a href={site.phone.href} className="font-bold text-action hover:underline">
+      {site.phone.display}
+    </a>
+  );
+
+  if (done) {
+    const booked = done.status === "confirmed" || done.status === "already_confirmed";
+    const deposit = done.deposit;
+    return (
+      <div className="mt-4 w-full rounded-lg border border-eco/40 bg-eco/5 p-4 text-left text-sm text-ink" role="status">
+        <p className="font-display text-base font-bold text-navy">{booked ? "You're booked!" : "Booking request received"}</p>
+        <p className="mt-1">
+          {booked
+            ? `Your move is booked${done.arrivalTime ? ` with arrival at ${formatTime(done.arrivalTime)}` : ""}. We've emailed your confirmed quote.`
+            : deposit?.required && !deposit.paid
+              ? "To lock in your booking we take a $100 deposit before the move."
+              : "Our team will check the details and confirm your booking shortly — you'll get your confirmed quote by email."}
+        </p>
+        {!booked && deposit?.required && !deposit.paid && (
+          <div className="mt-3">
+            {deposit.paymentLink && isPaymentLink(deposit.paymentLink) ? (
+              <>
+                <p className="font-bold text-navy">How would you like to pay the $100 deposit?</p>
+                <div className="mt-2 flex flex-wrap gap-2" role="group" aria-label="How would you like to pay the deposit?">
+                  {(
+                    [
+                      ["card", "Card"],
+                      ["bank", "Bank transfer"],
+                    ] as const
+                  ).map(([how, text]) => (
+                    <button
+                      key={how}
+                      type="button"
+                      aria-pressed={payHow === how}
+                      onClick={() => setPayHow(how)}
+                      className={clsx(
+                        "rounded-full border px-4 py-2 text-sm font-bold",
+                        payHow === how ? "border-action bg-action text-white" : "border-ink/20 bg-white text-navy hover:border-action",
+                      )}
+                    >
+                      {text}
+                    </button>
+                  ))}
+                </div>
+                {payHow && (
+                  <div className="mt-3">
+                    <a
+                      href={deposit.paymentLink}
+                      className="inline-flex items-center rounded-full bg-action px-5 py-2.5 font-bold text-white hover:opacity-90"
+                      onClick={() => trackEvent("deposit_link_clicked", { pay_how: payHow })}
+                    >
+                      Pay $100 deposit securely
+                    </a>
+                    <p className="mt-2 text-xs text-ink-dim">
+                      {payHow === "card" ? "Pay by card on the secure payment page." : "On the secure payment page, choose to pay straight from your bank account."} The link works for{" "}
+                      {deposit.linkValidHours ?? 24} hours{done.emailed ? " and we've emailed it to you" : ""}. As soon as it's paid we confirm your booking (if your arrival time is still free) and email you.
+                    </p>
+                  </div>
+                )}
+              </>
+            ) : (
+              <p className="text-xs text-ink-dim">We'll email you a secure payment link for it shortly.</p>
+            )}
+            <p className="mt-2 text-xs text-ink-dim">{deposit.finalPayment}</p>
+          </div>
+        )}
+        <p className="mt-2 text-xs text-ink-dim">
+          Reference {reference} · Questions? Call {callUs}
+        </p>
+      </div>
+    );
+  }
+
+  if (!info) return <p className="mt-4 text-xs text-ink-dim">Loading booking options...</p>;
+  if (!info.ok || !info.terms) {
+    return (
+      <p className="mt-4 text-sm text-ink">
+        Ready to book? Call {callUs} or reply to our email.
+      </p>
+    );
+  }
+
+  const times = info.onlineBookingOpen ? (info.availableTimes ?? []) : [];
+  return (
+    <form onSubmit={book} className="mt-4 grid w-full gap-4 rounded-lg border border-ink/10 bg-paper p-4 text-left">
+      <p className="font-display text-base font-bold text-navy">Book this estimate</p>
+
+      {times.length > 0 ? (
+        <fieldset className="grid gap-2">
+          <legend className="mb-1 text-xs font-bold uppercase tracking-[0.06em] text-ink-dim">Arrival time</legend>
+          <div className="flex flex-wrap gap-2">
+            {times.map((t) => (
+              <label
+                key={t}
+                className={clsx(
+                  "cursor-pointer rounded-full border px-3.5 py-1.5 text-sm",
+                  time === t ? "border-action bg-action/10 font-bold text-action-dim" : "border-ink/15 bg-white text-ink",
+                )}
+              >
+                <input type="radio" name="arrivalTime" value={t} checked={time === t} onChange={() => setTime(t)} className="sr-only" required />
+                {formatTime(t)}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      ) : (
+        <label className="grid gap-1.5 text-sm">
+          <span className="text-xs font-bold uppercase tracking-[0.06em] text-ink-dim">
+            Preferred arrival time <span className="font-medium normal-case tracking-normal">(optional)</span>
+          </span>
+          <input
+            value={preferred}
+            onChange={(e) => setPreferred(e.target.value)}
+            maxLength={60}
+            placeholder="e.g. early morning"
+            className="rounded-md border border-ink/15 bg-white px-3.5 py-2 text-sm text-ink outline-none focus:border-action"
+          />
+        </label>
+      )}
+
+      <label className="grid gap-1.5 text-sm">
+        <span className="text-xs font-bold uppercase tracking-[0.06em] text-ink-dim">
+          Anything else for the team <span className="font-medium normal-case tracking-normal">(optional)</span>
+        </span>
+        <textarea
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          rows={2}
+          maxLength={400}
+          className="resize-y rounded-md border border-ink/15 bg-white px-3.5 py-2 text-sm text-ink outline-none focus:border-action"
+        />
+      </label>
+
+      <div className="rounded-md border border-ink/15 bg-white p-3 text-xs leading-relaxed text-ink-dim">
+        <p className="mb-1 font-bold uppercase tracking-[0.06em]">Booking terms</p>
+        <p>{info.terms}</p>
+      </div>
+      <label className="flex cursor-pointer items-start gap-3 text-sm text-ink">
+        <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} required className="mt-0.5 h-4 w-4 shrink-0 accent-action" />
+        <span>I agree to the booking terms and would like to book this estimate.</span>
+      </label>
+
+      {error && (
+        <p className="rounded-md border border-action/30 bg-action/5 px-3 py-2 text-sm text-action-dim" role="alert">
+          {error}
+        </p>
+      )}
+
+      <Button type="submit" arrow disabled={sending || !agreed} className="w-full justify-center">
+        {sending ? "Sending…" : time && info.instantTimes?.includes(time) ? "Book now" : "Request booking"}
+      </Button>
+      <p className="text-center text-xs text-ink-dim">Prefer to talk? Call {callUs}.</p>
+    </form>
   );
 }

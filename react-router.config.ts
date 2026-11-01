@@ -14,5 +14,7 @@ export default {
     ...services.map((service) => `/services/${service.slug}`),
     "/quote",
     "/faq",
+    "/deposit",
+    "/privacy",
   ],
 } satisfies Config;

@@ -1,0 +1,250 @@
+/**
+ * BLR quote Apps Script -- WEBSITE ADDITIONS (2026-10-15)
+ * ------------------------------------------------------
+ * Adds two things to the existing "Find a Mover: Auto Quote Generator" script, without
+ * changing how Matt's quotes work:
+ *
+ *   1. doPost()               -- the website (chat + quote form) asks this script to make the SAME
+ *                                branded PDF from the SAME Drive template and email it from
+ *                                hello@bluelineremovals.com.au, when the team sends a quote or
+ *                                confirms a booking on the dashboard.
+ *   2. sendRowToWebsite_()    -- after Matt's quote email has gone, copies the Google Form row to
+ *                                the website's database, so his quotes and bookings show on the
+ *                                dashboard and block the truck in the booking calendar.
+ *
+ * Paste EVERYTHING BELOW the line "PASTE FROM HERE" at the bottom of Code.gs, then make the
+ * three small edits to the existing code listed here (applied 2026-10-15):
+ *
+ *   EDIT B  -- in onFormSubmitInstallable(), replace
+ *                createQuoteDraft_(values, pdfBlob);
+ *              with
+ *                createQuoteDraft_(values, pdfBlob);
+ *                sendRowToWebsite_(data, values, moveDateRaw, tz);
+ *
+ *   EDIT C  -- in buildQuotePdf_(), after the line
+ *                styleEstimateTable_(tempBody);
+ *              add:
+ *                addAdjustmentRow_(tempBody, values);
+ *
+ *   EDIT D  -- replace the whole createQuoteDraft_() function with the version below
+ *              (createQuoteDraft_ in this file). Same behaviour for Matt's quotes; the website
+ *              can pass its own recipient, subject and a short intro (e.g. the team's note).
+ *
+ *   No template change: addAdjustmentRow_() adds a "Discount / adjustment" line under Packing
+ *   only when there's a non-zero adjustment. (Since 2026-10-25 that function is in
+ *   blr-first-booking-offer.gs, which also puts the 10% first-booking discount on Matt's quotes.)
+ *
+ * SCRIPT PROPERTIES (Project Settings > Script Properties) -- never put these in the code:
+ *   BLR_SHARED_SECRET   the long random password (same value as APPS_SCRIPT_SECRET in Vercel)
+ *   BLR_INTAKE_URL      https://<site>/api/intake
+ *   BLR_VERCEL_BYPASS   only while testing on the Vercel preview link: the "Protection Bypass
+ *                       for Automation" secret (Vercel > Settings > Deployment Protection)
+ *
+ * DEPLOY doPost: Deploy > New deployment > type "Web app" > Execute as: Me > Who has access:
+ * Anyone > Deploy. Copy the ".../exec" URL into Vercel as APPS_SCRIPT_URL. The secret check in
+ * doPost is what keeps it private. After editing the code later: Deploy > Manage deployments >
+ * edit (pencil) > Version: New version -- the URL stays the same.
+ */
+
+// ===================================================================== PASTE FROM HERE
+
+/**
+ * The website asks for a branded PDF quote to be made and emailed.
+ * Body (JSON): { secret, action: "sendQuote", to, subject, introHtml, introText, values: {...} }
+ * `values` uses the template's own placeholder names (CustomerName, BookingNo, Total, ...).
+ */
+function doPost(e) {
+  var out;
+  try {
+    var body = JSON.parse((e && e.postData && e.postData.contents) || '{}');
+    var secret = PropertiesService.getScriptProperties().getProperty('BLR_SHARED_SECRET');
+    if (!secret || body.secret !== secret) {
+      out = { ok: false, error: 'not allowed' };
+    } else if (body.action !== 'sendQuote' || !body.values || !body.to) {
+      out = { ok: false, error: 'bad request' };
+    } else {
+      var pdfBlob = buildQuotePdf_(body.values, body.values.CustomerName);
+      createQuoteDraft_(body.values, pdfBlob, {
+        to: body.to,
+        subject: body.subject,
+        introHtml: body.introHtml,
+        introText: body.introText
+      });
+      out = { ok: true };
+    }
+  } catch (err) {
+    Logger.log('doPost error: ' + err);
+    out = { ok: false, error: String(err) };
+  }
+  return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
+}
+
+/**
+ * EDIT D: replaces the existing createQuoteDraft_(). Matt's quotes call it with two arguments
+ * and behave exactly as before; the website passes `opts` (recipient, subject, intro).
+ */
+function createQuoteDraft_(values, pdfBlob, opts) {
+  opts = opts || {};
+  var htmlTemplate = DriveApp.getFileById(CONFIG.EMAIL_TEMPLATE_FILE_ID).getBlob().getDataAsString();
+
+  var html = htmlTemplate;
+  Object.keys(values).forEach(function (key) {
+    var re = new RegExp('\\{\\{' + key + '\\}\\}', 'g');
+    html = html.replace(re, String(values[key] != null ? values[key] : ''));
+  });
+  html = withoutZeroCallOutRow_(html, values.CallOut); // EDIT H (2026-10-28)
+
+  // The website's short intro (what this email is, and the team's note) goes at the top.
+  if (opts.introHtml) {
+    var block = '<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#1c2733;padding:16px 20px;border-left:4px solid #ff6b1a;background:#fff7f1;margin:0 0 12px">' + opts.introHtml + '</div>';
+    html = /<body[^>]*>/i.test(html) ? html.replace(/<body[^>]*>/i, function (m) { return m + block; }) : block + html;
+  }
+
+  var headerBlob = DriveApp.getFileById(CONFIG.EMAIL_HEADER_IMAGE_ID).getBlob();
+  var newhomeBlob = DriveApp.getFileById(CONFIG.EMAIL_NEWHOME_IMAGE_ID).getBlob();
+
+  var plainBody = 'Hi ' + values.CustomerName + ',\n\n' +
+    (opts.introText ? opts.introText + '\n\n' : '') +
+    'Thanks for getting in touch with Blue Line Removals. Your quote is attached as a PDF.\n\n' +
+    'Estimated Total: A$' + values.Total + ' AUD\n\n' +
+    'Warm regards,\nAlisha Carter\nCustomer Care Team, Blue Line Removals';
+
+  GmailApp.sendEmail(opts.to || values.Email, opts.subject || CONFIG.EMAIL_SUBJECT, plainBody, {
+    htmlBody: html,
+    from: CONFIG.SEND_FROM,
+    replyTo: CONFIG.REPLY_TO,
+    attachments: [pdfBlob],
+    inlineImages: {
+      blr_header: headerBlob,
+      blr_newhome: newhomeBlob
+    }
+  });
+}
+
+/**
+ * EDIT H (2026-10-28): no call-out is charged on website and chat jobs, so the email's
+ * "Call-Out Fee A$0.00" line is left out (the PDF's: hideZeroCallOutRow_). A real call-out still shows.
+ */
+function withoutZeroCallOutRow_(html, callOut) {
+  if (!isZeroAmount_(callOut)) return html;
+  return html.replace(/<tr\b[^>]*>(?:(?!<\/tr>)[\s\S])*?call[\s-]?out(?:(?!<\/tr>)[\s\S])*?<\/tr>/gi, '');
+}
+
+/** "0.00", "$0.00", "A$0" -> true; blank or anything else -> false. */
+function isZeroAmount_(value) {
+  var text = String(value == null ? '' : value).replace(/[^0-9.\-]/g, '');
+  return text !== '' && Number(text) === 0;
+}
+
+/**
+ * EDIT B calls this after Matt's quote email has gone: copies the row to the website so the job
+ * shows on the dashboard (and, when Booking Status is Confirmed, blocks the truck in the
+ * calendar). It never throws -- if the website is down, Matt's quote has still been sent.
+ */
+function sendRowToWebsite_(data, values, moveDateRaw, tz) {
+  try {
+    var props = PropertiesService.getScriptProperties();
+    var url = props.getProperty('BLR_INTAKE_URL');
+    var secret = props.getProperty('BLR_SHARED_SECRET');
+    if (!url || !secret) return;
+
+    var arrivalRaw = getVal_(data, 'Arrival time');
+    var arrival = (arrivalRaw instanceof Date) ? Utilities.formatDate(arrivalRaw, tz, 'HH:mm') : String(arrivalRaw || '').trim();
+    var moveIso = (moveDateRaw instanceof Date) ? Utilities.formatDate(moveDateRaw, tz, 'yyyy-MM-dd') : '';
+
+    // Dates in the row as readable text (the website matches columns by header words).
+    var plain = {};
+    Object.keys(data).forEach(function (k) {
+      var v = data[k];
+      plain[k] = (v instanceof Date) ? Utilities.formatDate(v, tz, 'yyyy-MM-dd HH:mm') : v;
+    });
+
+    var headers = { 'x-blr-secret': secret };
+    var bypass = props.getProperty('BLR_VERCEL_BYPASS');
+    if (bypass) headers['x-vercel-protection-bypass'] = bypass;
+
+    var res = UrlFetchApp.fetch(url, {
+      method: 'post',
+      contentType: 'application/json',
+      headers: headers,
+      payload: JSON.stringify({ data: plain, values: values, moveDateIso: moveIso, arrivalTime: arrival }),
+      muteHttpExceptions: true
+    });
+    Logger.log('Website intake: HTTP %s %s', res.getResponseCode(), res.getContentText().slice(0, 300));
+  } catch (err) {
+    Logger.log('Website intake failed (the quote email was still sent): ' + err);
+  }
+}
+
+/*
+ * EDIT C's addAdjustmentRow_() now lives in blr-first-booking-offer.gs (2026-10-25): same
+ * behaviour, plus its own label ("New customer discount (10%)") and a minus sign for discounts.
+ * Keep only ONE addAdjustmentRow_ in Code.gs.
+ */
+
+/**
+ * Optional check from the editor (select testWebsiteQuote, click Run): makes a sample PDF and emails it to
+ * YOUR address, exactly as the website would. Change the address first.
+ */
+function testWebsiteQuote() {
+  var secret = PropertiesService.getScriptProperties().getProperty('BLR_SHARED_SECRET');
+  var sample = {
+    secret: secret,
+    action: 'sendQuote',
+    to: 'YOUR-EMAIL@example.com',
+    subject: '[TEST] Your move is booked (ref BLR-20261015-TEST01)',
+    introText: 'TEST -- this is how a website booking confirmation looks.',
+    introHtml: '<p style="margin:0">TEST -- this is how a website booking confirmation looks.</p>',
+    values: {
+      CustomerName: 'Test Customer', Email: 'test@example.com', Contact: '0400 000 000',
+      MoveDate: 'Wednesday, 21 October 2026, arrival 7:30am', Pickup: 'Preston', Delivery: 'Brunswick',
+      Services: 'Standard Move', Crew: '2 movers, 6-8 tonne truck', BookingStatus: 'Confirmed',
+      StatusColor: '#15803D', BookingNo: 'BLR-20261015-TEST01', StairFlights: '0', Hours: '4.5',
+      RateHr: '140.00', DaysUntilMove: '6', Labour: '630.00', CallOut: '0.00', Packing: '0.00',
+      Stair: '0.00', Adjustment: '24.55', Subtotal: '654.55', GST: '65.45', Total: '720.00'
+    }
+  };
+  var res = doPost({ postData: { contents: JSON.stringify(sample) } });
+  Logger.log(res.getContent());
+}
+
+/** Run once from the editor to approve 'Connect to an external service' (needed by sendRowToWebsite_). */
+function authorizeWebsiteCalls() {
+  var res = UrlFetchApp.fetch(PropertiesService.getScriptProperties().getProperty('BLR_INTAKE_URL'), { method: 'get', muteHttpExceptions: true });
+  Logger.log('Website reachable: HTTP %s', res.getResponseCode());
+}
+
+/** One-off: re-send the latest Google Form row to the website (no quote email). Run from the editor. */
+function resendLastRowToWebsite() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var responsesSheet = ss.getSheetByName(CONFIG.RESPONSES_SHEET);
+  var calcSheet = ss.getSheetByName(CONFIG.CALC_SHEET);
+  var row = responsesSheet.getLastRow();
+  var data = readRowByHeader_(responsesSheet, row);
+  var calc = readRowByHeader_(calcSheet, row);
+  var tz = ss.getSpreadsheetTimeZone();
+  var money = function (v) { return Number(v || 0).toFixed(2); };
+  var values = {
+    CustomerName: getVal_(data, 'Customer Name') || '',
+    Email: getVal_(data, 'Email') || '',
+    Contact: getVal_(data, 'Contact No') || '',
+    Pickup: getVal_(data, 'Pick-up') || '',
+    Delivery: getVal_(data, 'Delivery Address') || '',
+    Services: getVal_(data, 'Services Requested') || 'Standard Move',
+    Crew: getVal_(data, 'Crew') || '',
+    BookingStatus: getVal_(data, 'Booking Status') || 'Not Confirmed',
+    BookingNo: getVal_(calc, 'Booking No') || '\u2014',
+    StairFlights: getVal_(data, 'Stair Flights') || '0',
+    Hours: getVal_(data, 'Est. hours') || '',
+    RateHr: money(getVal_(data, 'Rate')),
+    Labour: money(getVal_(calc, 'Labour Amount')),
+    CallOut: money(getVal_(calc, 'Call-Out Fee')),
+    Packing: money(getVal_(calc, 'Packing Materials')),
+    Stair: money(getVal_(calc, 'Stair Carry')),
+    Subtotal: money(getVal_(calc, 'Subtotal')),
+    GST: money(getVal_(calc, 'GST')),
+    Total: money(getVal_(calc, 'Estimated Total'))
+  };
+  Logger.log('Re-sending row %s (%s) to the website', row, values.BookingNo);
+  sendRowToWebsite_(data, values, getVal_(data, 'Requested date'), tz);
+}
