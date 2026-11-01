@@ -12,7 +12,7 @@ export const site = {
   description:
     "Blue Line Removals handles Melbourne house and office moves start to finish, and clears the junk you're not taking with you -- donated or recycled before it ever reaches landfill.",
   email: "hello@bluelineremovals.com.au",
-  phone: { display: "03 9494 1070", href: "tel:+61394941070" },
+  phone: { display: "03 9494 1061", href: "tel:+61394941061" },
   url: "https://www.bluelineremovals.com.au",
   abnNote: "ABN 90 701 004 480",
   serviceRegion: "Melbourne, VIC",

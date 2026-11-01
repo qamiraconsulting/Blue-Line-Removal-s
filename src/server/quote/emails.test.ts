@@ -27,7 +27,7 @@ describe("customer quote email", () => {
     expect(email.html).toContain("This is an estimate based on the details you&#39;ve provided.");
     expect(email.text).toContain("Home size: 2 Bedroom");
     expect(email.text).not.toMatch(/fixed price|no hidden fees/i);
-    expect(email.text).toContain("03 9494 1070");
+    expect(email.text).toContain("03 9494 1061");
     expect(email.text).toContain("Valid until: Tuesday 20 October 2026");
   });
 

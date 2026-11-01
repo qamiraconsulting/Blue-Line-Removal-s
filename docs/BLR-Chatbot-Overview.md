@@ -22,7 +22,7 @@ Blue does **not** work out prices itself. It sends the details to the same price
 - **Apply the first-order discount** (10% off) once per email or phone number, and explain politely when it has already been used.
 - **Show free arrival times** on the moving date (from the Settings page in the admin).
 - **Take a booking request**, but only after showing the booking terms word for word and getting a clear "yes".
-- **Answer basic facts:** what Blue Line does (house and office moves, junk removal across Melbourne), phone 03 9494 1070, email hello@bluelineremovals.com.au.
+- **Answer basic facts:** what Blue Line does (house and office moves, junk removal across Melbourne), phone 03 9494 1061, email hello@bluelineremovals.com.au.
 - **Hand the chat to a person** (see section 4).
 
 ## 3. What it will NOT do (out of scope)
@@ -88,14 +88,14 @@ There is **no SMS or WhatsApp alert** yet (WhatsApp alerts are on the open-items
 
 **B. Out of scope (price haggling and payment)**
 > **Customer:** Can you do it for $300 cash? I can pay now by card.
-> **Blue:** I understand wanting the best price. I can't change the estimate or take payment here, but I've asked a team member to get in touch with you. You can also call 03 9494 1070.
+> **Blue:** I understand wanting the best price. I can't change the estimate or take payment here, but I've asked a team member to get in touch with you. You can also call 03 9494 1061.
 > *(Any "$300" the bot tries to repeat would be blocked, because the calculator didn't produce it.)*
 
 **C. Passed to the team (call-back request)**
 > **Customer:** Your movers scratched my table last week. I want someone to call me.
 > **Blue:** I'm sorry to hear that. I'll get a team member to call you. What's your name, phone number and a good time to call?
 > **Customer:** Priya, 0400 000 000, after 3pm today.
-> **Blue:** Thanks, Priya. A team member will be in touch. You can also call us on 03 9494 1070.
+> **Blue:** Thanks, Priya. A team member will be in touch. You can also call us on 03 9494 1061.
 > *(The team gets a "Call back requested: after 3pm today" email, and the chat appears in the dashboard.)*
 
 ## 6. How to test

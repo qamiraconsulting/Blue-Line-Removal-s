@@ -53,9 +53,9 @@ describe("the customer's booking email", () => {
     }
     expect(email.subject).toBe("Reminder: your move on Tuesday 20 October 2026, 8:00am");
     expect(email.text).toContain("A reminder of your move with us. Here are the details:");
-    expect(email.text).toContain("Call us on 03 9494 1070.");
+    expect(email.text).toContain("Call us on 03 9494 1061.");
     expect(email.html).toContain("Call us on");
-    expect(email.html).toContain("03 9494 1070");
+    expect(email.html).toContain("03 9494 1061");
   });
 });
 
