@@ -43,11 +43,13 @@ export function ChatWidget() {
         aria-expanded={open}
         onClick={() => toggle("launcher")}
         className={clsx(
-          "fixed bottom-[calc(var(--contact-bar-h)+6rem)] right-6 z-[110] flex h-14 w-14 items-center justify-center overflow-hidden rounded-full shadow-lg transition-all duration-300 ease-signature",
-          open ? "rotate-90 bg-action text-white hover:bg-action-bright" : "border-[3px] border-action bg-white hover:scale-105",
+          "fixed bottom-[calc(var(--contact-bar-h)+6rem)] right-6 z-[110] flex h-14 w-14 items-center justify-center overflow-hidden rounded-full transition-all duration-300 ease-signature",
+          // Closed: just Blue's round image (its own orange ring and white background) -- no
+          // border, fill or shadow added here.
+          open ? "rotate-90 bg-action text-white shadow-lg hover:bg-action-bright" : "hover:scale-105",
         )}
       >
-        {open ? <X className="h-6 w-6" aria-hidden="true" /> : <img src={BLUE_FACE} alt="" width={50} height={50} className="h-full w-full" />}
+        {open ? <X className="h-6 w-6" aria-hidden="true" /> : <img src={BLUE_FACE} alt="" width={56} height={56} className="h-full w-full" />}
       </button>
 
       <ChatGreeting

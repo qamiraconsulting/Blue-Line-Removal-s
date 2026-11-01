@@ -70,7 +70,7 @@ export function ChatGreeting({ hidden, onOpenChat, onClose }: { hidden: boolean;
           tabIndex={visible ? 0 : -1}
           className="flex w-full items-start gap-2.5 rounded-2xl py-2.5 pl-2.5 pr-7 text-left sm:gap-3 sm:py-3 sm:pl-3 sm:pr-8"
         >
-          <img src={BLUE_FACE} alt="" width={36} height={36} className="h-7 w-7 flex-none rounded-full bg-white sm:h-9 sm:w-9" />
+          <img src={BLUE_FACE} alt="" width={36} height={36} className="h-7 w-7 flex-none sm:h-9 sm:w-9" />
           <span className="sr-only">Chat with Blue: </span>
           <span className="min-h-[2.5rem] text-xs font-medium leading-snug text-navy sm:min-h-[2.75rem] sm:text-sm">{MESSAGES[step]}</span>
         </button>

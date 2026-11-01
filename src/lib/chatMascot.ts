@@ -1,9 +1,9 @@
 // Blue, the chat's mascot (Ayesha, 2026-11-01): a blue robot kangaroo with a headset. Since
-// 2026-11-02 the whole head -- both ears, antenna and headset -- is scaled to fit a circle with
-// nothing cut off, from D:\BLR Theme\Mascot\blue-v2-clean.png (stray specks removed). The image is
-// transparent outside the head; each place draws its own white circle behind it in CSS. The chat
-// launcher, the chat header and the greeting bubble all use this one file.
-export const BLUE_FACE = "/images/blue-avatar.webp";
+// 2026-11-02 it's Ayesha's own round image (D:\BLR Theme\Mascot\blue-round-v3.webp: orange ring,
+// white background, ears to shoulders), shown exactly as supplied -- only the empty margin
+// outside the ring was trimmed so the ring sits centred and whole in the circle. Nothing is drawn
+// around it in code. The chat launcher, the chat header and the greeting bubble all use this file.
+export const BLUE_FACE = "/images/blue-avatar-round.webp";
 
 // The greeting bubble is closed, or the chat was opened: it isn't shown again for the rest of
 // the visit (this browser tab).
