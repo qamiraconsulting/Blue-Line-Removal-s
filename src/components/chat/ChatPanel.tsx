@@ -34,7 +34,7 @@ export function ChatPanel() {
     <div className="flex h-full flex-col">
       <div className="flex items-center gap-2 bg-navy px-4 py-3 text-white">
         {/* Blue, the chat's mascot -- the same face as the launcher, without its orange ring. */}
-        <img src={BLUE_FACE} alt="" width={36} height={36} className="h-9 w-9 flex-none rounded-full bg-navy-2" />
+        <img src={BLUE_FACE} alt="" width={36} height={36} className="h-9 w-9 flex-none rounded-full bg-white" />
         <div className="min-w-0 flex-1">
           <p className="font-display text-sm font-bold leading-tight">Blue Line Removals</p>
           <p className="text-[11px] leading-tight text-white/70">

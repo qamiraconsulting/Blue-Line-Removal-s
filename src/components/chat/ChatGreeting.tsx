@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import clsx from "clsx";
-import { BLUE_FACE, greetingDone } from "@/lib/chatMascot";
+import { BLUE_FACE, greetingDone, markGreetingDone } from "@/lib/chatMascot";
 
 const MESSAGES = [
   "G'day! 👋 Moving soon? Get your free quote in 60 seconds.",
@@ -10,42 +10,48 @@ const MESSAGES = [
   "First move with us? Get 10% off your booking! 🎉",
   "Hop in! Book your move right here, it's free to ask.",
 ];
+// Ayesha, 2026-11-02: first message 5s after load; each message shows for 5s, the bubble then
+// hides for 3s and comes back with the next one. After the last message it's gone for the visit.
 const SHOW_AFTER_MS = 5000;
-const EACH_MS = 6000;
-const FADE_MS = 300;
-// Twice through the list, then it stays on the last message.
-const LAST_STEP = MESSAGES.length * 2 - 1;
+const SHOW_MS = 5000;
+const GAP_MS = 3000;
 
 // Speech bubble above the chat launcher. Sits in the same right-hand column as the launcher,
 // so it never meets the quote/call widget (a strip on the left on desktop, a bar along the
 // bottom on mobile -- every offset here rides on --contact-bar-h like the launcher's).
 export function ChatGreeting({ hidden, onOpenChat, onClose }: { hidden: boolean; onOpenChat: () => void; onClose: () => void }) {
-  const [ready, setReady] = useState(false);
+  // "waiting" before the first message, "showing" a message, "gap" between messages, "done" for the visit.
+  const [phase, setPhase] = useState<"waiting" | "showing" | "gap" | "done">("waiting");
   const [step, setStep] = useState(0);
-  const [fading, setFading] = useState(false);
   const [paused, setPaused] = useState(false);
 
   useEffect(() => {
-    if (greetingDone()) return;
-    const t = window.setTimeout(() => setReady(true), SHOW_AFTER_MS);
-    return () => window.clearTimeout(t);
+    if (greetingDone()) setPhase("done");
   }, []);
 
-  // Next message every 6s, fading out for the last 300ms of each; paused while hovered.
   useEffect(() => {
-    if (!ready || hidden || paused || step >= LAST_STEP) return;
-    const fadeOut = window.setTimeout(() => setFading(true), EACH_MS - FADE_MS);
-    const next = window.setTimeout(() => {
-      setStep((s) => s + 1);
-      setFading(false);
-    }, EACH_MS);
-    return () => {
-      window.clearTimeout(fadeOut);
-      window.clearTimeout(next);
-    };
-  }, [ready, hidden, paused, step]);
+    if (hidden || phase === "done") return;
+    let t: number | undefined;
+    if (phase === "waiting") t = window.setTimeout(() => setPhase("showing"), SHOW_AFTER_MS);
+    // The message stays up while the mouse is over it; leaving gives it a fresh 5s.
+    if (phase === "showing" && !paused) {
+      t = window.setTimeout(() => {
+        if (step >= MESSAGES.length - 1) {
+          markGreetingDone();
+          setPhase("done");
+        } else setPhase("gap");
+      }, SHOW_MS);
+    }
+    if (phase === "gap") {
+      t = window.setTimeout(() => {
+        setStep((s) => s + 1);
+        setPhase("showing");
+      }, GAP_MS);
+    }
+    return () => window.clearTimeout(t);
+  }, [hidden, phase, paused, step]);
 
-  const visible = ready && !hidden;
+  const visible = phase === "showing" && !hidden;
 
   return (
     <div
@@ -55,10 +61,7 @@ export function ChatGreeting({ hidden, onOpenChat, onClose }: { hidden: boolean;
       )}
       aria-hidden={!visible}
       onMouseEnter={() => setPaused(true)}
-      onMouseLeave={() => {
-        setPaused(false);
-        setFading(false);
-      }}
+      onMouseLeave={() => setPaused(false)}
     >
       <div className="relative rounded-2xl border border-navy/10 bg-white shadow-xl">
         <button
@@ -67,16 +70,9 @@ export function ChatGreeting({ hidden, onOpenChat, onClose }: { hidden: boolean;
           tabIndex={visible ? 0 : -1}
           className="flex w-full items-start gap-2.5 rounded-2xl py-2.5 pl-2.5 pr-7 text-left sm:gap-3 sm:py-3 sm:pl-3 sm:pr-8"
         >
-          <img src={BLUE_FACE} alt="" width={36} height={36} className="h-7 w-7 flex-none rounded-full bg-navy sm:h-9 sm:w-9" />
+          <img src={BLUE_FACE} alt="" width={36} height={36} className="h-7 w-7 flex-none rounded-full bg-white sm:h-9 sm:w-9" />
           <span className="sr-only">Chat with Blue: </span>
-          <span
-            className={clsx(
-              "min-h-[2.5rem] text-xs font-medium leading-snug text-navy transition-opacity duration-300 motion-reduce:transition-none sm:min-h-[2.75rem] sm:text-sm",
-              fading && !paused ? "opacity-0" : "opacity-100",
-            )}
-          >
-            {MESSAGES[step % MESSAGES.length]}
-          </span>
+          <span className="min-h-[2.5rem] text-xs font-medium leading-snug text-navy sm:min-h-[2.75rem] sm:text-sm">{MESSAGES[step]}</span>
         </button>
         <button
           type="button"
