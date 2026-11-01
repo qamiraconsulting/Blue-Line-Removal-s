@@ -33,14 +33,9 @@ function OpsShell() {
     <AdminRoleContext.Provider value={role}>
       <div className="min-h-screen bg-paper text-ink md:grid md:grid-cols-[232px_minmax(0,1fr)]">
         <aside className="flex flex-wrap items-center gap-4 bg-navy px-4 py-3 text-slate-300 md:sticky md:top-0 md:h-screen md:flex-col md:flex-nowrap md:items-stretch md:gap-6 md:px-4 md:py-6">
-          <div className="flex items-center gap-2.5">
-            <span className="grid h-9 w-9 place-items-center rounded-lg bg-action" aria-hidden="true">
-              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M2 7h11v9H2zM13 10h4l3 3v3h-7z" />
-                <circle cx="6" cy="17.5" r="1.8" />
-                <circle cx="16.5" cy="17.5" r="1.8" />
-              </svg>
-            </span>
+          <div className="flex items-center gap-3">
+            {/* 192px source, shown at 56px: sharp on high-density screens. */}
+            <img src="/logo-badge.webp" alt="Blue Line Removals" width={56} height={56} className="h-14 w-14 flex-none" />
             <span className="leading-tight">
               <b className="block font-display text-[15px] font-black text-white">Blue Line</b>
               <span className="text-[11px] uppercase tracking-widest">Operations</span>

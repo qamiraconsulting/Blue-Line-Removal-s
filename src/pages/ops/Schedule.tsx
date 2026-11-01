@@ -30,26 +30,25 @@ export default function Schedule() {
   const cap = useCapacity(); // the week (or day) on screen
   const upcoming = useCapacity(); // the next 30 days, for "Jobs with no driver yet"
   const [mode, setMode] = useState<"week" | "day">("week");
-  const [week, setWeek] = useState(() => mondayOf(today));
+  // One date drives both views: its week in Week view, the day itself in Day view.
+  const [picked, setPicked] = useState(today);
+  const week = mondayOf(picked);
   const [trip, setTrip] = useState<Booking | null>(null);
   const days = useMemo(() => [0, 1, 2, 3, 4, 5, 6].map((i) => addDays(week, i)), [week]);
 
   useEffect(() => {
-    cap.changeRange({ from: days[0], to: days[6] });
+    cap.changeRange({ from: days[0], to: days[6], tripDay: picked });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [week]);
+  }, [picked]);
 
   const data = cap.data;
-  const day = data?.tripDay ?? today;
+  const day = picked;
   const open = (b: Booking) => (b.quoteReference ? navigate(`/admin/jobs/${b.quoteReference}`) : setTrip(b));
   const showDay = (d: string) => {
-    cap.changeRange({ tripDay: d });
+    setPicked(d);
     setMode("day");
   };
-  const shift = (n: number) => {
-    if (mode === "week") setWeek(n === 0 ? mondayOf(today) : addDays(week, 7 * n));
-    else cap.changeRange({ tripDay: n === 0 ? today : addDays(day, n) });
-  };
+  const shift = (n: number) => setPicked(addDays(picked, (mode === "week" ? 7 : 1) * n));
   const reloadAll = () => {
     void cap.load();
     void upcoming.load();
@@ -76,9 +75,13 @@ export default function Schedule() {
           <button type="button" className={btn} onClick={() => shift(-1)} aria-label="Previous">
             &lsaquo;
           </button>
-          <button type="button" className={btn} onClick={() => shift(0)}>
-            Today
-          </button>
+          <input
+            type="date"
+            value={picked}
+            onChange={(e) => e.target.value && setPicked(e.target.value)}
+            aria-label="Go to date"
+            className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-sm font-semibold tabular-nums hover:border-navy"
+          />
           <button type="button" className={btn} onClick={() => shift(1)} aria-label="Next">
             &rsaquo;
           </button>
