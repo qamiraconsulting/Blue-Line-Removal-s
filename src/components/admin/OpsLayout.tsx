@@ -1,6 +1,6 @@
 import { NavLink, Outlet, useLocation, useNavigate, useSearchParams } from "react-router";
 import clsx from "clsx";
-import { UserButton } from "@clerk/react";
+import { UserButton, useUser } from "@clerk/react";
 import { AdminGate } from "./AdminLayout";
 import { AdminRoleContext, useLoadAdminRole } from "../../pages/admin/useAdminRole";
 import { NewJobButton } from "../../pages/ops/NewJob";
@@ -29,6 +29,7 @@ export default function OpsLayout() {
 
 function OpsShell() {
   const role = useLoadAdminRole();
+  const displayName = useDisplayName();
   return (
     <AdminRoleContext.Provider value={role}>
       <div className="min-h-screen bg-paper text-ink md:grid md:grid-cols-[232px_minmax(0,1fr)]">
@@ -65,7 +66,7 @@ function OpsShell() {
 
           <div className="ml-auto md:mt-auto md:ml-0 md:flex md:items-center md:gap-2 md:text-xs">
             <UserButton />
-            <span className="hidden md:inline">{role === "limited" ? "Limited access" : role === "full" ? "Full access" : ""}</span>
+            <span className="hidden md:inline">{displayName}</span>
           </div>
         </aside>
 
@@ -107,4 +108,19 @@ function Search() {
       />
     </label>
   );
+}
+
+/**
+ * The signed-in person's name for the sidebar: the first name on their login, else worked out
+ * from their email -- "juned@..." -> "Juned", and for a "+" alias like "ayesha+matt@..." the part
+ * after the "+" ("Matt"), as used for test logins.
+ */
+function useDisplayName(): string {
+  const { user } = useUser();
+  if (!user) return "";
+  const first = user.firstName?.trim() || user.fullName?.trim();
+  if (first) return first;
+  const local = user.primaryEmailAddress?.emailAddress.split("@")[0] ?? "";
+  const word = (local.includes("+") ? (local.split("+").pop() ?? "") : local).split(/[._-]/)[0] ?? "";
+  return word ? word.charAt(0).toUpperCase() + word.slice(1) : "";
 }
