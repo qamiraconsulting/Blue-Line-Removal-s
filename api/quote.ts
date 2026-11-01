@@ -1,5 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { Resend } from "resend";
+import { MAX_JUNK_DETAILS } from "../src/lib/junkPhotos.js";
+import { checkJunkPhotos, type RawPhoto } from "./_lib/junkPhotos.js";
 
 // Server-side only -- RESEND_API_KEY and LEAD_FROM_EMAIL are set in the
 // Vercel dashboard under Project Settings -> Environment Variables, never
@@ -13,6 +15,10 @@ import { Resend } from "resend";
 // fallback until the client's real inbox is decided. Changing the env var
 // and redeploying switches both forms; no code edit needed.
 const LEAD_TO_EMAIL = process.env.LEAD_TO_EMAIL || "qamiraconsulting@gmail.com";
+//
+// Junk Removal requests can carry photos (shrunk in the browser, re-checked here by
+// api/_lib/junkPhotos.ts) and a "Details of Your Junk" note: the photos go on the team
+// email as attachments and are not stored anywhere. Nothing new to configure.
 const EMAIL_PATTERN = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 
 function truncate(value: unknown, max: number): string {
@@ -39,6 +45,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const to = truncate(body?.to, 200);
   const date = truncate(body?.date, 50);
   const propertySize = truncate(body?.propertySize, 100);
+  const junkDetails = need === "Junk Removal" ? truncate(body?.junkDetails, MAX_JUNK_DETAILS) : "";
 
   if (!name || !phone || !email) {
     res.status(400).json({ error: "Name, phone, and email are required." });
@@ -49,6 +56,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(400).json({ error: "Enter a valid email address." });
     return;
   }
+
+  // Only Junk Removal sends photos; anything sent with a Moving request is ignored.
+  const photos = need === "Junk Removal" && Array.isArray(body?.photos) ? (body.photos as RawPhoto[]) : undefined;
+  const photoCheck = checkJunkPhotos(photos);
+  if (!photoCheck.ok) {
+    res.status(400).json({ error: photoCheck.error });
+    return;
+  }
+  const attachments = photoCheck.attachments;
 
   const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -64,10 +80,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         `Email: ${email}`,
         `Needs help with: ${need}`,
         `Moving from: ${from || "-"}`,
-        `Moving to: ${to || "-"}`,
-        `Preferred date: ${date || "-"}`,
-        `Property size: ${propertySize || "-"}`,
+        ...(need === "Junk Removal"
+          ? [
+              `Preferred date: ${date || "-"}`,
+              `Junk details: ${junkDetails || "-"}`,
+              `Junk photos: ${attachments.length ? `${attachments.length} attached to this email` : "none sent"}`,
+            ]
+          : [`Moving to: ${to || "-"}`, `Preferred date: ${date || "-"}`, `Property size: ${propertySize || "-"}`]),
       ].join("\n"),
+      ...(attachments.length ? { attachments } : {}),
     });
 
     if (error) {
