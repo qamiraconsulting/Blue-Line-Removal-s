@@ -18,7 +18,6 @@ the "Meanwhile" column says: it never guesses.
 
 | Item | Question | Meanwhile |
 |---|---|---|
-| `booking-terms` | Approve the booking terms customers agree to in the chat. 28 Oct: Blue Line's cancellation rule (72 hours, by phone) added; the rest wasn't commented on | Terms shown word for word; exact text stored per booking |
 | `typical-hours-driving` | The "typical hours" are to load and unload (25 Oct), so the engine adds the real drive time. Worth a one-line confirmation from Blue Line | Drive time added on top |
 | `deposit-terms` | Is the $100 deposit taken off the final bill, and refundable if the customer cancels or moves the date? | Chat only says a $100 deposit locks the booking in; refunds by hand in Stripe |
 | `stripe-account` | Blue Line opens a Stripe account (ABN, owner ID, payout BSB + account), requests PayTo, switches on receipts, gives Qamira Developer access. Plain bank transfer dropped (16 Oct) | Testing on Qamira's Stripe test account; no keys = team sends a link |
@@ -26,7 +25,6 @@ the "Meanwhile" column says: it never guesses.
 | `commercial-moves` | Office moves: always a personal quote? | Goes to the team |
 | `whatsapp-alerts` | WhatsApp Business Platform/Cloud API (for automatic alerts), or just the app? | Email alerts + dashboard |
 | `faq-facts` | Insurance, deposit/payment, cancellation, working hours | Chat hands to the team |
-| `privacy-policy` | Privacy policy names Anthropic, Google Maps, Resend, Neon; reviewed before launch | Short collection notice in chat |
 
 ## Qamira actions and decisions
 
@@ -61,6 +59,8 @@ the "Meanwhile" column says: it never guesses.
 | `cancellation-policy` | Call at least 72 hours before the move day; by phone only (28 Oct) | In the booking terms, the booked email and the chat |
 | `crew-choice-hours` | No crew choice: 4.5T and 6-8T come with 2 movers, 10T with 3 (28 Oct) | Chat offers only those; server refuses others; guide hours used |
 | `admin-users` | Full: Irfan, Ayesha, Lovejeet, Lovepreet, Juned. Limited: Matt (no Settings), email to come (28 Oct) | ADMIN_EMAILS / ADMIN_LIMITED_EMAILS in Vercel; server enforces |
+| `booking-terms` | Approved by Blue Line (1 Nov), with the 72-hour phone-only cancellation rule | Shown word for word in the chat; exact text stored per booking |
+| `privacy-policy` | Approved (1 Nov) | /privacy, linked from the footer and the chat |
 | `sign-off` | Blue Line approved the price summary (28 Oct) | Rate card status is "confirmed": real prices. On the test link customer emails still go to the test inbox only |
 | `call-out-fee` | No call-out is charged by the chatbot or the website estimate (Ayesha's manager, 28 Oct) | No call-out line or charge; nothing in Settings. Matt's own quotes keep his sheet's call-out |
 | `part-a-confirm` | Blue Line accepted Part A (25 Oct); the call-out point is settled (28 Oct) | In the rate card; the final sign-off is `sign-off` |

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { useSearchParams } from "react-router";
 import clsx from "clsx";
-import { User, Phone, Mail, MapPin, Calendar, Home as HomeIcon, Truck, Trash2, DollarSign, Clock, ShieldCheck, CircleCheck, MessageSquare, Camera, Image as ImageIcon, X } from "lucide-react";
+import { User, Phone, Mail, MapPin, Calendar, Home as HomeIcon, Truck, Trash2, DollarSign, Clock, ShieldCheck, CircleCheck, MessageSquare, Camera, Image as ImageIcon, Tag, X } from "lucide-react";
 import { Container } from "@/components/ui/Container";
 import { Section } from "@/components/ui/Section";
 import { Reveal } from "@/components/ui/Reveal";
@@ -179,7 +179,15 @@ export function Quote() {
               </span>
             </div>
 
-            <div className="mt-8 rounded-xl border border-ink/10 bg-white p-6 sm:p-8">
+            {/* From main (dbc5214): the Google Ads headline promises 10% off the first booking. */}
+            <p className="mt-5 flex items-center gap-2.5 rounded-lg border border-action/30 bg-action/5 px-4 py-3 text-sm text-navy">
+              <Tag className="h-4 w-4 shrink-0 text-action" aria-hidden="true" />
+              <span>
+                <strong className="font-bold">New customer?</strong> Get 10% off your first booking.
+              </span>
+            </p>
+
+            <div className="mt-6 rounded-xl border border-ink/10 bg-white p-6 sm:p-8">
               {result ? (
                 <QuoteResultCard result={result} />
               ) : (

@@ -110,8 +110,8 @@ export const openItems: OpenItem[] = [
     topic: "legal",
     question:
       "Approve the booking terms the customer agrees to in the chat (bookingEmails.ts BOOKING_TERMS): booking on the estimate, team inspects on the move day before starting and confirms the final charges.",
-    meanwhile: "The chat shows the terms word for word and stores the exact text each customer agreed to. 28 Oct: Blue Line's cancellation rule added (call at least 72 hours before; by phone only); the rest of the wording wasn't commented on.",
-    status: "to_ask",
+    meanwhile: "APPROVED by Blue Line (1 Nov 2026), including the cancellation rule (call at least 72 hours before; by phone only). The chat shows the terms word for word and stores the exact text each customer agreed to.",
+    status: "answered",
   },
   {
     id: "capacity-setup",
@@ -216,7 +216,7 @@ export const openItems: OpenItem[] = [
     id: "admin-users",
     topic: "operations",
     question: "Who at Blue Line needs dashboard access? Answered 28 Oct: Irfan, Ayesha, Lovejeet, Lovepreet and Juned full access; Matt limited (bookings, trucks, drivers per job, cancel -- no Settings). Matt's email still to come.",
-    meanwhile: "Access by verified email: ADMIN_EMAILS (full) and ADMIN_LIMITED_EMAILS (Matt) in Vercel; ADMIN_USER_IDS still works. The server refuses Settings changes from limited users.",
+    meanwhile: "Access by verified email: ADMIN_EMAILS (full) and ADMIN_LIMITED_EMAILS (Matt, email received 1 Nov) in Vercel; ADMIN_USER_IDS still works. The server refuses Settings changes from limited users.",
     status: "answered",
   },
   {
@@ -230,8 +230,8 @@ export const openItems: OpenItem[] = [
     id: "privacy-policy",
     topic: "legal",
     question: "Update the privacy policy to name the chat/estimate processors (Anthropic, Google Maps, Resend, Neon) -- reviewed by Irfan or a lawyer before launch.",
-    meanwhile: "The chat shows a short collection notice when asking for contact details.",
-    status: "to_ask",
+    meanwhile: "APPROVED (1 Nov 2026): /privacy names Anthropic, Google Maps Platform, Resend, Neon and drivers getting job details; linked from the footer and the chat.",
+    status: "answered",
   },
 
   // ------------------------------------------------------------------ Qamira actions / decisions
