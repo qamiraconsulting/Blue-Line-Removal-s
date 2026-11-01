@@ -98,7 +98,7 @@ export default function Schedule() {
       {!data && <p className="text-sm text-slate-500">Loading...</p>}
 
       {data && mode === "week" && (
-        <Panel title={`${shortDay(days[0])} – ${shortDay(days[6])}`} aside={<span className="text-sm text-slate-500 tabular-nums">{plural(data.bookings.filter((b) => b.status === "confirmed").length, "trip")}</span>}>
+        <Panel title={`${shortDay(days[0])} – ${shortDay(days[6])}`} aside={<span className="text-sm text-slate-500 tabular-nums">{plural(data.bookings.filter((b) => b.status === "confirmed" && b.date >= days[0] && b.date <= days[6]).length, "trip")}</span>}>
           <div className="overflow-x-auto">
             <div className="grid min-w-[960px] grid-cols-[128px_repeat(7,minmax(118px,1fr))] border-t border-slate-100 text-sm">
               <div className="bg-paper" />

@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import clsx from "clsx";
 import { useAdminApi } from "./useAdminApi";
 
@@ -122,7 +122,11 @@ export function useCapacity() {
   const [range, setRange] = useState<Range>({});
   const [busy, setBusy] = useState(false);
 
+  // Only the latest load counts: an earlier one that answers late (e.g. the first, default
+  // range) must not replace the range asked for since.
+  const latest = useRef(0);
   async function load(r = range) {
+    const mine = ++latest.current;
     const qs = new URLSearchParams(Object.entries(r).filter(([, v]) => v) as [string, string][]).toString();
     const res = await adminFetch(`/api/admin/capacity${qs ? `?${qs}` : ""}`);
     if (!res.ok) {
@@ -130,6 +134,7 @@ export function useCapacity() {
       return null;
     }
     const d = (await res.json()) as CapacityData;
+    if (mine !== latest.current) return null;
     setData(d);
     return d;
   }
