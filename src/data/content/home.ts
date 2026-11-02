@@ -105,12 +105,12 @@ export const howItWorks = [
   {
     step: "01",
     title: "Tell us what's going on",
-    body: "Email a few photos or fill in the quote form. Junk pile, a whole house move, or both — either way you'll get a straight answer, not a guess.",
+    body: "Fill in the quick quote form (add photos for junk removal) or chat with Blue, our online assistant. Junk pile, a whole house move, or both — either way you'll get a straight answer, not a guess.",
   },
   {
     step: "02",
     title: "Get a free quote",
-    body: "No call-out fee to find out the price. You'll know what to expect well before moving day.",
+    body: "Get an instant estimate from Blue in the chat, or a free quote from our team. You'll know what to expect well before moving day.",
   },
   {
     step: "03",
