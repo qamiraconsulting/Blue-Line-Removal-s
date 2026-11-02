@@ -21,7 +21,7 @@ export function QuoteCTA() {
             <h2 className="text-3xl text-white sm:text-4xl">{quoteCta.heading}</h2>
             <p className="mt-4 max-w-[52ch] text-lg text-white/75">{quoteCta.body}</p>
             <p className="mt-3 text-sm font-bold text-action-bright">
-              {promo.heading} — mention it when you request your quote.
+              {promo.heading} — taken off your quote automatically.
             </p>
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-6">

@@ -34,11 +34,27 @@ export function Footer() {
             </ul>
           </div>
         </div>
-        <div className="flex flex-col gap-3 border-t border-white/10 pt-6 text-xs sm:flex-row sm:items-center sm:justify-between">
+        {/* items-start (not center) keeps the copyright level with the
+            "Fully licensed" line now that the right side has two lines. */}
+        <div className="flex flex-col gap-3 border-t border-white/10 pt-6 text-xs sm:flex-row sm:items-start sm:justify-between">
           <span>
             © {year} {site.fullName}. All rights reserved. {site.abnNote}
           </span>
-          <span>Fully licensed &amp; insured, {site.serviceRegion}.</span>
+          <div className="flex flex-col gap-3 sm:items-end sm:gap-1.5">
+            <span>Fully licensed &amp; insured, {site.serviceRegion}.</span>
+            <span className="self-center text-white/50 sm:self-auto">
+              Crafted by{" "}
+              <a
+                href="https://www.qamiraconsulting.com"
+                target="_blank"
+                rel="noopener"
+                className="text-white/80 transition-colors hover:text-action-bright"
+              >
+                Qamira Consulting
+                <span className="sr-only"> (opens in a new tab)</span>
+              </a>
+            </span>
+          </div>
         </div>
       </Container>
     </footer>

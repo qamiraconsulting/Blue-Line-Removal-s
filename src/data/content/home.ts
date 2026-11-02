@@ -34,8 +34,8 @@ export const trustIntro = {
 // instead on the Quote page so it isn't lost. Update or retire seasonally.
 export const promo = {
   badge: "New Customer Offer",
-  heading: "10% off your first move",
-  body: "Book your first move or junk removal with Blue Line Removals and save 10% off the flat-rate quote — just note it on the form.",
+  heading: "10% off your first booking",
+  body: "Book your first move or junk removal with Blue Line Removals and save 10%. It's taken off your quote automatically, so there's nothing to ask for.",
 };
 
 export const trustStats = [
@@ -47,13 +47,10 @@ export const trustStats = [
 
 // Homepage "Two Services. One Trusted Team." section (2026-08-12, from
 // client-supplied reference screenshot of the sample site's services
-// block). Each category card lists 5 sub-services -- the Moving items map
-// to existing /services/:slug pages where one exists (Apartment & Unit
-// Moves doesn't have its own page yet, so it links to the /services list).
-// The Junk Removal sub-items are a new, more granular breakdown than the
-// single junk-removal page's own checklist in data/content/services.ts --
-// "Rubbish Removal" and "End of Lease Clean Outs" are new here, straight
-// from the client's reference image.
+// block). Each category card lists 5 sub-services, each linking to its own
+// /services/:slug page (2026-10-28: Apartment and the five junk items got
+// pages of their own). "Explore Moving Services" opens /services and
+// "Explore Junk Removal" opens its Junk view (/services?type=junk).
 export const servicesDetailed = {
   eyebrow: "What We Do",
   heading: "Two Services. One Trusted Team.",
@@ -69,7 +66,7 @@ export const servicesDetailed = {
       cta: { label: "Explore Moving Services", href: "/services" },
       items: [
         { icon: "home", title: "Home Removals", body: "Moving to a new home? We'll take care of everything.", href: "/services/home-removals" },
-        { icon: "apartment", title: "Apartment & Unit Moves", body: "Perfect for apartments, townhouses and high-rise living.", href: "/services" },
+        { icon: "apartment", title: "Apartment & Unit Moves", body: "Perfect for apartments, townhouses and high-rise living.", href: "/services/apartment-unit-moves" },
         { icon: "building", title: "Office & Commercial Moves", body: "Minimise disruption and keep your business moving.", href: "/services/office-removals" },
         { icon: "package", title: "Packing & Unpacking", body: "Professional packing to protect what matters most.", href: "/services/packing-unpacking" },
         { icon: "truck", title: "Local & Interstate Moves", body: "Moving across town or across the country, we've got you covered.", href: "/services/interstate-removals" },
@@ -82,13 +79,13 @@ export const servicesDetailed = {
       title: "Junk Gone. Space Won.",
       body: "We remove the unwanted so you can enjoy a clean, clutter-free space.",
       image: "junkRemoval" as const,
-      cta: { label: "Explore Junk Removal", href: "/services/junk-removal" },
+      cta: { label: "Explore Junk Removal", href: "/services?type=junk" },
       items: [
-        { icon: "armchair", title: "Furniture Removal", body: "Old furniture taking up space? We'll take it away.", href: "/services/junk-removal" },
-        { icon: "trash", title: "Rubbish Removal", body: "General rubbish, household waste and clutter — gone.", href: "/services/junk-removal" },
-        { icon: "leaf", title: "Green Waste Removal", body: "Garden waste, branches, leaves and more.", href: "/services/junk-removal" },
-        { icon: "warehouse", title: "Garage & Shed Clear Outs", body: "Clear the clutter and get your space back.", href: "/services/junk-removal" },
-        { icon: "key", title: "End of Lease Clean Outs", body: "We help real estate agents, tenants and landlords.", href: "/services/junk-removal" },
+        { icon: "armchair", title: "Furniture Removal", body: "Old furniture taking up space? We'll take it away.", href: "/services/furniture-removal" },
+        { icon: "trash", title: "Rubbish Removal", body: "General rubbish, household waste and clutter — gone.", href: "/services/rubbish-removal" },
+        { icon: "leaf", title: "Green Waste Removal", body: "Garden waste, branches, leaves and more.", href: "/services/green-waste-removal" },
+        { icon: "warehouse", title: "Garage & Shed Clear Outs", body: "Clear the clutter and get your space back.", href: "/services/garage-shed-clear-outs" },
+        { icon: "key", title: "End of Lease Clean Outs", body: "We help real estate agents, tenants and landlords.", href: "/services/end-of-lease-clean-outs" },
       ],
     },
   ],
@@ -112,8 +109,8 @@ export const howItWorks = [
   },
   {
     step: "02",
-    title: "Get a flat-rate quote",
-    body: "No call-out fee to find out the price. We quote by the job, not the hour, so there's no surprise number at the end.",
+    title: "Get a free quote",
+    body: "No call-out fee to find out the price. You'll know what to expect well before moving day.",
   },
   {
     step: "03",
@@ -145,8 +142,8 @@ export const whyUs = [
     body: "Most jobs can be booked and cleared the same day. If it's urgent, just say so on the quote form.",
   },
   {
-    title: "Upfront, Flat-Rate Pricing",
-    body: "You get a price before we start, not an hourly meter running while we work. What we quote is what you pay.",
+    title: "Free, No-Obligation Quotes",
+    body: "Get a quote before you book, with no call-out fee and no pressure to go ahead.",
   },
   {
     title: "Donate & Recycle First",
@@ -154,7 +151,8 @@ export const whyUs = [
   },
 ];
 
-// Real Google reviews, copied verbatim (client-supplied 2026-09-30) -- keep
+// Real Google reviews, copied verbatim (client-supplied 2026-09-30, Taine H.
+// added 2026-10-09) -- keep
 // the text exactly as written. Overall rating/count must match the live
 // Google profile (ACCC: a review display must not mislead), so update
 // `rating` whenever reviews are added.
@@ -162,7 +160,7 @@ export const reviews = {
   eyebrow: "Reviews",
   heading: "What our customers say",
   body: "Don't just take our word for it. Here's what Melbourne customers have said about moving with Blue Line Removals on Google.",
-  rating: { score: "5.0", count: 7 },
+  rating: { score: "5.0", count: 8 },
   googleUrl: "https://maps.app.goo.gl/3q65tzW5vBJ64PZUA",
   items: [
     {
@@ -200,6 +198,11 @@ export const reviews = {
       stars: 5,
       text: "Punctual and reliable. Best and affordable!!",
     },
+    {
+      name: "Taine H.",
+      stars: 5,
+      text: "I had a great experience with this removalists company. The team was professional and handled all my belongings with great care.",
+    },
   ],
 };
 
@@ -209,6 +212,6 @@ export const reviews = {
 export const quoteCta = {
   eyebrow: "Get a quote",
   heading: "Tell us what needs to go — or where it needs to go.",
-  body: "Get a free, no-obligation quote in minutes. First move or first junk pickup with us? Ask about the 10% new-customer offer. Same-day slots fill up fast, so the earlier in the day you reach out, the more likely we can fit you in today.",
+  body: "Get a free, no-obligation quote in minutes. First move or first junk pickup with us? You get 10% off, taken off your quote automatically. Same-day slots fill up fast, so the earlier in the day you reach out, the more likely we can fit you in today.",
   cta: { label: "Get My Free Quote", href: "/quote" },
 };

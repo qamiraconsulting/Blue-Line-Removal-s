@@ -1,9 +1,13 @@
 import { isRouteErrorResponse, Links, Meta, Outlet, Scripts, ScrollRestoration } from "react-router";
 import type { Route } from "./+types/root";
 import { useEffect } from "react";
-import { site } from "@/data/site";
+import { defaultMeta } from "@/lib/seo";
 import { GTM_ID, gtmHeadScript, trackContactLinkClicks, trackingEnabled } from "@/lib/analytics";
 import "./index.css";
+
+export function meta() {
+  return defaultMeta;
+}
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
@@ -14,8 +18,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png" />
         <link rel="apple-touch-icon" href="/favicon-192.png" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <meta name="description" content={site.description} />
-        <title>{site.fullName}</title>
         {trackingEnabled && <script dangerouslySetInnerHTML={{ __html: gtmHeadScript }} />}
         <Meta />
         <Links />

@@ -3,7 +3,6 @@ import { Star } from "lucide-react";
 import { Container } from "@/components/ui/Container";
 import { Section } from "@/components/ui/Section";
 import { Eyebrow } from "@/components/ui/Eyebrow";
-import { Button } from "@/components/ui/Button";
 import { Reveal, RevealGroup, RevealItem } from "@/components/ui/Reveal";
 import { reviews } from "@/data/content/home";
 
@@ -82,7 +81,7 @@ export function Reviews() {
           <div className="mt-6 inline-flex flex-wrap items-center justify-center gap-x-3 gap-y-1 rounded-2xl border border-ink/10 bg-paper px-5 py-2.5 sm:rounded-full">
             <span className="font-display text-2xl font-black text-navy">{reviews.rating.score}</span>
             <Stars count={5} className="h-5 w-5" />
-            <span className="whitespace-nowrap text-sm text-ink-dim">from {reviews.rating.count} Google reviews</span>
+            <span className="whitespace-nowrap text-sm text-ink-dim">from Google reviews</span>
           </div>
         </Reveal>
 
@@ -93,12 +92,6 @@ export function Reviews() {
             <ReviewCard key={review.name} review={review} />
           ))}
         </RevealGroup>
-
-        <div className="mt-12 flex justify-center">
-          <Button href={reviews.googleUrl} variant="outline">
-            See all our reviews on Google
-          </Button>
-        </div>
       </Container>
     </Section>
   );

@@ -23,6 +23,7 @@ declare global {
 // means updating the matching Custom Event trigger in GTM too.
 export type TrackedEvent =
   | "quote_submitted"
+  | "callback_requested"
   | "phone_click"
   | "email_click"
   // Chat widget (add matching Custom Event triggers in GTM to use them in GA4/Ads)
