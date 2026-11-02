@@ -70,6 +70,9 @@ export const teamEditsSchema = z.object({
   movers: z.number().int().min(1).max(10).nullable().optional(),
   hours: z.number().min(0.5).max(24).nullable().optional(),
   stairFlights: z.number().int().min(0).max(30).optional(),
+  /** Ends where the long carry applies, 0-2 (2 Nov 2026). */
+  longCarryEnds: z.number().int().min(0).max(2).optional(),
+  heavyCount: z.number().int().min(0).max(20).optional(),
   packingAud: z.number().min(0).max(20000).optional(),
   services: z.string().trim().max(200).optional(),
   /** The team's own total, GST included. */
@@ -107,7 +110,7 @@ export function currentLines(q: JobRow, rateCard: RateCard): QuoteLines | null {
   return null;
 }
 
-const PRICE_FIELDS = ["truck", "movers", "hours", "stairFlights", "packingAud", "overrideTotal"] as const;
+const PRICE_FIELDS = ["truck", "movers", "hours", "stairFlights", "longCarryEnds", "heavyCount", "packingAud", "overrideTotal"] as const;
 
 /** Applies the team's edits: new lines (recalculated and/or the team's total) and the row changes. */
 export function applyEdits(q: JobRow, edits: TeamEdits, rateCard: RateCard): { ok: true; lines: QuoteLines; patch: JobPatch } | { ok: false; error: string } {
@@ -123,6 +126,8 @@ export function applyEdits(q: JobRow, edits: TeamEdits, rateCard: RateCard): { o
         movers: pick("movers", base?.movers ?? null),
         hours: pick("hours", base?.hours ?? null),
         stairFlights: edits.stairFlights ?? base?.stairFlights ?? 0,
+        longCarryEnds: edits.longCarryEnds ?? base?.longCarryEnds ?? 0,
+        heavyCount: edits.heavyCount ?? base?.heavyCount ?? 0,
         packingAud: edits.packingAud ?? base?.packing ?? 0,
         firstMoveApplied: q.firstMoveApplied,
         services: edits.services ?? base?.services,

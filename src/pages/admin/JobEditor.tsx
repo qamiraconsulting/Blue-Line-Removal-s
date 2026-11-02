@@ -19,6 +19,8 @@ interface Form {
   movers: string;
   hours: string;
   stairFlights: string;
+  longCarryEnds: string;
+  heavyCount: string;
   packingAud: string;
   services: string;
   overrideTotal: string;
@@ -36,6 +38,8 @@ function initialForm(job: Job): Form {
     movers: l?.movers ? String(l.movers) : "",
     hours: l?.hours ? String(l.hours) : "",
     stairFlights: String(l?.stairFlights ?? 0),
+    longCarryEnds: String(l?.longCarryEnds ?? 0),
+    heavyCount: String(l?.heavyCount ?? 0),
     packingAud: String(l?.packing ?? 0),
     services: l?.services ?? "Standard Move",
     overrideTotal: "",
@@ -55,6 +59,8 @@ function editsFrom(form: Form, start: Form) {
   if (changed("movers")) e.movers = form.movers ? Number(form.movers) : null;
   if (changed("hours")) e.hours = form.hours ? Number(form.hours) : null;
   if (changed("stairFlights")) e.stairFlights = Number(form.stairFlights) || 0;
+  if (changed("longCarryEnds")) e.longCarryEnds = Math.min(2, Number(form.longCarryEnds) || 0);
+  if (changed("heavyCount")) e.heavyCount = Number(form.heavyCount) || 0;
   if (changed("packingAud")) e.packingAud = Number(form.packingAud) || 0;
   if (changed("services")) e.services = form.services;
   if (form.overrideTotal.trim()) e.overrideTotal = Math.round(Number(form.overrideTotal));
@@ -75,7 +81,7 @@ export function JobEditor({ job, mode, onDone, onCancel }: { job: Job; mode: "co
 
   const edits = editsFrom(form, start);
   const editsKey = JSON.stringify(edits);
-  const priceTouched = ["truck", "movers", "hours", "stairFlights", "packingAud", "overrideTotal", "services"].some((k) => k in edits);
+  const priceTouched = ["truck", "movers", "hours", "stairFlights", "longCarryEnds", "heavyCount", "packingAud", "overrideTotal", "services"].some((k) => k in edits);
 
   // Live breakdown from the server (the rates never come to the browser).
   useEffect(() => {
@@ -159,6 +165,12 @@ export function JobEditor({ job, mode, onDone, onCancel }: { job: Job; mode: "co
         <Lbl text="Stair flights">
           <input type="number" min={0} max={30} className={input} value={form.stairFlights} onChange={set("stairFlights")} />
         </Lbl>
+        <Lbl text="Long carry (ends, 0-2)">
+          <input type="number" min={0} max={2} className={input} value={form.longCarryEnds} onChange={set("longCarryEnds")} />
+        </Lbl>
+        <Lbl text="Heavy items">
+          <input type="number" min={0} max={20} className={input} value={form.heavyCount} onChange={set("heavyCount")} />
+        </Lbl>
         <Lbl text="Packing materials ($)">
           <input type="number" min={0} className={input} value={form.packingAud} onChange={set("packingAud")} />
         </Lbl>
@@ -183,11 +195,18 @@ export function JobEditor({ job, mode, onDone, onCancel }: { job: Job; mode: "co
                   ["Call-out", l.callOut],
                   ["Packing materials", l.packing],
                   [`Stairs (${l.stairFlights} flights)`, l.stair],
-                  ["Discount / adjustment", l.adjustment],
+                  [`Long carry (${l.longCarryEnds ?? 0} ends)`, l.longCarry ?? 0],
+                  [`Heavy items (${l.heavyCount ?? 0})`, l.heavy ?? 0],
+                  [`New customer discount (${l.discountPercent ?? 10}%)`, -(l.discount ?? 0)],
+                  ["Adjustment", l.adjustment],
                   ["Subtotal (excl. GST)", l.subtotal],
                   ["GST", l.gst],
+                  ["Rounding (to the nearest $10)", l.rounding ?? 0],
                 ] as [string, number][]
-              ).map(([k, v]) => (
+              )
+                // $0 lines aren't on the customer's quote either (Blue Line, 2 Nov).
+                .filter(([k, v]) => k.startsWith("Subtotal") || k === "GST" || Math.abs(v) >= 0.005)
+                .map(([k, v]) => (
                 <tr key={k}>
                   <td className="py-0.5 pr-4 text-slate-600">{k}</td>
                   <td className="py-0.5 text-right tabular-nums">{v.toFixed(2)}</td>

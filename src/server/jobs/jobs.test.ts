@@ -17,7 +17,7 @@ import {
 } from "./actions.js";
 import { finishLines, linesFromEstimate, teamQuote } from "./lines.js";
 import { summarise, type OverviewRow } from "./overview.js";
-import { appsScriptPayload, appsScriptSender, pdfDate, type PdfQuoteJob } from "./pdfQuote.js";
+import { appsScriptPayload, appsScriptSender, extraRows, pdfDate, renderPlainQuoteEmail, type PdfQuoteJob } from "./pdfQuote.js";
 import { effectiveStatus } from "./status.js";
 
 const NOW = new Date("2026-10-15T02:00:00Z"); // Thu 15 Oct 2026, 13:00 in Melbourne
@@ -37,13 +37,18 @@ describe("PDF quote lines always add up to the total", () => {
 
   it("team edits recalculate from the same rate card (extra movers, stairs, packing, minimum hours)", () => {
     const r = teamQuote({ truck: "4.5T", movers: 2, hours: 3, stairFlights: 1, packingAud: 50, firstMoveApplied: false, overrideTotal: null }, card);
-    expect(r).toMatchObject({ ok: true, calculatedTotal: 530, lines: { labour: 390, stair: 40, packing: 50, total: 530, adjustment: 1.82 } });
+    // 480 + 10% GST = 528 -> $530: the $2 shows as rounding, not inside an adjustment (Blue Line, 2 Nov)
+    expect(r).toMatchObject({ ok: true, calculatedTotal: 530, lines: { labour: 390, stair: 40, packing: 50, subtotal: 480, gst: 48, rounding: 2, total: 530, adjustment: 0 } });
     expect(teamQuote({ truck: "4.5T", movers: 3, hours: 3, stairFlights: 0, packingAud: 0, firstMoveApplied: false, overrideTotal: null }, card)).toMatchObject({ ok: true, lines: { rateHr: 210, labour: 630 } });
     expect(teamQuote({ truck: "4.5T", movers: 2, hours: 1, stairFlights: 0, packingAud: 0, firstMoveApplied: false, overrideTotal: null }, card)).toMatchObject({ ok: true, lines: { hours: 2, labour: 260 } });
   });
 
   it("keeps the first-order discount, and the team's own total wins (difference on the adjustment line)", () => {
-    expect(teamQuote({ truck: "4.5T", movers: 2, hours: 3, stairFlights: 1, packingAud: 50, firstMoveApplied: true, overrideTotal: null }, card)).toMatchObject({ ok: true, lines: { total: 480, adjustment: -43.64 } });
+    // the discount is exactly 10% of the 480 of charges; 432 + 43.20 GST = 475.20 -> $480
+    expect(teamQuote({ truck: "4.5T", movers: 2, hours: 3, stairFlights: 1, packingAud: 50, firstMoveApplied: true, overrideTotal: null }, card)).toMatchObject({
+      ok: true,
+      lines: { discount: 48, discountPercent: 10, subtotal: 432, gst: 43.2, rounding: 4.8, total: 480, adjustment: 0 },
+    });
     const o = teamQuote({ truck: "4.5T", movers: 2, hours: 3, stairFlights: 1, packingAud: 50, firstMoveApplied: false, overrideTotal: 600 }, card);
     expect(o).toMatchObject({ ok: true, calculatedTotal: 530, lines: { total: 600, gst: 54.55, subtotal: 545.45, adjustment: 65.45 } });
   });
@@ -330,14 +335,41 @@ describe("the branded PDF via the Apps Script", () => {
       RateHr: "145.00",
       Labour: "652.50",
       CallOut: "0.00",
-      Adjustment: "2.05",
+      Adjustment: "0.00",
       Subtotal: "654.55",
       GST: "65.45",
       Total: "720.00",
       DaysUntilMove: "6",
     });
+    // the team's total is 2.05 more than the lines: an "Adjustment" extra row
+    expect(p.values.ExtraRows).toEqual([{ place: "beforeSubtotal", label: "Adjustment", rate: "", amount: "+2.05" }]);
     expect(p.introText).toContain("A note from our team: Moved to 7:30 as discussed.");
+    expect(p.footnoteText).toContain("risky or breakable");
     expect(pdfDate("2026-10-21")).toBe("Wednesday, 21 October 2026");
+  });
+
+  it("Blue Line's 2 Nov quote: long carry on its own line, an exact 10% discount and a rounding line", () => {
+    // BLR-20261102-7DEAA8: apartment, no stairs, 2 ends of long carry, 6-8T 3.58 h, first booking
+    const internal = {
+      truck: "6-8T", movers: 2, capacityFrom: "guide" as const, jobHours: 3.58, crewRateAudPerHour: 140, labourCostAud: 501.67,
+      accessCostAud: 80, stairFlights: 0, stairCostAud: 0, longCarryEnds: 2, longCarryCostAud: 80, heavyItems: 0, heavyCostAud: 0,
+      surchargeAppliedPercent: 0, subtotalAud: 581.67, discountPercent: 10, discountAud: 58.17, gstAud: 52.35, unroundedAud: 575.85,
+    };
+    const l = linesFromEstimate(internal, 580, { gst: { ratePercent: 10, ratesIncludeGst: false } });
+    expect(l).toMatchObject({ stair: 0, longCarryEnds: 2, longCarry: 80, discount: 58.17, subtotal: 523.5, gst: 52.35, rounding: 4.15, total: 580, adjustment: 0 });
+    expect(extraRows(l)).toEqual([
+      { place: "beforeSubtotal", label: "Long Carry Fee", rate: "2 \u00d7 $40", amount: "80.00" },
+      { place: "beforeSubtotal", label: "New customer discount (10%)", rate: "", amount: "\u221258.17" },
+      { place: "afterGst", label: "Rounding (to the nearest $10)", rate: "", amount: "+4.15" },
+    ]);
+    const plain = renderPlainQuoteEmail({ ...pdfJob, lines: l });
+    expect(plain.text).toContain("Long carry (2 \u00d7 $40): $80.00");
+    expect(plain.text).toContain("New customer discount (10%): \u2212$58.17");
+    expect(plain.text).toContain("Rounding (to the nearest $10): $4.15");
+    // $0 lines aren't shown
+    expect(plain.text).not.toMatch(/Stairs|Packing|Call-out|Heavy/);
+    // the risky-items note is small text at the very end, not in the intro
+    expect(plain.html).toMatch(/font-size:11px[^>]*>If our team finds any item risky or breakable/);
   });
 
   it("reports success only when the script says ok", async () => {

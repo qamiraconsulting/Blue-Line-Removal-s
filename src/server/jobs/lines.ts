@@ -6,10 +6,11 @@ import { moverCounts, truckIds, type RateCard, type TruckId } from "../quote/rat
 // subtotal, GST and total. Ayesha (2026-10-15): website and chat customers get the full
 // breakdown too.
 //
-// The lines ALWAYS add up to the total the customer is charged. Whatever the plain lines
-// don't explain -- the first-order discount, rounding to $10, a weekend surcharge, or a total
-// the team typed in by hand -- goes on one "Discount / adjustment" line, and the team's note
-// tells the customer why.
+// The lines ALWAYS add up to the total the customer is charged. Blue Line's feedback (2 Nov):
+// each extra is its own line -- stairs (real flights), long carry ("2 x $40") and heavy items --
+// the first-booking discount is exactly its percent of the charges, and rounding the total to
+// $10 shows as its own "Rounding" line after GST instead of hiding inside the discount. Only a
+// total the team typed in by hand still goes on an "Adjustment" line (their note says why).
 
 export interface QuoteLines {
   truck: TruckId | null;
@@ -20,48 +21,83 @@ export interface QuoteLines {
   labour: number;
   callOut: number;
   packing: number;
+  /** Stairs only (flights x the per-flight price). Older quotes folded every access extra in here. */
   stair: number;
+  /** Long carry: ends charged and the charge (2 Nov 2026; absent on older quotes). */
+  longCarryEnds?: number;
+  longCarry?: number;
+  /** Heavy items: how many and the charge (2 Nov 2026; absent on older quotes). */
+  heavyCount?: number;
+  heavy?: number;
+  /** First-booking discount: a positive amount, shown as minus -- exactly discountPercent of the charges. */
+  discount?: number;
+  discountPercent?: number;
+  /** What the team's own total adds or takes away (0 when the price wasn't typed in). */
   adjustment: number;
-  /** Excluding GST. */
+  /** Excluding GST, after the discount. */
   subtotal: number;
   gst: number;
+  /** Rounding the GST-included total to the rate card's step ($10). */
+  rounding?: number;
   /** GST included -- the amount the customer pays. */
   total: number;
   services: string;
 }
 
-const round2 = (n: number) => Math.round(n * 100) / 100;
+type LineBase = Omit<QuoteLines, "adjustment" | "subtotal" | "gst" | "total" | "rounding">;
 
-/** Splits `total` (GST included) into subtotal + GST and puts the difference on the adjustment line. */
-export function finishLines(
-  base: Omit<QuoteLines, "adjustment" | "subtotal" | "gst" | "total">,
-  total: number,
-  gstPercent: number,
-): QuoteLines {
+const round2 = (n: number) => Math.round(n * 100) / 100;
+const zeroed = (n: number) => (Math.abs(n) < 0.005 ? 0 : n);
+
+/** Everything charged before the discount, excluding GST. */
+export const chargesOf = (b: LineBase) => round2(b.labour + b.callOut + b.packing + b.stair + (b.longCarry ?? 0) + (b.heavy ?? 0));
+
+/**
+ * A total from elsewhere (the team's typed total, Matt's sheet): split it into subtotal + GST and
+ * put whatever the lines (less any discount) don't explain on the adjustment line.
+ */
+export function finishLines(base: LineBase, total: number, gstPercent: number): QuoteLines {
   const gst = round2((total * gstPercent) / (100 + gstPercent));
   const subtotal = round2(total - gst);
-  const adjustment = round2(subtotal - (base.labour + base.callOut + base.packing + base.stair));
-  return { ...base, adjustment: Math.abs(adjustment) < 0.005 ? 0 : adjustment, subtotal, gst, total };
+  const adjustment = zeroed(round2(subtotal - (chargesOf(base) - (base.discount ?? 0))));
+  return { ...base, adjustment, subtotal, gst, total };
 }
+
+/** A total the rate card worked out: subtotal and GST exactly, and the step to $10 on its own line. */
+export function finishRounded(base: LineBase, total: number, gstPercent: number): QuoteLines {
+  const subtotal = round2(chargesOf(base) - (base.discount ?? 0));
+  const gst = round2((subtotal * gstPercent) / 100);
+  return { ...base, adjustment: 0, subtotal, gst, rounding: zeroed(round2(total - subtotal - gst)), total };
+}
+
+const discountFor = (charges: number, percent: number) => (percent > 0 ? { discount: round2((charges * percent) / 100), discountPercent: percent } : {});
 
 /** The instant estimate's breakdown, as stored with the quote. */
 export function linesFromEstimate(internal: InternalBreakdown, total: number, rateCard: Pick<RateCard, "gst">): QuoteLines {
-  return finishLines(
-    {
-      truck: (truckIds as readonly string[]).includes(internal.truck) ? (internal.truck as TruckId) : null,
-      movers: internal.movers,
-      hours: internal.jobHours,
-      rateHr: internal.crewRateAudPerHour,
-      stairFlights: 0,
-      labour: round2(internal.labourCostAud),
-      callOut: 0, // included in the hourly rate (rate card, 12 Oct email)
-      packing: 0,
-      stair: round2(internal.accessCostAud),
-      services: "Standard Move",
-    },
-    total,
-    rateCard.gst.ratePercent,
-  );
+  const head = {
+    truck: (truckIds as readonly string[]).includes(internal.truck) ? (internal.truck as TruckId) : null,
+    movers: internal.movers,
+    hours: internal.jobHours,
+    rateHr: internal.crewRateAudPerHour,
+    labour: round2(internal.labourCostAud),
+    callOut: 0, // never charged by the chat or the website (Ayesha's manager, 28 Oct)
+    packing: 0,
+    services: "Standard Move",
+  };
+  // Quotes made before 2 Nov only kept the access extras as one figure.
+  if (internal.stairCostAud === undefined) {
+    return finishLines({ ...head, stairFlights: 0, stair: round2(internal.accessCostAud) }, total, rateCard.gst.ratePercent);
+  }
+  const base: LineBase = {
+    ...head,
+    stairFlights: internal.stairFlights ?? 0,
+    stair: round2(internal.stairCostAud),
+    longCarryEnds: internal.longCarryEnds ?? 0,
+    longCarry: round2(internal.longCarryCostAud ?? 0),
+    heavyCount: internal.heavyItems ?? 0,
+    heavy: round2(internal.heavyCostAud ?? 0),
+  };
+  return finishRounded({ ...base, ...discountFor(chargesOf(base), internal.discountPercent) }, total, rateCard.gst.ratePercent);
 }
 
 export interface TeamQuoteInput {
@@ -69,6 +105,9 @@ export interface TeamQuoteInput {
   movers: number | null;
   hours: number | null;
   stairFlights: number;
+  /** Ends where the long carry applies (0-2). */
+  longCarryEnds?: number;
+  heavyCount?: number;
   packingAud: number;
   /** Keep the first-order discount the customer was given. */
   firstMoveApplied: boolean;
@@ -87,18 +126,20 @@ export type TeamQuoteResult = { ok: true; lines: QuoteLines; calculatedTotal: nu
 export function teamQuote(input: TeamQuoteInput, rateCard: RateCard): TeamQuoteResult {
   const services = input.services?.trim() || "Standard Move";
   const canCalculate = input.truck !== null && input.movers !== null && input.hours !== null;
+  const extras = {
+    stairFlights: input.stairFlights,
+    stair: round2(input.stairFlights * rateCard.accessExtras.perStairFlightAud),
+    longCarryEnds: input.longCarryEnds ?? 0,
+    longCarry: round2((input.longCarryEnds ?? 0) * rateCard.accessExtras.longCarryAud),
+    heavyCount: input.heavyCount ?? 0,
+    heavy: round2((input.heavyCount ?? 0) * rateCard.accessExtras.perHeavyItemAud),
+  };
+  const percent = input.firstMoveApplied ? rateCard.firstMoveDiscountPercent : 0;
 
   if (!canCalculate) {
     if (input.overrideTotal === null) return { ok: false, error: "Enter the truck, movers and hours, or type the total." };
-    return {
-      ok: true,
-      calculatedTotal: null,
-      lines: finishLines(
-        { truck: input.truck, movers: input.movers, hours: input.hours, rateHr: null, stairFlights: input.stairFlights, labour: 0, callOut: 0, packing: round2(input.packingAud), stair: 0, services },
-        input.overrideTotal,
-        rateCard.gst.ratePercent,
-      ),
-    };
+    const base: LineBase = { truck: input.truck, movers: input.movers, hours: input.hours, rateHr: null, labour: 0, callOut: 0, packing: round2(input.packingAud), services, ...extras };
+    return { ok: true, calculatedTotal: null, lines: finishLines({ ...base, ...discountFor(chargesOf(base), percent) }, input.overrideTotal, rateCard.gst.ratePercent) };
   }
 
   const truck = rateCard.trucks[input.truck!];
@@ -107,22 +148,27 @@ export function teamQuote(input: TeamQuoteInput, rateCard: RateCard): TeamQuoteR
   }
   const rateHr = (truck.hourlyRateAud ?? 0) + Math.max(0, input.movers! - 2) * rateCard.extraMoverHourlyRateAud;
   const hours = Math.max(rateCard.minimumJobHours, input.hours!);
-  const labour = round2(rateHr * hours);
-  const stair = round2(input.stairFlights * rateCard.accessExtras.perStairFlightAud);
-  const packing = round2(input.packingAud);
-
-  const charges = labour + stair + packing;
-  const discount = input.firstMoveApplied ? charges * (rateCard.firstMoveDiscountPercent / 100) : 0;
-  const withGst = (charges - discount) * (1 + rateCard.gst.ratePercent / 100);
+  const base: LineBase = {
+    truck: input.truck,
+    movers: input.movers,
+    hours,
+    rateHr: truck.hourlyRateAud === null ? null : rateHr,
+    labour: round2(rateHr * hours),
+    callOut: 0,
+    packing: round2(input.packingAud),
+    services,
+    ...extras,
+  };
+  const withDiscount = { ...base, ...discountFor(chargesOf(base), percent) };
+  const withGst = (chargesOf(base) - (withDiscount.discount ?? 0)) * (1 + rateCard.gst.ratePercent / 100);
   const calculatedTotal = Math.round(withGst / rateCard.roundToNearestAud) * rateCard.roundToNearestAud;
 
   return {
     ok: true,
     calculatedTotal: truck.hourlyRateAud === null ? null : calculatedTotal,
-    lines: finishLines(
-      { truck: input.truck, movers: input.movers, hours, rateHr: truck.hourlyRateAud === null ? null : rateHr, stairFlights: input.stairFlights, labour, callOut: 0, packing, stair, services },
-      input.overrideTotal ?? calculatedTotal,
-      rateCard.gst.ratePercent,
-    ),
+    lines:
+      input.overrideTotal !== null
+        ? finishLines(withDiscount, input.overrideTotal, rateCard.gst.ratePercent)
+        : finishRounded(withDiscount, calculatedTotal, rateCard.gst.ratePercent),
   };
 }

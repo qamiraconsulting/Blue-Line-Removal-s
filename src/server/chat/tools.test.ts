@@ -318,8 +318,11 @@ describe("tool and prompt wording", () => {
     expect(prompt).toContain("parking distance not known");
     expect(prompt).toContain("never when they're unsure");
     expect(prompt).toContain("pickupApartment / dropoffApartment");
-    // the risky-item note and free furniture wrapping
-    expect(prompt).toContain(RISKY_ITEMS_NOTE);
+    // the risky-item note is NOT in the chat any more (Blue Line, 2 Nov: emails only); free furniture wrapping
+    expect(prompt).not.toContain(RISKY_ITEMS_NOTE);
+    // a fridge or washing machine is never a heavy item
+    expect(prompt).toContain("never count them as heavy items");
+    expect(prompt).not.toMatch(/heavy items \((fridge|washing)/);
     expect(prompt).toContain("Wrapping furniture (bubble wrap, shrink wrap and blankets to cover it) is free");
     // the deposit, and paying the rest
     expect(prompt).toContain("To lock in your booking we take a $100 deposit before the move.");

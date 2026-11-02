@@ -14,9 +14,16 @@ export interface QuoteLines {
   callOut: number;
   packing: number;
   stair: number;
+  longCarryEnds?: number;
+  longCarry?: number;
+  heavyCount?: number;
+  heavy?: number;
+  discount?: number;
+  discountPercent?: number;
   adjustment: number;
   subtotal: number;
   gst: number;
+  rounding?: number;
   total: number;
   services: string;
 }

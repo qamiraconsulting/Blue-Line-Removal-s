@@ -58,7 +58,7 @@ export const getQuoteInput = z.object({
     .min(0)
     .max(20)
     .optional()
-    .describe("How many heavy items the customer named (fridge, washing machine, marble table, gym equipment...). Each is charged as a heavy item. 0 if none."),
+    .describe("How many heavy items the customer named (marble table, gym equipment, large solid-timber furniture...). Each is charged as a heavy item. NEVER count a fridge or a washing machine -- those are normal items with no extra charge. 0 if none."),
   accessNotes: z
     .string()
     .max(1000)

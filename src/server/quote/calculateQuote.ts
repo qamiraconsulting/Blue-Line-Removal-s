@@ -78,6 +78,13 @@ export interface InternalBreakdown {
   crewRateAudPerHour: number;
   labourCostAud: number;
   accessCostAud: number;
+  // The access extras one by one (2 Nov 2026: each is its own line on the quote). Absent on older quotes.
+  stairFlights?: number;
+  stairCostAud?: number;
+  longCarryEnds?: number;
+  longCarryCostAud?: number;
+  heavyItems?: number;
+  heavyCostAud?: number;
   surchargeAppliedPercent: number;
   /** Charges excluding GST, before any discount. */
   subtotalAud: number;
@@ -150,10 +157,11 @@ export function calculateQuote(inputs: QuoteInputs, rateCard: RateCard, options:
   const labourCost = jobHours * crewRate;
 
   const stairFlights = inputs.access.pickupStairFlights + inputs.access.dropoffStairFlights;
-  const accessCost =
-    stairFlights * rateCard.accessExtras.perStairFlightAud +
-    ((inputs.access.pickupLongCarry ? 1 : 0) + (inputs.access.dropoffLongCarry ? 1 : 0)) * rateCard.accessExtras.longCarryAud +
-    inputs.access.heavyItems * rateCard.accessExtras.perHeavyItemAud;
+  const longCarryEnds = (inputs.access.pickupLongCarry ? 1 : 0) + (inputs.access.dropoffLongCarry ? 1 : 0);
+  const stairCost = stairFlights * rateCard.accessExtras.perStairFlightAud;
+  const longCarryCost = longCarryEnds * rateCard.accessExtras.longCarryAud;
+  const heavyCost = inputs.access.heavyItems * rateCard.accessExtras.perHeavyItemAud;
+  const accessCost = stairCost + longCarryCost + heavyCost;
 
   const charges = (labourCost + accessCost) * (1 + surchargePercent / 100);
 
@@ -192,6 +200,12 @@ export function calculateQuote(inputs: QuoteInputs, rateCard: RateCard, options:
       crewRateAudPerHour: crewRate,
       labourCostAud: round2(labourCost),
       accessCostAud: accessCost,
+      stairFlights,
+      stairCostAud: round2(stairCost),
+      longCarryEnds,
+      longCarryCostAud: round2(longCarryCost),
+      heavyItems: inputs.access.heavyItems,
+      heavyCostAud: round2(heavyCost),
       surchargeAppliedPercent: surchargePercent,
       subtotalAud: round2(subtotalExGst),
       discountPercent,

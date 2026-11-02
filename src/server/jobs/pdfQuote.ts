@@ -1,6 +1,6 @@
 import { site } from "../../data/site.js";
 import { BOOKED_DAY_NOTE, CANCELLATION_POLICY, formatArrivalTime } from "../quote/bookingEmails.js";
-import { esc, firstName, formatAud, NAVY, shell, type EmailContent } from "../quote/emails.js";
+import { esc, firstName, formatAud, NAVY, RISKY_ITEMS_NOTE, shell, type EmailContent } from "../quote/emails.js";
 import type { QuoteLines } from "./lines.js";
 
 // The branded PDF quote for website and chat jobs is made by the SAME Google Apps Script that
@@ -37,6 +37,33 @@ export interface PdfQuoteJob {
 export type PdfSender = (job: PdfQuoteJob) => Promise<boolean>;
 
 const money = (n: number) => n.toFixed(2);
+const dollars = (n: number) => (n < 0 ? `−$${money(-n)}` : `$${money(n)}`);
+const signed = (n: number) => `${n < 0 ? "\u2212" : "+"}${money(Math.abs(n))}`;
+const unit = (n: number) => (Number.isInteger(n) ? `$${n}` : `$${money(n)}`);
+
+/**
+ * The extra lines between the template's own rows (labour, call-out, packing, stairs) and its
+ * subtotal / GST (Blue Line, 2 Nov): long carry and heavy items as "count x price", the
+ * first-booking discount, a team-typed total's adjustment, and -- after GST -- the rounding to
+ * $10. The Apps Script inserts them into the PDF and the email; anything 0 is left out.
+ */
+export interface ExtraRow {
+  place: "beforeSubtotal" | "afterGst";
+  label: string;
+  rate: string;
+  amount: string;
+}
+
+export function extraRows(l: QuoteLines): ExtraRow[] {
+  const rows: ExtraRow[] = [];
+  const per = (total: number, count: number) => (count > 0 ? unit(Math.round((total / count) * 100) / 100) : "");
+  if (l.longCarry && l.longCarryEnds) rows.push({ place: "beforeSubtotal", label: "Long Carry Fee", rate: `${l.longCarryEnds} \u00d7 ${per(l.longCarry, l.longCarryEnds)}`, amount: money(l.longCarry) });
+  if (l.heavy && l.heavyCount) rows.push({ place: "beforeSubtotal", label: "Heavy Items", rate: `${l.heavyCount} \u00d7 ${per(l.heavy, l.heavyCount)}`, amount: money(l.heavy) });
+  if (l.discount) rows.push({ place: "beforeSubtotal", label: `New customer discount (${l.discountPercent ?? 10}%)`, rate: "", amount: `\u2212${money(l.discount)}` });
+  if (l.adjustment) rows.push({ place: "beforeSubtotal", label: "Adjustment", rate: "", amount: signed(l.adjustment) });
+  if (l.rounding) rows.push({ place: "afterGst", label: "Rounding (to the nearest $10)", rate: "", amount: signed(l.rounding) });
+  return rows;
+}
 
 /** "Wednesday, 21 October 2026" -- the format Matt's quotes use. */
 export function pdfDate(iso: string | null): string {
@@ -88,6 +115,9 @@ export function appsScriptPayload(job: PdfQuoteJob, today: string, secret: strin
     subject: `${job.testMode ? "[TEST] " : ""}${job.kind === "booked" ? `Your move is booked (ref ${job.reference})` : `Your Blue Line Removals quote (ref ${job.reference})`}`,
     introText: intro.join("\n\n"),
     introHtml: intro.map((p) => `<p style="margin:0 0 12px">${esc(p)}</p>`).join(""),
+    // Blue Line, 2 Nov: in the email only, as plain small text at the end -- not in the intro box.
+    footnoteText: RISKY_ITEMS_NOTE,
+    footnoteHtml: `<p style="margin:12px 0 0;font-family:Arial,Helvetica,sans-serif;font-size:11px;line-height:1.5;color:#6b7785">${esc(RISKY_ITEMS_NOTE)}</p>`,
     values: {
       CustomerName: job.customerName,
       Email: job.email,
@@ -108,7 +138,10 @@ export function appsScriptPayload(job: PdfQuoteJob, today: string, secret: strin
       CallOut: money(l.callOut),
       Packing: money(l.packing),
       Stair: money(l.stair),
-      Adjustment: money(l.adjustment),
+      // Every line the template has no row for travels in ExtraRows; the template's own
+      // adjustment row (Matt's first-booking offer) stays empty for website jobs.
+      Adjustment: money(0),
+      ExtraRows: extraRows(l),
       Subtotal: money(l.subtotal),
       GST: money(l.gst),
       Total: money(l.total),
@@ -151,15 +184,21 @@ export function renderPlainQuoteEmail(job: PdfQuoteJob): EmailContent {
     ["To", job.toAddress],
     ["Truck & crew", crewLabel(job)],
   ].filter((r): r is [string, string] => Boolean(r[1]));
-  const lineRows: [string, number][] = [
+  const allRows: [string, number][] = [
     [l.rateHr !== null && l.hours !== null ? `Labour (${l.hours} h x $${money(l.rateHr)})` : "Labour", l.labour],
     ["Call-out", l.callOut],
     ["Packing materials", l.packing],
     [`Stairs (${l.stairFlights} flights)`, l.stair],
-    ["Discount / adjustment", l.adjustment],
+    [`Long carry (${l.longCarryEnds ?? 0} \u00d7 ${unit((l.longCarry ?? 0) / Math.max(1, l.longCarryEnds ?? 1))})`, l.longCarry ?? 0],
+    [`Heavy items (${l.heavyCount ?? 0} \u00d7 ${unit((l.heavy ?? 0) / Math.max(1, l.heavyCount ?? 1))})`, l.heavy ?? 0],
+    [`New customer discount (${l.discountPercent ?? 10}%)`, -(l.discount ?? 0)],
+    ["Adjustment", l.adjustment],
     ["Subtotal (excl. GST)", l.subtotal],
     ["GST", l.gst],
-  ].filter(([, v], i) => i >= 5 || v !== 0) as [string, number][];
+    ["Rounding (to the nearest $10)", l.rounding ?? 0],
+  ];
+  // Every $0 line is left out (Blue Line, 2 Nov); subtotal and GST always show.
+  const lineRows = allRows.filter(([k, v]) => k.startsWith("Subtotal") || k === "GST" || Math.abs(v) >= 0.005);
   const intro = introLines(job);
 
   const text = [
@@ -168,12 +207,14 @@ export function renderPlainQuoteEmail(job: PdfQuoteJob): EmailContent {
     ...intro.flatMap((p) => [p, ""]),
     ...rows.map(([k, v]) => `${k}: ${v}`),
     "",
-    ...lineRows.map(([k, v]) => `${k}: $${money(v)}`),
+    ...lineRows.map(([k, v]) => `${k}: ${dollars(v)}`),
     `Total (GST included): ${formatAud(l.total)}`,
     "",
     `Questions? Reply to this email or call ${site.phone.display}.`,
     "",
     site.name,
+    "",
+    RISKY_ITEMS_NOTE,
   ].join("\n");
 
   const html = shell(`
@@ -183,10 +224,11 @@ ${intro.map((p) => `<p style="margin:0 0 14px">${esc(p)}</p>`).join("")}
     .map(([k, v]) => `<tr><td style="padding:3px 14px 3px 0;color:#5b6b7c">${esc(k)}</td><td style="padding:3px 0"><strong>${esc(v)}</strong></td></tr>`)
     .join("")}</table>
 <table style="border-collapse:collapse;margin:0 0 14px;font-size:14px;min-width:320px">${lineRows
-    .map(([k, v]) => `<tr><td style="padding:3px 14px 3px 0;color:#5b6b7c">${esc(k)}</td><td style="padding:3px 0;text-align:right">$${money(v)}</td></tr>`)
+    .map(([k, v]) => `<tr><td style="padding:3px 14px 3px 0;color:#5b6b7c">${esc(k)}</td><td style="padding:3px 0;text-align:right">${dollars(v)}</td></tr>`)
     .join("")}
 <tr><td style="padding:6px 14px 3px 0;font-weight:bold;color:${NAVY}">Total (GST included)</td><td style="padding:6px 0 3px;text-align:right;font-weight:bold;color:${NAVY}">${esc(formatAud(l.total))}</td></tr></table>
-<p style="margin:0">Questions? Reply to this email or call <a href="${esc(site.phone.href)}">${esc(site.phone.display)}</a>.</p>`);
+<p style="margin:0">Questions? Reply to this email or call <a href="${esc(site.phone.href)}">${esc(site.phone.display)}</a>.</p>
+<p style="margin:14px 0 0;font-size:11px;line-height:1.5;color:#6b7785">${esc(RISKY_ITEMS_NOTE)}</p>`);
 
   const subject = `${job.testMode ? "[TEST] " : ""}${job.kind === "booked" ? `Your move is booked (ref ${job.reference})` : `Your Blue Line Removals quote (ref ${job.reference})`}`;
   return { subject, text, html };
