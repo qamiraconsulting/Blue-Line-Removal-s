@@ -306,7 +306,10 @@ describe("tool and prompt wording", () => {
     expect(prompt).toContain(ESTIMATE_DISCLAIMER);
     // the first-customer discount is worked out, never asked
     expect(prompt).toContain("Never ask whether this is their first move with us");
-    expect(prompt).toContain("10% first-booking discount of $<discountAud> has been taken off");
+    expect(prompt).toContain("10% first-booking discount of $<discountAud> (before GST) has been taken off");
+    // only two truck choices (Blue Line, 3 Nov)
+    expect(prompt).toContain("[[choices: Suggest one | I'll choose]]");
+    expect(prompt).not.toContain("Team checks on the day");
     // Blue Line's long-carry rule (25 Oct 2026): always at an apartment end, and over 50 m for a house
     expect(prompt).toContain("a long-carry charge ALWAYS applies at that end");
     expect(prompt).toContain("within 50 metres of the door");
@@ -340,7 +343,7 @@ describe("tool and prompt wording", () => {
     expect(prompt).toContain("never give out bank account details");
     expect(prompt).not.toContain("Card (secure link)");
     // 28 Oct feedback: plain truck sizes with "Suggest one" first, and say what we'd send
-    expect(prompt).toContain("[[choices: Suggest one | I'll choose | Team checks on the day]]");
+    // (the "Team checks on the day" choice went on 3 Nov -- checked above)
     expect(prompt).toContain("[[choices: Small (4.5 tonne) | Medium (6-8 tonne) | Large (10 tonne)]]");
     expect(prompt).toContain("tell them straight away what we'd usually send");
     // one question per message; the customer names the time; heavy items listed; a copy only on request

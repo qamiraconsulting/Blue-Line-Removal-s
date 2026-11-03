@@ -63,7 +63,7 @@ export interface CustomerQuoteView {
   /** Plain-language inclusions. Never contains a rate. */
   includes: string[];
   firstMoveApplied: boolean;
-  /** What the first-booking discount took off, GST included, whole dollars (0 when none). */
+  /** What the first-booking discount took off, before GST, dollars and cents -- as on the PDF quote (0 when none). */
   discountAud: number;
   validDays: number;
 }
@@ -189,7 +189,8 @@ export function calculateQuote(inputs: QuoteInputs, rateCard: RateCard, options:
         "GST included",
       ],
       firstMoveApplied,
-      discountAud: Math.round(discount * (1 + gstRate)),
+      // The same discount line as the customer's PDF quote: before GST, in dollars and cents.
+      discountAud: discountPercent > 0 ? customerFigures(amountAud, rateCard.gst.ratePercent, discountPercent).discount : 0,
       validDays: rateCard.validityDays,
     },
     internal: {
@@ -218,4 +219,27 @@ export function calculateQuote(inputs: QuoteInputs, rateCard: RateCard, options:
 
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
+}
+
+/**
+ * What the customer's quote shows for a rounded total (Blue Line, 3 Nov): no rounding line --
+ * the step to $10 is folded into the charges (the labour line) instead. So: subtotal + GST is
+ * exactly the total, GST is exactly its percent of the subtotal, and the discount is exactly
+ * its percent of the charges. The chat quotes this same discount.
+ */
+export function customerFigures(totalAud: number, gstPercent: number, discountPercent: number): { charges: number; discount: number; subtotal: number; gst: number } {
+  const subtotal = round2((totalAud * 100) / (100 + gstPercent));
+  const gst = round2(totalAud - subtotal);
+  if (discountPercent <= 0) return { charges: subtotal, discount: 0, subtotal, gst };
+  // charges - discount(charges) = subtotal. Rounding to cents can miss by a cent, so step a
+  // few cents either side of the exact answer (one always fits: the left side only ever
+  // grows by 0 or 1 cent per cent).
+  const start = round2(subtotal / (1 - discountPercent / 100));
+  for (let k = 0; k <= 20; k++) {
+    for (const charges of [round2(start + k / 100), round2(start - k / 100)]) {
+      const discount = round2((charges * discountPercent) / 100);
+      if (round2(charges - discount) === subtotal) return { charges, discount, subtotal, gst };
+    }
+  }
+  return { charges: start, discount: round2(start - subtotal), subtotal, gst };
 }

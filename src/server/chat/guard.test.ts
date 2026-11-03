@@ -34,6 +34,13 @@ describe("guardReply", () => {
     expect(guardReply("That works out at $849.50.", [850]).ok).toBe(false);
   });
 
+  it("the discount is quoted to the cent, and only exactly as get_quote returned it (Blue Line, 3 Nov)", () => {
+    expect(guardReply("Your estimate is $590. Your 10% first-booking discount of $59.77 (before GST) has been taken off.", [590, 59.77]).ok).toBe(true);
+    expect(guardReply("A discount of $59.70.", [59.7]).ok).toBe(true);
+    expect(guardReply("A discount of $59.78.", [590, 59.77]).ok).toBe(false);
+    expect(guardReply("A discount of $60.", [590, 59.77]).ok).toBe(false);
+  });
+
   it("blocks hourly-rate and call-out talk even with no dollar sign", () => {
     for (const text of [
       "We charge 120 per hour.",

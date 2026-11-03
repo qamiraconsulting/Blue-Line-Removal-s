@@ -1,7 +1,7 @@
 import { site } from "../../data/site.js";
 import { BOOKED_DAY_NOTE, CANCELLATION_POLICY, formatArrivalTime } from "../quote/bookingEmails.js";
 import { esc, firstName, formatAud, NAVY, RISKY_ITEMS_NOTE, shell, type EmailContent } from "../quote/emails.js";
-import type { QuoteLines } from "./lines.js";
+import { customerLines, type QuoteLines } from "./lines.js";
 
 // The branded PDF quote for website and chat jobs is made by the SAME Google Apps Script that
 // makes Matt's quotes (Ayesha, 2026-10-15): one Drive template, sent from
@@ -44,8 +44,9 @@ const unit = (n: number) => (Number.isInteger(n) ? `$${n}` : `$${money(n)}`);
 /**
  * The extra lines between the template's own rows (labour, call-out, packing, stairs) and its
  * subtotal / GST (Blue Line, 2 Nov): long carry and heavy items as "count x price", the
- * first-booking discount, a team-typed total's adjustment, and -- after GST -- the rounding to
- * $10. The Apps Script inserts them into the PDF and the email; anything 0 is left out.
+ * first-booking discount and a team-typed total's adjustment. The Apps Script inserts them into
+ * the PDF and the email; anything 0 is left out. (No rounding line: the customer's lines fold it
+ * into the labour -- customerLines, Blue Line 3 Nov. The script still accepts an "afterGst" row.)
  */
 export interface ExtraRow {
   place: "beforeSubtotal" | "afterGst";
@@ -61,7 +62,6 @@ export function extraRows(l: QuoteLines): ExtraRow[] {
   if (l.heavy && l.heavyCount) rows.push({ place: "beforeSubtotal", label: "Heavy Items", rate: `${l.heavyCount} \u00d7 ${per(l.heavy, l.heavyCount)}`, amount: money(l.heavy) });
   if (l.discount) rows.push({ place: "beforeSubtotal", label: `New customer discount (${l.discountPercent ?? 10}%)`, rate: "", amount: `\u2212${money(l.discount)}` });
   if (l.adjustment) rows.push({ place: "beforeSubtotal", label: "Adjustment", rate: "", amount: signed(l.adjustment) });
-  if (l.rounding) rows.push({ place: "afterGst", label: "Rounding (to the nearest $10)", rate: "", amount: signed(l.rounding) });
   return rows;
 }
 
@@ -106,7 +106,7 @@ export function introLines(job: PdfQuoteJob): string[] {
 
 /** The JSON the Apps Script's doPost receives. `values` uses the template's own placeholder names. */
 export function appsScriptPayload(job: PdfQuoteJob, today: string, secret: string) {
-  const l = job.lines;
+  const l = customerLines(job.lines);
   const intro = introLines(job);
   return {
     secret,
@@ -176,7 +176,7 @@ export function appsScriptSender(config: { url: string; secret: string; today: (
 
 /** The fallback: the same figures as a plain email, when the PDF can't be made. */
 export function renderPlainQuoteEmail(job: PdfQuoteJob): EmailContent {
-  const l = job.lines;
+  const l = customerLines(job.lines);
   const rows: [string, string][] = [
     ["Reference", job.reference],
     ["Date", [pdfDate(job.movingDate), job.arrivalTime ? `arrival ${formatArrivalTime(job.arrivalTime)}` : ""].filter(Boolean).join(", ")],
@@ -195,7 +195,6 @@ export function renderPlainQuoteEmail(job: PdfQuoteJob): EmailContent {
     ["Adjustment", l.adjustment],
     ["Subtotal (excl. GST)", l.subtotal],
     ["GST", l.gst],
-    ["Rounding (to the nearest $10)", l.rounding ?? 0],
   ];
   // Every $0 line is left out (Blue Line, 2 Nov); subtotal and GST always show.
   const lineRows = allRows.filter(([k, v]) => k.startsWith("Subtotal") || k === "GST" || Math.abs(v) >= 0.005);

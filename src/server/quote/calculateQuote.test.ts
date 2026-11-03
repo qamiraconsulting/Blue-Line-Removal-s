@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calculateQuote, type QuoteInputs } from "./calculateQuote.js";
+import { calculateQuote, customerFigures, type QuoteInputs } from "./calculateQuote.js";
 import { blrRateCard, getActiveRateCard, type RateCard } from "./rateCard.js";
 import { fixtureRateCard } from "./rateCard.fixture.js";
 
@@ -74,6 +74,21 @@ describe("estimate arithmetic (hand-checked)", () => {
     expect(out.amountAud).toBe(650);
     expect(out.customer.firstMoveApplied).toBe(true);
     expect(out.internal).toMatchObject({ subtotalAud: 652.5, discountAud: 65.25 });
+    // The customer is told the discount on their PDF quote (rounding folded into the labour):
+    // 650 = 590.91 + 59.09 GST; 656.57 of charges - 10% (65.66) = 590.91 (Blue Line, 3 Nov)
+    expect(out.customer.discountAud).toBe(65.66);
+  });
+
+  it("customerFigures: subtotal + GST is the total, GST is exactly 10%, the discount exactly 10% of the charges", () => {
+    for (let total = 100; total <= 3000; total += 10) {
+      const f = customerFigures(total, 10, 10);
+      expect(Math.round((f.subtotal + f.gst) * 100)).toBe(total * 100);
+      // 10% of the subtotal to the cent (a half-cent tie, e.g. $170 = 154.55 + 15.45, can go either way)
+      expect(Math.abs(f.gst - f.subtotal / 10)).toBeLessThanOrEqual(0.0050001);
+      expect(f.discount).toBe(Math.round(f.charges * 10) / 100);
+      expect(Math.round((f.charges - f.discount) * 100)).toBe(Math.round(f.subtotal * 100));
+    }
+    expect(customerFigures(590, 10, 0)).toEqual({ charges: 536.36, discount: 0, subtotal: 536.36, gst: 53.64 });
   });
 
   it("first-order discount is NOT applied when the customer isn't eligible", () => {

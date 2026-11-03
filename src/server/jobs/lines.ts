@@ -1,4 +1,4 @@
-import type { InternalBreakdown } from "../quote/calculateQuote.js";
+import { customerFigures, type InternalBreakdown } from "../quote/calculateQuote.js";
 import { moverCounts, truckIds, type RateCard, type TruckId } from "../quote/rateCard.js";
 
 // The breakdown printed on the branded PDF quote ("Your estimate" table): the same lines as
@@ -9,7 +9,8 @@ import { moverCounts, truckIds, type RateCard, type TruckId } from "../quote/rat
 // The lines ALWAYS add up to the total the customer is charged. Blue Line's feedback (2 Nov):
 // each extra is its own line -- stairs (real flights), long carry ("2 x $40") and heavy items --
 // the first-booking discount is exactly its percent of the charges, and rounding the total to
-// $10 shows as its own "Rounding" line after GST instead of hiding inside the discount. Only a
+// $10 shows as its own "Rounding" line after GST instead of hiding inside the discount -- on the
+// dashboard; the customer's PDF and email fold it into the labour (customerLines, 3 Nov). Only a
 // total the team typed in by hand still goes on an "Adjustment" line (their note says why).
 
 export interface QuoteLines {
@@ -68,6 +69,23 @@ export function finishRounded(base: LineBase, total: number, gstPercent: number)
   const subtotal = round2(chargesOf(base) - (base.discount ?? 0));
   const gst = round2((subtotal * gstPercent) / 100);
   return { ...base, adjustment: 0, subtotal, gst, rounding: zeroed(round2(total - subtotal - gst)), total };
+}
+
+/**
+ * The lines as the customer sees them on the PDF and in the email (Blue Line, 3 Nov): the
+ * rounding to $10 stays on the dashboard only -- here it's folded into the labour line, with the
+ * discount, subtotal and GST worked out again so everything still adds up exactly to the total.
+ */
+export function customerLines(l: QuoteLines): QuoteLines {
+  // Only a rate-card total has a rounding (even $0: the chat's discount comes from these same
+  // figures, so they're always worked out the same way); a typed total keeps its adjustment.
+  if (l.rounding === undefined || l.adjustment || l.subtotal <= 0) return l;
+  // GST is always exactly its percent of the subtotal, so the percent can be read back (10).
+  const gstPercent = Math.round((l.gst / l.subtotal) * 100);
+  const f = customerFigures(l.total, gstPercent, l.discount ? (l.discountPercent ?? 0) : 0);
+  const labour = round2(f.charges - (chargesOf(l) - l.labour));
+  if (labour <= 0) return l;
+  return { ...l, labour, ...(l.discount ? { discount: f.discount } : {}), subtotal: f.subtotal, gst: f.gst, rounding: 0 };
 }
 
 const discountFor = (charges: number, percent: number) => (percent > 0 ? { discount: round2((charges * percent) / 100), discountPercent: percent } : {});

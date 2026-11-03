@@ -201,7 +201,8 @@ export function JobEditor({ job, mode, onDone, onCancel }: { job: Job; mode: "co
                   ["Adjustment", l.adjustment],
                   ["Subtotal (excl. GST)", l.subtotal],
                   ["GST", l.gst],
-                  ["Rounding (to the nearest $10)", l.rounding ?? 0],
+                  // Dashboard only (Blue Line, 3 Nov): the customer's PDF and email fold it into the labour.
+                  ["Rounding (to the nearest $10; in the labour on the PDF)", l.rounding ?? 0],
                 ] as [string, number][]
               )
                 // $0 lines aren't on the customer's quote either (Blue Line, 2 Nov).

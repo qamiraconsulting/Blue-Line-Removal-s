@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { CapacitySnapshot } from "../capacity/availability.js";
 import type { NewCalendarBooking } from "../capacity/store.js";
+import { blrRateCard } from "../quote/rateCard.js";
 import { fixtureRateCard } from "../quote/rateCard.fixture.js";
 import type { OutgoingEmail } from "../quote/service.js";
 import {
@@ -15,7 +16,7 @@ import {
   type JobRow,
   type JobStore,
 } from "./actions.js";
-import { finishLines, linesFromEstimate, teamQuote } from "./lines.js";
+import { customerLines, finishLines, linesFromEstimate, teamQuote } from "./lines.js";
 import { summarise, type OverviewRow } from "./overview.js";
 import { appsScriptPayload, appsScriptSender, extraRows, pdfDate, renderPlainQuoteEmail, type PdfQuoteJob } from "./pdfQuote.js";
 import { effectiveStatus } from "./status.js";
@@ -357,19 +358,40 @@ describe("the branded PDF via the Apps Script", () => {
     };
     const l = linesFromEstimate(internal, 580, { gst: { ratePercent: 10, ratesIncludeGst: false } });
     expect(l).toMatchObject({ stair: 0, longCarryEnds: 2, longCarry: 80, discount: 58.17, subtotal: 523.5, gst: 52.35, rounding: 4.15, total: 580, adjustment: 0 });
-    expect(extraRows(l)).toEqual([
+    // The customer's PDF and email have no rounding line (Blue Line, 3 Nov): it's in the labour,
+    // and the discount, subtotal and GST are worked out again so they still add up to $580.
+    const c = customerLines(l);
+    expect(c).toMatchObject({ labour: 505.86, longCarry: 80, discount: 58.59, subtotal: 527.27, gst: 52.73, rounding: 0, total: 580 });
+    expect(Math.round((c.labour + c.longCarry! - c.discount! + c.gst) * 100)).toBe(58000);
+    expect(extraRows(c)).toEqual([
       { place: "beforeSubtotal", label: "Long Carry Fee", rate: "2 \u00d7 $40", amount: "80.00" },
-      { place: "beforeSubtotal", label: "New customer discount (10%)", rate: "", amount: "\u221258.17" },
-      { place: "afterGst", label: "Rounding (to the nearest $10)", rate: "", amount: "+4.15" },
+      { place: "beforeSubtotal", label: "New customer discount (10%)", rate: "", amount: "\u221258.59" },
     ]);
+    const payload = appsScriptPayload({ ...pdfJob, lines: l }, "2026-11-02", "s");
+    expect(payload.values).toMatchObject({ Labour: "505.86", Subtotal: "527.27", GST: "52.73", Total: "580.00" });
+    expect(payload.values.ExtraRows).toHaveLength(2);
     const plain = renderPlainQuoteEmail({ ...pdfJob, lines: l });
     expect(plain.text).toContain("Long carry (2 \u00d7 $40): $80.00");
-    expect(plain.text).toContain("New customer discount (10%): \u2212$58.17");
-    expect(plain.text).toContain("Rounding (to the nearest $10): $4.15");
+    expect(plain.text).toContain("New customer discount (10%): \u2212$58.59");
+    expect(plain.text).not.toContain("Rounding");
     // $0 lines aren't shown
     expect(plain.text).not.toMatch(/Stairs|Packing|Call-out|Heavy/);
     // the risky-items note is small text at the very end, not in the intro
     expect(plain.html).toMatch(/font-size:11px[^>]*>If our team finds any item risky or breakable/);
+  });
+
+  it("stairs and a long carry both apply: each on its own line (Blue Line, 3 Nov)", () => {
+    const r = teamQuote({ truck: "4.5T", movers: 2, hours: 3, stairFlights: 2, longCarryEnds: 2, packingAud: 0, firstMoveApplied: false, overrideTotal: null }, blrRateCard);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.lines).toMatchObject({ stairFlights: 2, stair: 80, longCarryEnds: 2, longCarry: 80 });
+    const p = appsScriptPayload({ ...pdfJob, lines: r.lines }, "2026-11-03", "s");
+    // the template's own Stair Carry row, and Long Carry as an extra row
+    expect(p.values).toMatchObject({ StairFlights: "2", Stair: "80.00" });
+    expect(p.values.ExtraRows).toEqual([{ place: "beforeSubtotal", label: "Long Carry Fee", rate: "2 × $40", amount: "80.00" }]);
+    const plain = renderPlainQuoteEmail({ ...pdfJob, lines: r.lines });
+    expect(plain.text).toContain("Stairs (2 flights): $80.00");
+    expect(plain.text).toContain("Long carry (2 × $40): $80.00");
   });
 
   it("reports success only when the script says ok", async () => {

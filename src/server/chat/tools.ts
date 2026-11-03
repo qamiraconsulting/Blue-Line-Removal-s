@@ -26,7 +26,7 @@ export const getQuoteInput = z.object({
   truck: z
     .enum(truckChoices)
     .optional()
-    .describe("Only if the customer chose a truck: 4.5T, 6-8T or 10T -- or 'inspect' if they want the team to inspect and confirm. Leave out if they want Blue Line's suggestion. Each truck comes with a set crew (see the instructions); the server adds it."),
+    .describe("Only if the customer chose a truck: 4.5T, 6-8T or 10T. Leave out if they want Blue Line's suggestion or aren't sure. Each truck comes with a set crew (see the instructions); the server adds it."),
   movers: z
     .union([z.literal(2), z.literal(3), z.literal(4)])
     .optional()
