@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useAdminApi } from "./useAdminApi";
+import { customerLines, type QuoteLines as ServerQuoteLines } from "../../server/jobs/lines";
 import { aud, type Job, type QuoteLines } from "./useJobs";
 
 // "Review & confirm" / "Edit & send quote": the team checks the job, changes anything that's
@@ -124,7 +125,10 @@ export function JobEditor({ job, mode, onDone, onCancel }: { job: Job; mode: "co
     }
   }
 
-  const l = preview?.lines;
+  const raw = preview?.lines;
+  // Exactly what the customer's PDF and email show (Blue Line, 3 Nov): the rounding to $10 is
+  // inside the labour there, so it's shown here as a note under the total -- dashboard only.
+  const l = raw ? (customerLines(raw as unknown as ServerQuoteLines) as unknown as QuoteLines) : undefined;
   const changedPrice = l && job.lines && l.total !== job.lines.total;
 
   return (
@@ -201,8 +205,6 @@ export function JobEditor({ job, mode, onDone, onCancel }: { job: Job; mode: "co
                   ["Adjustment", l.adjustment],
                   ["Subtotal (excl. GST)", l.subtotal],
                   ["GST", l.gst],
-                  // Dashboard only (Blue Line, 3 Nov): the customer's PDF and email fold it into the labour.
-                  ["Rounding (to the nearest $10; in the labour on the PDF)", l.rounding ?? 0],
                 ] as [string, number][]
               )
                 // $0 lines aren't on the customer's quote either (Blue Line, 2 Nov).
@@ -217,6 +219,12 @@ export function JobEditor({ job, mode, onDone, onCancel }: { job: Job; mode: "co
                 <td className="pt-1 pr-4">Total (GST incl.)</td>
                 <td className="pt-1 text-right tabular-nums">{l.total.toFixed(2)}</td>
               </tr>
+              {raw?.rounding ? (
+                <tr className="text-xs text-slate-500">
+                  <td className="pt-1 pr-4">Rounding (to the nearest $10), inside the labour above</td>
+                  <td className="pt-1 text-right tabular-nums">{raw.rounding.toFixed(2)}</td>
+                </tr>
+              ) : null}
             </tbody>
           </table>
         )}
