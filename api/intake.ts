@@ -3,6 +3,9 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { z } from "zod";
 import { checkCustomer, customerCheckSchema } from "../src/server/intake/customerCheck.js";
 import { parseTeamForm, saveTeamFormJob } from "../src/server/intake/teamForm.js";
+import { quoteValues } from "../src/server/jobs/pdfQuote.js";
+import { priceFormJob } from "../src/server/quote/calculator.js";
+import { getActiveRateCard, truckIds } from "../src/server/quote/rateCard.js";
 
 // Matt's Google Form -> Neon. Called by one extra step at the end of his Apps Script
 // (docs/apps-script/blr-website-additions.gs) after the quote email has gone, with the shared
@@ -12,6 +15,23 @@ import { parseTeamForm, saveTeamFormJob } from "../src/server/intake/teamForm.js
 // Same endpoint, same secret, { action: "customerCheck" }: called BEFORE the PDF is made, to ask
 // whether the customer is new (gets the 10% first-booking discount) or has moved with us before.
 // See src/server/intake/customerCheck.ts.
+//
+// { action: "priceQuote" }: a form job priced by the dashboard's Quick estimate (the long carry
+// and heavy items questions are answered). The script sends the form's crew, hours and extras
+// before any discount, plus its own new/returning decision, and gets back the PDF's lines --
+// the same engine as the chat and the calculator, the 10% applied once. See src/server/quote/calculator.ts.
+const count = (max: number) => z.coerce.number().int().min(0).max(max).catch(0);
+const priceQuoteSchema = z.object({
+  action: z.literal("priceQuote"),
+  truck: z.enum(truckIds),
+  movers: z.coerce.number().int().min(1).max(10),
+  hours: z.coerce.number().positive().max(24),
+  rateHr: z.coerce.number().positive().max(2000).optional().catch(undefined),
+  stairFlights: count(50),
+  longCarryEnds: count(2),
+  heavyItems: count(50),
+  newCustomer: z.boolean(),
+});
 
 const bodySchema = z.object({
   data: z.record(z.string(), z.unknown()),
@@ -54,6 +74,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       console.error("Customer check failed:", err instanceof Error ? err.message : "unknown error");
       res.status(502).json({ ok: false, error: "Couldn't check the customer just now." });
     }
+    return;
+  }
+
+  if ((req.body as { action?: unknown } | undefined)?.action === "priceQuote") {
+    const job = priceQuoteSchema.safeParse(req.body);
+    if (!job.success) {
+      res.status(400).json({ ok: false, error: "That doesn't look like a price request.", issues: job.error.issues.map((i) => i.path.join(".")) });
+      return;
+    }
+    const priced = priceFormJob(job.data, getActiveRateCard());
+    if (!priced) {
+      res.status(400).json({ ok: false, error: "That truck has no rate on the price list." });
+      return;
+    }
+    const l = priced.lines;
+    res.status(200).json({ ok: true, total: priced.total, discount: (l.discount ?? 0).toFixed(2), discountPercent: l.discount ? (l.discountPercent ?? 0) : 0, values: quoteValues(l) });
     return;
   }
 

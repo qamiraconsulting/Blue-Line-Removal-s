@@ -149,18 +149,64 @@ export function calculateQuote(inputs: QuoteInputs, rateCard: RateCard, options:
       ? (rateCard.weekendSurchargePercent ?? 0)
       : 0;
 
-  // Charged from arrival at pickup to the end of unloading: the guide's typical hours, plus
-  // the real drive between the addresses unless the guide already includes it.
-  const driveHours = rateCard.typicalHoursIncludeDriving ? 0 : inputs.pickupToDropoff.minutes / 60;
-  const jobHours = Math.max(rateCard.minimumJobHours, guide.typicalHours + driveHours);
+  const jobHours = chargedHours(guide.typicalHours, inputs.pickupToDropoff.minutes, rateCard);
   const crewRate = truck.hourlyRateAud + Math.max(0, movers - 2) * rateCard.extraMoverHourlyRateAud;
-  const labourCost = jobHours * crewRate;
+  return priceJob(
+    {
+      truck: truckId,
+      movers,
+      jobHours,
+      crewRate,
+      inspect,
+      capacityFrom: inspect ? "inspection" : inputs.truck || inputs.movers ? "customer" : "guide",
+      stairFlights: inputs.access.pickupStairFlights + inputs.access.dropoffStairFlights,
+      longCarryEnds: (inputs.access.pickupLongCarry ? 1 : 0) + (inputs.access.dropoffLongCarry ? 1 : 0),
+      heavyItems: inputs.access.heavyItems,
+      surchargePercent,
+      firstMoveApplied: inputs.firstMoveRequested && inputs.firstMoveEligible,
+    },
+    rateCard,
+  );
+}
 
-  const stairFlights = inputs.access.pickupStairFlights + inputs.access.dropoffStairFlights;
-  const longCarryEnds = (inputs.access.pickupLongCarry ? 1 : 0) + (inputs.access.dropoffLongCarry ? 1 : 0);
+/**
+ * Charged from arrival at pickup to the end of unloading: the guide's typical hours, plus the
+ * real drive between the addresses unless the guide already includes it -- never under the
+ * minimum. Shared with the dashboard's Quick estimate.
+ */
+export function chargedHours(typicalHours: number, driveMinutes: number, rateCard: RateCard): number {
+  const driveHours = rateCard.typicalHoursIncludeDriving ? 0 : driveMinutes / 60;
+  return Math.max(rateCard.minimumJobHours, typicalHours + driveHours);
+}
+
+export interface PricedJob {
+  truck: TruckId;
+  movers: number;
+  /** Charged hours: arrival at pickup to the end of unloading. */
+  jobHours: number;
+  /** AUD per hour for this truck and crew. */
+  crewRate: number;
+  inspect?: boolean;
+  capacityFrom: InternalBreakdown["capacityFrom"];
+  stairFlights: number;
+  longCarryEnds: number;
+  heavyItems: number;
+  surchargePercent: number;
+  firstMoveApplied: boolean;
+}
+
+/**
+ * The price once the hours, crew and extras are known -- the chat, the website form, the
+ * dashboard's Quick estimate and Matt's Google Form (via /api/intake "priceQuote") all price
+ * here, so their totals always match.
+ */
+export function priceJob(job: PricedJob, rateCard: RateCard): Extract<QuoteOutcome, { kind: "price" }> {
+  const truck = rateCard.trucks[job.truck];
+  const { movers, jobHours, crewRate, inspect, stairFlights, longCarryEnds, surchargePercent, firstMoveApplied } = job;
+  const labourCost = jobHours * crewRate;
   const stairCost = stairFlights * rateCard.accessExtras.perStairFlightAud;
   const longCarryCost = longCarryEnds * rateCard.accessExtras.longCarryAud;
-  const heavyCost = inputs.access.heavyItems * rateCard.accessExtras.perHeavyItemAud;
+  const heavyCost = job.heavyItems * rateCard.accessExtras.perHeavyItemAud;
   const accessCost = stairCost + longCarryCost + heavyCost;
 
   const charges = (labourCost + accessCost) * (1 + surchargePercent / 100);
@@ -169,7 +215,6 @@ export function calculateQuote(inputs: QuoteInputs, rateCard: RateCard, options:
   // the discounted amount.
   const gstRate = rateCard.gst.ratePercent / 100;
   const subtotalExGst = rateCard.gst.ratesIncludeGst ? charges / (1 + gstRate) : charges;
-  const firstMoveApplied = inputs.firstMoveRequested && inputs.firstMoveEligible;
   const discountPercent = firstMoveApplied ? rateCard.firstMoveDiscountPercent : 0;
   const discount = subtotalExGst * (discountPercent / 100);
   const gst = (subtotalExGst - discount) * gstRate;
@@ -194,9 +239,9 @@ export function calculateQuote(inputs: QuoteInputs, rateCard: RateCard, options:
       validDays: rateCard.validityDays,
     },
     internal: {
-      truck: truckId,
+      truck: job.truck,
       movers,
-      capacityFrom: inspect ? "inspection" : inputs.truck || inputs.movers ? "customer" : "guide",
+      capacityFrom: job.capacityFrom,
       jobHours: round2(jobHours),
       crewRateAudPerHour: crewRate,
       labourCostAud: round2(labourCost),
@@ -205,7 +250,7 @@ export function calculateQuote(inputs: QuoteInputs, rateCard: RateCard, options:
       stairCostAud: round2(stairCost),
       longCarryEnds,
       longCarryCostAud: round2(longCarryCost),
-      heavyItems: inputs.access.heavyItems,
+      heavyItems: job.heavyItems,
       heavyCostAud: round2(heavyCost),
       surchargeAppliedPercent: surchargePercent,
       subtotalAud: round2(subtotalExGst),

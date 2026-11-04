@@ -130,22 +130,33 @@ export function appsScriptPayload(job: PdfQuoteJob, today: string, secret: strin
       BookingStatus: job.kind === "booked" ? "Confirmed" : "Not Confirmed",
       StatusColor: job.kind === "booked" ? "#15803D" : "#D97706",
       BookingNo: job.reference,
-      StairFlights: String(l.stairFlights),
-      Hours: l.hours === null ? "" : String(l.hours),
-      RateHr: l.rateHr === null ? "" : money(l.rateHr),
       DaysUntilMove: daysUntil(job.movingDate, today),
-      Labour: money(l.labour),
-      CallOut: money(l.callOut),
-      Packing: money(l.packing),
-      Stair: money(l.stair),
-      // Every line the template has no row for travels in ExtraRows; the template's own
-      // adjustment row (Matt's first-booking offer) stays empty for website jobs.
-      Adjustment: money(0),
-      ExtraRows: extraRows(l),
-      Subtotal: money(l.subtotal),
-      GST: money(l.gst),
-      Total: money(l.total),
+      ...quoteValues(l),
     },
+  };
+}
+
+/**
+ * The price part of the template's values, from the customer's lines. Also sent back to Matt's
+ * Apps Script for a Google Form job priced by the dashboard's Quick estimate (/api/intake
+ * "priceQuote"), so his PDF and email show exactly these lines.
+ */
+export function quoteValues(l: QuoteLines) {
+  return {
+    StairFlights: String(l.stairFlights),
+    Hours: l.hours === null ? "" : String(l.hours),
+    RateHr: l.rateHr === null ? "" : money(l.rateHr),
+    Labour: money(l.labour),
+    CallOut: money(l.callOut),
+    Packing: money(l.packing),
+    Stair: money(l.stair),
+    // Every line the template has no row for travels in ExtraRows; the template's own
+    // adjustment row (Matt's first-booking offer) stays empty for these jobs.
+    Adjustment: money(0),
+    ExtraRows: extraRows(l),
+    Subtotal: money(l.subtotal),
+    GST: money(l.gst),
+    Total: money(l.total),
   };
 }
 
