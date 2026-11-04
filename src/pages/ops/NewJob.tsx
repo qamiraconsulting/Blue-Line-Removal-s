@@ -402,6 +402,7 @@ function EstimateLines({ estimate }: { estimate: Extract<Estimate, { ok: true }>
         Drive between the addresses: {estimate.distanceKm.toFixed(1)} km, {Math.round(estimate.travelMinutes)} min (in the hours).
       </p>
       <p className="rounded-md bg-paper px-3 py-2 text-xs font-semibold text-slate-600">Prices go into the form before discount. The 10% is applied automatically when you submit.</p>
+      <p className="text-xs text-slate-400">After Fill form, if Google asks &ldquo;Continue current draft?&rdquo;, click Continue to keep the filled-in answers.</p>
     </div>
   );
 }
