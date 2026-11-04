@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { X } from "lucide-react";
+import { MessageCircle, X } from "lucide-react";
 import clsx from "clsx";
 import { trackEvent } from "@/lib/analytics";
 import { ChatPanel } from "./ChatPanel";
 import { ChatGreeting } from "./ChatGreeting";
-import { BLUE_FACE, markGreetingDone } from "@/lib/chatMascot";
+import { markGreetingDone } from "@/lib/chatMascot";
 
 // Mounted globally in Layout.tsx. Every bottom offset below is relative to
 // --contact-bar-h (index.css), the height of the mobile ContactWidget bar --
@@ -43,13 +43,19 @@ export function ChatWidget() {
         aria-expanded={open}
         onClick={() => toggle("launcher")}
         className={clsx(
-          "fixed bottom-[calc(var(--contact-bar-h)+6rem)] right-6 z-[110] flex h-14 w-14 items-center justify-center overflow-hidden rounded-full transition-all duration-300 ease-signature",
-          // Closed: just Blue's round image (its own orange ring and white background) -- no
-          // border, fill or shadow added here.
-          open ? "rotate-90 bg-action text-white shadow-lg hover:bg-action-bright" : "hover:scale-105",
+          "fixed bottom-[calc(var(--contact-bar-h)+6rem)] right-6 z-[110] flex h-14 w-14 flex-col items-center justify-center gap-0.5 rounded-full bg-action text-white shadow-lg transition-all duration-300 ease-signature hover:bg-action-bright",
+          open && "rotate-90",
         )}
       >
-        {open ? <X className="h-6 w-6" aria-hidden="true" /> : <img src={BLUE_FACE} alt="" width={56} height={56} className="h-full w-full" />}
+        {/* Orange chat button again (Ayesha, 2026-11-04); Blue stays only in the open chat's header. */}
+        {open ? (
+          <X className="h-6 w-6" aria-hidden="true" />
+        ) : (
+          <>
+            <MessageCircle className="h-5 w-5" aria-hidden="true" />
+            <span className="font-display text-[10px] font-bold leading-none tracking-wide">Chat</span>
+          </>
+        )}
       </button>
 
       <ChatGreeting

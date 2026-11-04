@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Phone } from "lucide-react";
+import { Phone, Tag } from "lucide-react";
 import { Container } from "@/components/ui/Container";
 import { Button } from "@/components/ui/Button";
 import { hero } from "@/data/content/home";
@@ -49,6 +49,15 @@ export function Hero() {
                 </span>
                 Call us: {hero.phone.display}
               </a>
+              {/* Same row style as the phone line above; wraps inside the narrow column. */}
+              <p className="flex items-start gap-1.5 font-display text-[11px] font-semibold leading-snug tracking-wide text-white drop-shadow-[0_1px_4px_rgba(0,0,0,0.6)]">
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/15">
+                  <Tag className="h-2.5 w-2.5" aria-hidden="true" />
+                </span>
+                <span className="pt-0.5">
+                  <strong className="text-[13px] font-extrabold text-action">{hero.offer.highlight}</strong> {hero.offer.rest}
+                </span>
+              </p>
             </div>
           </motion.div>
         </Container>
@@ -89,6 +98,14 @@ export function Hero() {
                 </span>
                 Call us: {hero.phone.display}
               </a>
+              <p className="flex items-center gap-2.5 font-display text-lg font-semibold tracking-wide text-white drop-shadow-[0_1px_4px_rgba(0,0,0,0.5)]">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/15">
+                  <Tag className="h-3.5 w-3.5" aria-hidden="true" />
+                </span>
+                <span>
+                  <strong className="text-[1.35rem] font-extrabold text-action">{hero.offer.highlight}</strong> {hero.offer.rest}
+                </span>
+              </p>
             </div>
           </motion.div>
         </Container>

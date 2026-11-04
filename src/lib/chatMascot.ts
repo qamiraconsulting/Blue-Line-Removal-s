@@ -2,7 +2,8 @@
 // 2026-11-02 it's Ayesha's own round image (D:\BLR Theme\Mascot\blue-round-v3.webp: orange ring,
 // white background, ears to shoulders), shown exactly as supplied -- only the empty margin
 // outside the ring was trimmed so the ring sits centred and whole in the circle. Nothing is drawn
-// around it in code. The chat launcher, the chat header and the greeting bubble all use this file.
+// around it in code. Since 2026-11-04 it appears only in the open chat's header (the launcher is
+// the orange chat button again and the greeting bubble has no picture).
 export const BLUE_FACE = "/images/blue-avatar-round.webp";
 
 // The greeting bubble is closed, or the chat was opened: it isn't shown again for the rest of

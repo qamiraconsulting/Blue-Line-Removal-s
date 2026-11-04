@@ -13,6 +13,9 @@ export const hero = {
   lede: "Moving & Junk Removal Services Across Australia.",
   primaryCta: { label: "Get a Free Quote", href: "/quote" },
   phone: site.phone,
+  // First-booking offer line under the phone number (Ayesha, 2026-11-04); `highlight` is the
+  // bold orange part.
+  offer: { highlight: "10% off", rest: "your first move with Blue Line" },
 };
 
 // "We Don't Just Move Furniture" trust intro, sitting right under the hero

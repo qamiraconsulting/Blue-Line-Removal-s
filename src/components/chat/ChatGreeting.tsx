@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import clsx from "clsx";
-import { BLUE_FACE, greetingDone, markGreetingDone } from "@/lib/chatMascot";
+import { greetingDone } from "@/lib/chatMascot";
 
 const MESSAGES = [
   "G'day! 👋 Moving soon? Get your free quote in 60 seconds.",
@@ -11,7 +11,8 @@ const MESSAGES = [
   "Hop in! Book your move right here, it's free to ask.",
 ];
 // Ayesha, 2026-11-02: first message 5s after load; each message shows for 5s, the bubble then
-// hides for 3s and comes back with the next one. After the last message it's gone for the visit.
+// hides for 3s and comes back with the next one. Since 2026-11-04 it loops back to the first
+// message after the last, and only stops when the bubble is closed or the chat is opened.
 const SHOW_AFTER_MS = 5000;
 const SHOW_MS = 5000;
 const GAP_MS = 3000;
@@ -35,16 +36,11 @@ export function ChatGreeting({ hidden, onOpenChat, onClose }: { hidden: boolean;
     if (phase === "waiting") t = window.setTimeout(() => setPhase("showing"), SHOW_AFTER_MS);
     // The message stays up while the mouse is over it; leaving gives it a fresh 5s.
     if (phase === "showing" && !paused) {
-      t = window.setTimeout(() => {
-        if (step >= MESSAGES.length - 1) {
-          markGreetingDone();
-          setPhase("done");
-        } else setPhase("gap");
-      }, SHOW_MS);
+      t = window.setTimeout(() => setPhase("gap"), SHOW_MS);
     }
     if (phase === "gap") {
       t = window.setTimeout(() => {
-        setStep((s) => s + 1);
+        setStep((s) => (s + 1) % MESSAGES.length);
         setPhase("showing");
       }, GAP_MS);
     }
@@ -63,14 +59,14 @@ export function ChatGreeting({ hidden, onOpenChat, onClose }: { hidden: boolean;
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
     >
-      <div className="relative rounded-2xl border border-navy/10 bg-white shadow-xl">
+      {/* A slightly softened, see-through white (Ayesha, 2026-11-04), no picture. */}
+      <div className="relative rounded-2xl border border-navy/10 bg-white/90 shadow-xl backdrop-blur-sm">
         <button
           type="button"
           onClick={onOpenChat}
           tabIndex={visible ? 0 : -1}
-          className="flex w-full items-start gap-2.5 rounded-2xl py-2.5 pl-2.5 pr-7 text-left sm:gap-3 sm:py-3 sm:pl-3 sm:pr-8"
+          className="flex w-full items-start rounded-2xl py-2.5 pl-3.5 pr-7 text-left sm:py-3 sm:pl-4 sm:pr-8"
         >
-          <img src={BLUE_FACE} alt="" width={36} height={36} className="h-7 w-7 flex-none sm:h-9 sm:w-9" />
           <span className="sr-only">Chat with Blue: </span>
           <span className="min-h-[2.5rem] text-xs font-medium leading-snug text-navy sm:min-h-[2.75rem] sm:text-sm">{MESSAGES[step]}</span>
         </button>
@@ -83,10 +79,11 @@ export function ChatGreeting({ hidden, onOpenChat, onClose }: { hidden: boolean;
         >
           <X className="h-3.5 w-3.5" aria-hidden="true" />
         </button>
-        {/* Pointer down to the launcher (its centre is 28px in from the right edge of this column). */}
+        {/* Pointer down to the launcher (its centre is 28px in from the right edge of this column).
+            Clipped to its lower half so the see-through white doesn't double up over the bubble. */}
         <span
           aria-hidden="true"
-          className="absolute -bottom-[7px] right-[21px] h-3.5 w-3.5 rotate-45 border-b border-r border-navy/10 bg-white"
+          className="absolute -bottom-[7px] right-[21px] h-3.5 w-3.5 rotate-45 border-b border-r border-navy/10 bg-white/90 [clip-path:polygon(100%_0,100%_100%,0_100%)]"
         />
       </div>
     </div>
